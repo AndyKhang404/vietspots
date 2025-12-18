@@ -5,63 +5,8 @@ import Chatbot from "@/components/Chatbot";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-const allPlaces = [
-  {
-    id: "1",
-    name: "Vịnh Hạ Long",
-    location: "Quảng Ninh",
-    image: "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
-    rating: 4.9,
-    description: "Di sản thiên nhiên thế giới với hàng nghìn đảo đá vôi hùng vĩ",
-    category: "beach",
-  },
-  {
-    id: "2",
-    name: "Phố cổ Hội An",
-    location: "Quảng Nam",
-    image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=800",
-    rating: 4.8,
-    description: "Thương cảng cổ với kiến trúc độc đáo và đèn lồng rực rỡ",
-    category: "historical",
-  },
-  {
-    id: "3",
-    name: "Sa Pa",
-    location: "Lào Cai",
-    image: "https://images.unsplash.com/photo-1570366583862-f91883984fde?w=800",
-    rating: 4.7,
-    description: "Ruộng bậc thang tuyệt đẹp và văn hóa dân tộc phong phú",
-    category: "mountain",
-  },
-  {
-    id: "4",
-    name: "Đà Lạt",
-    location: "Lâm Đồng",
-    image: "https://images.unsplash.com/photo-1555921015-5532091f6026?w=800",
-    rating: 4.6,
-    description: "Thành phố ngàn hoa với khí hậu mát mẻ quanh năm",
-    category: "city",
-  },
-  {
-    id: "5",
-    name: "Bãi biển Mỹ Khê",
-    location: "Đà Nẵng",
-    image: "https://images.unsplash.com/photo-1537956965359-7573183d1f57?w=800",
-    rating: 4.8,
-    description: "Một trong những bãi biển đẹp nhất hành tinh",
-    category: "beach",
-  },
-  {
-    id: "6",
-    name: "Phú Quốc",
-    location: "Kiên Giang",
-    image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800",
-    rating: 4.7,
-    description: "Đảo ngọc với bãi cát trắng mịn và hải sản tươi ngon",
-    category: "beach",
-  },
-];
+import { useFavorites } from "@/contexts/FavoritesContext";
+import { allPlaces } from "@/data/places";
 
 const filters = [
   { id: "all", label: "Tất cả" },
@@ -74,7 +19,7 @@ const filters = [
 export default function Search() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   const filteredPlaces = allPlaces.filter((place) => {
     const matchesSearch =
@@ -83,12 +28,6 @@ export default function Search() {
     const matchesFilter = activeFilter === "all" || place.category === activeFilter;
     return matchesSearch && matchesFilter;
   });
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
-    );
-  };
 
   return (
     <Layout>
@@ -102,6 +41,7 @@ export default function Search() {
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Tìm kiếm địa điểm..."
               className="pl-10"
+              autoFocus
             />
           </div>
           <Button variant="outline" size="icon">
@@ -111,15 +51,16 @@ export default function Search() {
 
         {/* Filters */}
         <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
-          {filters.map((filter) => (
+          {filters.map((filter, index) => (
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2 ${
                 activeFilter === filter.id
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground scale-105"
                   : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
               }`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               {filter.label}
             </button>
@@ -135,18 +76,23 @@ export default function Search() {
 
         {/* Places Grid */}
         <div className="grid grid-cols-2 gap-4">
-          {filteredPlaces.map((place) => (
-            <PlaceCard
+          {filteredPlaces.map((place, index) => (
+            <div
               key={place.id}
-              {...place}
-              isFavorite={favorites.includes(place.id)}
-              onFavoriteToggle={toggleFavorite}
-            />
+              className="animate-in fade-in slide-in-from-bottom-4"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <PlaceCard
+                {...place}
+                isFavorite={isFavorite(place.id)}
+                onFavoriteToggle={toggleFavorite}
+              />
+            </div>
           ))}
         </div>
 
         {filteredPlaces.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-12 animate-in fade-in">
             <p className="text-muted-foreground">Không tìm thấy địa điểm nào</p>
           </div>
         )}

@@ -1,64 +1,30 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Send, X, MapPin, Loader2 } from "lucide-react";
+import { MessageCircle, Send, X, MapPin, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
+  role: "user" | "assistant";
   content: string;
-  isBot: boolean;
-  places?: Place[];
 }
 
-interface Place {
-  name: string;
-  location: string;
-  description: string;
-}
-
-const sampleResponses: Record<string, { text: string; places?: Place[] }> = {
-  "biển": {
-    text: "Dưới đây là một số bãi biển tuyệt đẹp ở Việt Nam mà bạn nên ghé thăm:",
-    places: [
-      { name: "Bãi biển Mỹ Khê", location: "Đà Nẵng", description: "Một trong những bãi biển đẹp nhất hành tinh" },
-      { name: "Bãi biển Nha Trang", location: "Khánh Hòa", description: "Thành phố biển sôi động với nhiều hoạt động" },
-      { name: "Phú Quốc", location: "Kiên Giang", description: "Đảo ngọc với bãi cát trắng mịn" },
-    ]
-  },
-  "núi": {
-    text: "Việt Nam có nhiều vùng núi tuyệt đẹp:",
-    places: [
-      { name: "Sa Pa", location: "Lào Cai", description: "Ruộng bậc thang và văn hóa dân tộc" },
-      { name: "Đà Lạt", location: "Lâm Đồng", description: "Thành phố ngàn hoa với khí hậu mát mẻ" },
-      { name: "Hà Giang", location: "Hà Giang", description: "Cao nguyên đá hùng vĩ" },
-    ]
-  },
-  "lịch sử": {
-    text: "Những điểm đến lịch sử nổi tiếng:",
-    places: [
-      { name: "Hoàng thành Thăng Long", location: "Hà Nội", description: "Di sản văn hóa thế giới UNESCO" },
-      { name: "Cố đô Huế", location: "Thừa Thiên Huế", description: "Kinh đô triều Nguyễn với nhiều lăng tẩm" },
-      { name: "Phố cổ Hội An", location: "Quảng Nam", description: "Thương cảng cổ được bảo tồn nguyên vẹn" },
-    ]
-  },
-  default: {
-    text: "Xin chào! Tôi là VietSpots Bot. Hãy cho tôi biết bạn thích du lịch kiểu nào? (biển, núi, lịch sử, ẩm thực...)",
-  }
-};
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "Xin chào! Tôi là VietSpots Bot 🎒 Hãy cho tôi biết bạn muốn đi du lịch kiểu nào nhé!",
-      isBot: true,
+      role: "assistant",
+      content: "Xin chào! 👋 Tôi là VietSpots Bot - trợ lý du lịch của bạn. Hãy cho tôi biết bạn muốn khám phá Việt Nam như thế nào nhé! 🎒",
     },
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,42 +33,116 @@ export default function Chatbot() {
     }
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
+      role: "user",
       content: input,
-      isBot: false,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setIsTyping(true);
+    setIsLoading(true);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const lowerInput = input.toLowerCase();
-      let response = sampleResponses.default;
+    let assistantContent = "";
 
-      for (const key of Object.keys(sampleResponses)) {
-        if (lowerInput.includes(key)) {
-          response = sampleResponses[key];
-          break;
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          toast.error("Quá nhiều yêu cầu, vui lòng thử lại sau.");
+        } else if (response.status === 402) {
+          toast.error("Hết hạn mức AI, vui lòng nạp thêm credits.");
+        } else {
+          toast.error(errorData.error || "Có lỗi xảy ra, vui lòng thử lại.");
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      const upsertAssistant = (nextChunk: string) => {
+        assistantContent += nextChunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && last.id === "streaming") {
+            return prev.map((m) =>
+              m.id === "streaming" ? { ...m, content: assistantContent } : m
+            );
+          }
+          return [...prev, { id: "streaming", role: "assistant", content: assistantContent }];
+        });
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) upsertAssistant(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
         }
       }
 
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response.text,
-        isBot: true,
-        places: response.places,
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
-      setIsTyping(false);
-    }, 1000);
+      // Finalize the message with a proper ID
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === "streaming"
+            ? { ...m, id: Date.now().toString() }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("Không thể kết nối. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const quickPrompts = [
+    "Gợi ý biển đẹp",
+    "Du lịch núi",
+    "Địa điểm lịch sử",
+    "Ẩm thực đặc sắc",
+  ];
 
   return (
     <>
@@ -110,25 +150,28 @@ export default function Chatbot() {
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-24 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-transform hover:scale-110",
+          "fixed bottom-24 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-xl animate-bounce",
           isOpen && "hidden"
         )}
       >
-        <MessageCircle className="h-6 w-6" />
+        <Sparkles className="h-6 w-6" />
       </button>
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 left-4 sm:left-auto sm:w-96 z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col max-h-[70vh]">
+        <div className="fixed bottom-24 right-4 left-4 sm:left-auto sm:w-96 z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col max-h-[70vh] animate-in slide-in-from-bottom-4 duration-300">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border bg-primary rounded-t-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-primary to-accent rounded-t-2xl">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-                <MapPin className="h-4 w-4 text-primary-foreground" />
+              <div className="h-10 w-10 rounded-full bg-primary-foreground/20 flex items-center justify-center animate-pulse">
+                <MapPin className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h3 className="font-semibold text-primary-foreground">VietSpots Bot</h3>
-                <p className="text-xs text-primary-foreground/70">Luôn sẵn sàng hỗ trợ</p>
+                <h3 className="font-semibold text-primary-foreground">VietSpots AI</h3>
+                <p className="text-xs text-primary-foreground/70 flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
+                  Sẵn sàng hỗ trợ
+                </p>
               </div>
             </div>
             <Button
@@ -144,52 +187,54 @@ export default function Chatbot() {
           {/* Messages */}
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             <div className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <div
                   key={message.id}
                   className={cn(
-                    "flex",
-                    message.isBot ? "justify-start" : "justify-end"
+                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                    message.role === "user" ? "justify-end" : "justify-start"
                   )}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div
                     className={cn(
-                      "max-w-[80%] rounded-2xl px-4 py-2",
-                      message.isBot
-                        ? "bg-secondary text-secondary-foreground"
-                        : "bg-primary text-primary-foreground"
+                      "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-secondary text-secondary-foreground rounded-bl-md"
                     )}
                   >
-                    <p className="text-sm">{message.content}</p>
-                    {message.places && (
-                      <div className="mt-3 space-y-2">
-                        {message.places.map((place, index) => (
-                          <div
-                            key={index}
-                            className="bg-card rounded-lg p-3 border border-border"
-                          >
-                            <h4 className="font-semibold text-sm text-foreground">{place.name}</h4>
-                            <p className="text-xs text-primary">{place.location}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {place.description}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
               ))}
-              {isTyping && (
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
-                  <div className="bg-secondary rounded-2xl px-4 py-2 flex items-center gap-2">
+                  <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Đang gõ...</span>
+                    <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
                   </div>
                 </div>
               )}
             </div>
           </ScrollArea>
+
+          {/* Quick Prompts */}
+          {messages.length <= 2 && (
+            <div className="px-4 pb-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {quickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => setInput(prompt)}
+                    className="px-3 py-1.5 bg-secondary rounded-full text-xs font-medium text-secondary-foreground whitespace-nowrap hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Input */}
           <div className="p-4 border-t border-border">
@@ -203,10 +248,11 @@ export default function Chatbot() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Nhập tin nhắn..."
+                placeholder="Hỏi về địa điểm du lịch..."
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button type="submit" size="icon" className="shrink-0">
+              <Button type="submit" size="icon" className="shrink-0" disabled={isLoading}>
                 <Send className="h-4 w-4" />
               </Button>
             </form>
