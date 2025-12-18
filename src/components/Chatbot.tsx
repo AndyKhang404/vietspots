@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Send, X, MapPin, Loader2, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, X, MapPin, Loader2, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,13 +25,50 @@ export default function Chatbot() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  const checkScrollPosition = useCallback(() => {
+    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (el) {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      setCanScrollUp(scrollTop > 10);
+      setCanScrollDown(scrollTop + clientHeight < scrollHeight - 10);
+      setShowScrollButtons(scrollHeight > clientHeight + 50);
     }
-  }, [messages]);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      setTimeout(checkScrollPosition, 100);
+    }
+  }, [messages, checkScrollPosition]);
+
+  useEffect(() => {
+    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (el) {
+      el.addEventListener('scroll', checkScrollPosition);
+      return () => el.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [isOpen, checkScrollPosition]);
+
+  const scrollUp = () => {
+    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (el) {
+      el.scrollBy({ top: -150, behavior: 'smooth' });
+    }
+  };
+
+  const scrollDown = () => {
+    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (el) {
+      el.scrollBy({ top: 150, behavior: 'smooth' });
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -185,39 +222,69 @@ export default function Chatbot() {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-            <div className="space-y-4">
-              {messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
+          <div className="relative flex-1">
+            <ScrollArea className="h-full p-4" ref={scrollRef}>
+              <div className="space-y-4">
+                {messages.map((message, index) => (
                   <div
+                    key={message.id}
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-secondary-foreground rounded-bl-md"
+                      "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                      message.role === "user" ? "justify-end" : "justify-start"
                     )}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-secondary text-secondary-foreground rounded-bl-md"
+                      )}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start">
-                  <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
+                ))}
+                {isLoading && messages[messages.length - 1]?.role === "user" && (
+                  <div className="flex justify-start">
+                    <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Scroll Buttons */}
+            {showScrollButtons && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full shadow-md transition-opacity",
+                    canScrollUp ? "opacity-100" : "opacity-30 pointer-events-none"
+                  )}
+                  onClick={scrollUp}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full shadow-md transition-opacity",
+                    canScrollDown ? "opacity-100" : "opacity-30 pointer-events-none"
+                  )}
+                  onClick={scrollDown}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Quick Prompts */}
           {messages.length <= 2 && (
