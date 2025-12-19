@@ -259,12 +259,12 @@ export default function Chatbot() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {activeTab === "chat" && (
             <>
               {/* Place Results & Messages */}
-              <div className="relative flex-1">
-                <ScrollArea className="h-full" ref={scrollRef}>
+              <div className="relative flex-1 min-h-0">
+                <ScrollArea className="h-full min-h-0" ref={scrollRef}>
                   <div className="p-4 space-y-4">
                     {/* Place Result Cards */}
                     {placeResults.map((place, index) => (
@@ -401,7 +401,7 @@ export default function Chatbot() {
 
               {/* GPS Pill */}
               {selectedGps && (
-                <div className="px-4 pb-2">
+                <div className="px-4 pb-2 shrink-0">
                   <div className="flex items-center justify-between bg-primary/10 text-primary rounded-full px-4 py-2">
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
@@ -415,7 +415,7 @@ export default function Chatbot() {
               )}
 
               {/* Input */}
-              <div className="p-4 border-t border-border">
+              <div className="p-4 border-t border-border shrink-0 bg-card">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
