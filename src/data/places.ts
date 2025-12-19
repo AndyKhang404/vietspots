@@ -1,4 +1,26 @@
-export const allPlaces = [
+import { PlaceInfo } from "@/api/vietspot";
+
+// Transform API PlaceInfo to app format
+export function transformPlace(place: PlaceInfo) {
+  return {
+    id: place.place_id,
+    name: place.name,
+    location: place.city || place.district || place.address || "",
+    image: place.image_url || place.images?.[0] || "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
+    rating: place.rating || 0,
+    description: place.description || "",
+    category: place.category || "other",
+    address: place.address,
+    phone: place.phone,
+    website: place.website,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    images: place.images || [],
+  };
+}
+
+// Fallback places for when API is unavailable
+export const fallbackPlaces = [
   {
     id: "1",
     name: "Vịnh Hạ Long",
@@ -79,4 +101,9 @@ export const categories = [
   { id: "city", label: "Thành phố", emoji: "🏙️" },
   { id: "historical", label: "Lịch sử", emoji: "🏛️" },
   { id: "food", label: "Ẩm thực", emoji: "🍜" },
+  { id: "cafe", label: "Cafe", emoji: "☕" },
+  { id: "restaurant", label: "Nhà hàng", emoji: "🍽️" },
 ];
+
+// Keep for backward compatibility
+export const allPlaces = fallbackPlaces;
