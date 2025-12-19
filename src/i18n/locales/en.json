@@ -1,0 +1,81 @@
+{
+  "app": {
+    "name": "VietSpots",
+    "tagline": "Explore Vietnam"
+  },
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "favorites": "Favorites",
+    "notifications": "Notifications",
+    "settings": "Settings"
+  },
+  "home": {
+    "welcome": "Hello",
+    "explore": "Discover amazing places",
+    "featured": "Featured Places",
+    "viewAll": "View All"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search places, food...",
+    "noResults": "No results found"
+  },
+  "favorites": {
+    "title": "Your Favorites",
+    "empty": "No favorite places yet"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No new notifications"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": "Account",
+    "personalInfo": "Personal Info",
+    "notifications": "Notification Settings",
+    "language": "Language",
+    "appearance": "Appearance",
+    "darkMode": "Dark Mode",
+    "support": "Support",
+    "helpCenter": "Help Center",
+    "logout": "Logout",
+    "login": "Login",
+    "version": "Version"
+  },
+  "auth": {
+    "login": "Login",
+    "signup": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginSuccess": "Login successful",
+    "signupSuccess": "Sign up successful",
+    "loginError": "Login failed",
+    "signupError": "Sign up failed",
+    "invalidCredentials": "Invalid email or password",
+    "emailExists": "Email already exists",
+    "guest": "Guest"
+  },
+  "chatbot": {
+    "title": "VietSpots Bot",
+    "placeholder": "Ask me about places...",
+    "greeting": "Hello! I can help you find tourist spots and delicious food in Vietnam."
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "user": "User"
+  },
+  "languages": {
+    "vi": "Tiếng Việt",
+    "en": "English"
+  }
+}
