@@ -2,11 +2,13 @@ import { useState } from "react";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { allPlaces } from "@/data/places";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 const filters = [
   { id: "all", label: "Tất cả" },
@@ -17,8 +19,10 @@ const filters = [
 ];
 
 export default function Search() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toggleFavorite, isFavorite } = useFavorites();
 
   const filteredPlaces = allPlaces.filter((place) => {
@@ -31,35 +35,62 @@ export default function Search() {
 
   return (
     <Layout>
-      <div className="max-w-lg mx-auto px-4 py-4">
-        {/* Search Bar */}
-        <div className="flex gap-2 mb-4">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t('search.title')}</h1>
+          <p className="text-muted-foreground">Tìm địa điểm du lịch yêu thích của bạn</p>
+        </div>
+
+        {/* Search Bar & Controls */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          <div className="relative flex-1 max-w-2xl">
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm địa điểm..."
-              className="pl-10"
+              placeholder={t('search.placeholder')}
+              className="pl-12 h-12 text-base rounded-xl"
               autoFocus
             />
           </div>
-          <Button variant="outline" size="icon">
-            <SlidersHorizontal className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
+              <SlidersHorizontal className="h-5 w-5" />
+            </Button>
+            <div className="hidden lg:flex border border-border rounded-xl overflow-hidden">
+              <Button 
+                variant={viewMode === "grid" ? "secondary" : "ghost"} 
+                size="icon"
+                className="rounded-none h-12 w-12"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid3X3 className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant={viewMode === "list" ? "secondary" : "ghost"} 
+                size="icon"
+                className="rounded-none h-12 w-12"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+        <div className="flex flex-wrap gap-2 mb-8">
           {filters.map((filter, index) => (
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2 ${
+              className={cn(
+                "px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2",
                 activeFilter === filter.id
-                  ? "bg-primary text-primary-foreground scale-105"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
+                  ? "bg-primary text-primary-foreground shadow-lg"
+                  : "bg-card border border-border text-foreground hover:bg-secondary"
+              )}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               {filter.label}
@@ -67,33 +98,43 @@ export default function Search() {
           ))}
         </div>
 
-        {/* Results */}
-        <div className="mb-4">
+        {/* Results Count */}
+        <div className="mb-6">
           <p className="text-sm text-muted-foreground">
-            {filteredPlaces.length} kết quả
+            <span className="font-semibold text-foreground">{filteredPlaces.length}</span> kết quả được tìm thấy
           </p>
         </div>
 
         {/* Places Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className={cn(
+          "grid gap-4 lg:gap-6",
+          viewMode === "grid" 
+            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+            : "grid-cols-1 lg:grid-cols-2"
+        )}>
           {filteredPlaces.map((place, index) => (
             <div
               key={place.id}
               className="animate-in fade-in slide-in-from-bottom-4"
-              style={{ animationDelay: `${index * 50}ms` }}
+              style={{ animationDelay: `${index * 30}ms` }}
             >
               <PlaceCard
                 {...place}
                 isFavorite={isFavorite(place.id)}
                 onFavoriteToggle={toggleFavorite}
+                className={viewMode === "list" ? "flex-row" : ""}
               />
             </div>
           ))}
         </div>
 
         {filteredPlaces.length === 0 && (
-          <div className="text-center py-12 animate-in fade-in">
-            <p className="text-muted-foreground">Không tìm thấy địa điểm nào</p>
+          <div className="text-center py-20 animate-in fade-in">
+            <div className="h-20 w-20 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+              <SearchIcon className="h-10 w-10 text-muted-foreground/50" />
+            </div>
+            <h3 className="font-semibold text-foreground mb-2">{t('search.noResults')}</h3>
+            <p className="text-sm text-muted-foreground">Thử tìm kiếm với từ khóa khác</p>
           </div>
         )}
       </div>

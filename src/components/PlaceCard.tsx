@@ -27,21 +27,21 @@ export default function PlaceCard({
 }: PlaceCardProps) {
   return (
     <div className={cn(
-      "bg-card rounded-xl overflow-hidden border border-border shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group",
+      "bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer",
       className
     )}>
-      <div className="relative h-40 overflow-hidden">
+      <div className="relative h-44 lg:h-52 overflow-hidden">
         <img
           src={image}
           alt={name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <Button
           variant="ghost"
           size="icon"
           className={cn(
-            "absolute top-2 right-2 h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm transition-all duration-200 hover:scale-110",
+            "absolute top-3 right-3 h-10 w-10 rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:scale-110 shadow-lg",
             isFavorite && "text-primary bg-primary/20"
           )}
           onClick={(e) => {
@@ -49,20 +49,20 @@ export default function PlaceCard({
             onFavoriteToggle?.(id);
           }}
         >
-          <Heart className={cn("h-4 w-4 transition-all duration-200", isFavorite && "fill-current scale-110")} />
+          <Heart className={cn("h-5 w-5 transition-all duration-200", isFavorite && "fill-current scale-110")} />
         </Button>
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-card/90 backdrop-blur-sm rounded-full px-2 py-1">
-          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-          <span className="text-xs font-medium">{rating}</span>
+        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
+          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+          <span className="text-sm font-semibold">{rating}</span>
         </div>
       </div>
-      <div className="p-3">
-        <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{name}</h3>
-        <div className="flex items-center gap-1 text-primary mt-1">
-          <MapPin className="h-3 w-3" />
-          <span className="text-xs">{location}</span>
+      <div className="p-4 lg:p-5">
+        <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">{name}</h3>
+        <div className="flex items-center gap-1.5 text-primary mt-1.5">
+          <MapPin className="h-4 w-4" />
+          <span className="text-sm">{location}</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+        <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
           {description}
         </p>
       </div>

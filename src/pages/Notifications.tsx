@@ -1,6 +1,8 @@
 import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
-import { Bell, MapPin, Star, Gift } from "lucide-react";
+import { Bell, MapPin, Star, Gift, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 
 const notifications = [
   {
@@ -42,53 +44,71 @@ const notifications = [
 ];
 
 export default function Notifications() {
+  const { t } = useTranslation();
+
   return (
     <Layout>
-      <div className="max-w-lg mx-auto px-4 py-4">
-        <div className="flex items-center gap-2 mb-6">
-          <Bell className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-bold text-foreground">Thông báo</h2>
+      <div className="max-w-4xl mx-auto px-4 lg:px-8 py-6 lg:py-10">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Bell className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('notifications.title')}</h1>
+              <p className="text-muted-foreground">Cập nhật mới nhất cho bạn</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Check className="h-4 w-4" />
+            Đọc tất cả
+          </Button>
         </div>
 
-        <div className="space-y-3">
-          {notifications.map((notif) => (
+        {/* Notifications List */}
+        <div className="space-y-4">
+          {notifications.map((notif, index) => (
             <div
               key={notif.id}
-              className={`flex gap-3 p-4 rounded-xl border transition-colors ${
+              className={`flex gap-4 p-5 rounded-xl border transition-all duration-200 hover:shadow-md cursor-pointer animate-in fade-in slide-in-from-left-4 ${
                 notif.read
                   ? "bg-card border-border"
-                  : "bg-secondary border-primary/20"
+                  : "bg-secondary/50 border-primary/20"
               }`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
-                className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+                className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
                   notif.read ? "bg-muted" : "bg-primary/10"
                 }`}
               >
                 <notif.icon
-                  className={`h-5 w-5 ${
+                  className={`h-6 w-6 ${
                     notif.read ? "text-muted-foreground" : "text-primary"
                   }`}
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-4">
                   <h3
-                    className={`font-semibold text-sm ${
+                    className={`font-semibold ${
                       notif.read ? "text-muted-foreground" : "text-foreground"
                     }`}
                   >
                     {notif.title}
                   </h3>
-                  {!notif.read && (
-                    <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">
+                      {notif.time}
+                    </span>
+                    {!notif.read && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                <p className="text-muted-foreground mt-1">
                   {notif.message}
-                </p>
-                <p className="text-xs text-muted-foreground/70 mt-2">
-                  {notif.time}
                 </p>
               </div>
             </div>
