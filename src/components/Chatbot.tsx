@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark } from "lucide-react";
+import { Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { fallbackPlaces, transformPlace } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
+import ChatbotMap from "./ChatbotMap";
 
 interface Message {
   id: string;
@@ -66,6 +67,8 @@ export default function Chatbot() {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
+  const [showMap, setShowMap] = useState(true);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const checkScrollPosition = useCallback(() => {
@@ -187,18 +190,81 @@ export default function Chatbot() {
     { id: "saved" as const, label: "Đã lưu", icon: Bookmark },
   ];
 
+  // Get map markers from place results
+  const mapMarkers = placeResults
+    .filter(p => p.latitude && p.longitude)
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      address: p.address,
+      latitude: p.latitude!,
+      longitude: p.longitude!,
+      rating: p.rating
+    }));
+
   return (
     <>
+      {/* Map Panel - Shows when chatbot is open and has places */}
+      {isOpen && showMap && mapMarkers.length > 0 && (
+        <div
+          className={cn(
+            "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
+            "right-[400px] lg:right-[450px] w-[350px] lg:w-[400px]"
+          )}
+        >
+          <div className="h-full flex flex-col">
+            {/* Map Header */}
+            <div className="flex items-center justify-between p-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <MapIcon className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm">Bản đồ</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowMap(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Map Content */}
+            <div className="flex-1">
+              <ChatbotMap
+                places={mapMarkers}
+                selectedPlaceId={selectedPlaceId}
+                onPlaceSelect={setSelectedPlaceId}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toggle Button - Fixed on right edge */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen ? "right-[400px] lg:right-[450px]" : "right-0"
+          isOpen 
+            ? showMap && mapMarkers.length > 0 
+              ? "right-[750px] lg:right-[850px]" 
+              : "right-[400px] lg:right-[450px]" 
+            : "right-0"
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
       </button>
+
+      {/* Map Toggle Button - Shows when map is hidden */}
+      {isOpen && !showMap && mapMarkers.length > 0 && (
+        <button
+          onClick={() => setShowMap(true)}
+          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[400px] lg:right-[450px]"
+          style={{ marginTop: "60px" }}
+        >
+          <MapIcon className="h-5 w-5" />
+        </button>
+      )}
 
       {/* Sidebar Panel */}
       <div
@@ -240,8 +306,17 @@ export default function Chatbot() {
                     {placeResults.map((place, index) => (
                       <div
                         key={place.id}
-                        className="border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
+                        className={cn(
+                          "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
+                          selectedPlaceId === place.id 
+                            ? "border-primary ring-2 ring-primary/20" 
+                            : "border-border"
+                        )}
                         style={{ animationDelay: `${index * 100}ms` }}
+                        onClick={() => {
+                          setSelectedPlaceId(place.id);
+                          if (!showMap) setShowMap(true);
+                        }}
                       >
                         {/* Place Header */}
                         <div className="flex items-start justify-between gap-3 mb-3">
