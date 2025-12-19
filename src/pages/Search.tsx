@@ -1,37 +1,87 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { allPlaces } from "@/data/places";
+import { usePlaces, useSearchPlaces, useCategories } from "@/hooks/useVietSpotAPI";
+import { transformPlace, fallbackPlaces, categories as defaultCategories } from "@/data/places";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-const filters = [
-  { id: "all", label: "Tất cả" },
-  { id: "beach", label: "Biển" },
-  { id: "mountain", label: "Núi" },
-  { id: "city", label: "Thành phố" },
-  { id: "historical", label: "Lịch sử" },
-];
-
 export default function Search() {
   const { t } = useTranslation();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [activeFilter, setActiveFilter] = useState(searchParams.get("category") || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  const filteredPlaces = allPlaces.filter((place) => {
-    const matchesSearch =
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch data from API
+  const { data: categoriesResponse } = useCategories();
+  const { data: placesResponse, isLoading: placesLoading } = usePlaces({
+    category: activeFilter !== "all" ? activeFilter : undefined,
+    limit: 50,
+  });
+  const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
+    q: debouncedSearch,
+    category: activeFilter !== "all" ? activeFilter : undefined,
+    limit: 50,
+  });
+
+  // Build filters from API or use defaults
+  const apiCategories = categoriesResponse?.data || [];
+  const filters = [
+    { id: "all", label: "Tất cả" },
+    ...apiCategories.map((cat) => {
+      const defaultCat = defaultCategories.find((c) => c.id === cat);
+      return { id: cat, label: defaultCat?.label || cat };
+    }),
+  ];
+
+  // Transform API data or use fallback
+  const isSearching = debouncedSearch.length > 0;
+  const rawPlaces = isSearching
+    ? searchResponse?.data || []
+    : placesResponse?.data || [];
+
+  const places = rawPlaces.length > 0
+    ? rawPlaces.map(transformPlace)
+    : fallbackPlaces;
+
+  // Filter by category on client side if needed
+  const filteredPlaces = places.filter((place) => {
+    const matchesSearch = isSearching ? true :
       place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       place.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = activeFilter === "all" || place.category === activeFilter;
     return matchesSearch && matchesFilter;
   });
+
+  const isLoading = isSearching ? searchLoading : placesLoading;
+
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    const newParams = new URLSearchParams(searchParams);
+    if (filter === "all") {
+      newParams.delete("category");
+    } else {
+      newParams.set("category", filter);
+    }
+    setSearchParams(newParams);
+  };
 
   return (
     <Layout>
@@ -84,7 +134,7 @@ export default function Search() {
           {filters.map((filter, index) => (
             <button
               key={filter.id}
-              onClick={() => setActiveFilter(filter.id)}
+              onClick={() => handleFilterChange(filter.id)}
               className={cn(
                 "px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2",
                 activeFilter === filter.id
@@ -105,37 +155,46 @@ export default function Search() {
           </p>
         </div>
 
-        {/* Places Grid */}
-        <div className={cn(
-          "grid gap-4 lg:gap-6",
-          viewMode === "grid" 
-            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
-            : "grid-cols-1 lg:grid-cols-2"
-        )}>
-          {filteredPlaces.map((place, index) => (
-            <div
-              key={place.id}
-              className="animate-in fade-in slide-in-from-bottom-4"
-              style={{ animationDelay: `${index * 30}ms` }}
-            >
-              <PlaceCard
-                {...place}
-                isFavorite={isFavorite(place.id)}
-                onFavoriteToggle={toggleFavorite}
-                className={viewMode === "list" ? "flex-row" : ""}
-              />
-            </div>
-          ))}
-        </div>
-
-        {filteredPlaces.length === 0 && (
-          <div className="text-center py-20 animate-in fade-in">
-            <div className="h-20 w-20 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
-              <SearchIcon className="h-10 w-10 text-muted-foreground/50" />
-            </div>
-            <h3 className="font-semibold text-foreground mb-2">{t('search.noResults')}</h3>
-            <p className="text-sm text-muted-foreground">Thử tìm kiếm với từ khóa khác</p>
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
+        ) : (
+          <>
+            {/* Places Grid */}
+            <div className={cn(
+              "grid gap-4 lg:gap-6",
+              viewMode === "grid" 
+                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+                : "grid-cols-1 lg:grid-cols-2"
+            )}>
+              {filteredPlaces.map((place, index) => (
+                <div
+                  key={place.id}
+                  className="animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <PlaceCard
+                    {...place}
+                    isFavorite={isFavorite(place.id)}
+                    onFavoriteToggle={toggleFavorite}
+                    className={viewMode === "list" ? "flex-row" : ""}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {filteredPlaces.length === 0 && (
+              <div className="text-center py-20 animate-in fade-in">
+                <div className="h-20 w-20 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+                  <SearchIcon className="h-10 w-10 text-muted-foreground/50" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">{t('search.noResults')}</h3>
+                <p className="text-sm text-muted-foreground">Thử tìm kiếm với từ khóa khác</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 

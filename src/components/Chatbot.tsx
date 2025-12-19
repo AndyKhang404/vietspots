@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { allPlaces } from "@/data/places";
+import { fallbackPlaces, transformPlace } from "@/data/places";
+import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 
 interface Message {
   id: string;
@@ -24,21 +25,27 @@ interface PlaceResult {
   rating: number;
   gps?: string;
   images: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const VIETSPOT_CHAT_URL = "https://vietspotbackend-production.up.railway.app/api/chat";
 
-// Mock place results based on allPlaces data
-const mockPlaceResults: PlaceResult[] = allPlaces.slice(0, 3).map((place) => ({
-  id: place.id,
-  name: place.name,
-  address: `${place.location}, Việt Nam`,
-  phone: "0263 3503 535",
-  website: "https://vietspots.com",
-  rating: place.rating,
-  gps: `${(10.7 + Math.random() * 0.5).toFixed(6)}, ${(106.6 + Math.random() * 0.2).toFixed(6)}`,
-  images: [place.image],
-}));
+// Transform API PlaceInfo to PlaceResult format
+function transformToPlaceResult(place: PlaceInfo): PlaceResult {
+  return {
+    id: place.place_id,
+    name: place.name,
+    address: place.address || `${place.city || ""}, Việt Nam`,
+    phone: place.phone,
+    website: place.website,
+    rating: place.rating || 0,
+    gps: place.latitude && place.longitude ? `${place.latitude}, ${place.longitude}` : undefined,
+    images: place.images || (place.image_url ? [place.image_url] : []),
+    latitude: place.latitude,
+    longitude: place.longitude,
+  };
+}
 
 export default function Chatbot() {
   const { t } = useTranslation();
@@ -111,105 +118,68 @@ export default function Chatbot() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = input;
     setInput("");
     setIsLoading(true);
 
-    // Show mock place results when user searches
-    if (input.toLowerCase().includes("cafe") || input.toLowerCase().includes("quán") || input.toLowerCase().includes("địa điểm")) {
-      setPlaceResults(mockPlaceResults);
-    }
-
-    let assistantContent = "";
-
     try {
-      const response = await fetch(CHAT_URL, {
+      // Call VietSpot backend API
+      const response = await fetch(VIETSPOT_CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          message: userInput,
+          session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
         }),
       });
 
-      if (!response.ok || !response.body) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429) {
-          toast.error("Quá nhiều yêu cầu, vui lòng thử lại sau.");
-        } else if (response.status === 402) {
-          toast.error("Hết hạn mức AI, vui lòng nạp thêm credits.");
-        } else {
-          toast.error(errorData.error || "Có lỗi xảy ra, vui lòng thử lại.");
-        }
-        setIsLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      const upsertAssistant = (nextChunk: string) => {
-        assistantContent += nextChunk;
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.id === "streaming") {
-            return prev.map((m) =>
-              m.id === "streaming" ? { ...m, content: assistantContent } : m
-            );
-          }
-          return [...prev, { id: "streaming", role: "assistant", content: assistantContent }];
-        });
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsertAssistant(content);
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
+      const data = await response.json();
+      
+      // Store session ID for conversation continuity
+      if (data.session_id) {
+        sessionStorage.setItem("vietspot_session_id", data.session_id);
       }
 
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === "streaming"
-            ? { ...m, id: Date.now().toString() }
-            : m
-        )
-      );
+      // Add assistant response
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: data.response || "Xin lỗi, tôi không thể xử lý yêu cầu này.",
+        },
+      ]);
+
+      // If API returns places, show them
+      if (data.places && data.places.length > 0) {
+        setPlaceResults(data.places.map(transformToPlaceResult));
+      }
+
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Không thể kết nối. Vui lòng thử lại.");
+      
+      // Add error message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const savedPlaces = allPlaces.filter((p) => favorites.includes(p.id));
+  const savedPlaces = fallbackPlaces.filter((p) => favorites.includes(p.id));
 
   const tabs = [
     { id: "chat" as const, label: "Chatbot", icon: MessageSquare },

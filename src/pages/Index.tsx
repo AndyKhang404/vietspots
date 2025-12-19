@@ -1,11 +1,12 @@
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search, TrendingUp, Sparkles } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { allPlaces, categories } from "@/data/places";
+import { usePlaces, useCategories } from "@/hooks/useVietSpotAPI";
+import { transformPlace, fallbackPlaces, categories as defaultCategories } from "@/data/places";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -14,7 +15,23 @@ export default function Index() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const featuredPlaces = allPlaces.slice(0, 8);
+
+  // Fetch places from API
+  const { data: placesResponse, isLoading: placesLoading } = usePlaces({ limit: 8 });
+  const { data: categoriesResponse } = useCategories();
+
+  // Transform API data or use fallback
+  const featuredPlaces = placesResponse?.data
+    ? placesResponse.data.map(transformPlace)
+    : fallbackPlaces.slice(0, 8);
+
+  const categories = categoriesResponse?.data
+    ? categoriesResponse.data.map((cat, i) => ({
+        id: cat,
+        label: cat,
+        emoji: defaultCategories[i]?.emoji || "📍",
+      }))
+    : defaultCategories;
 
   return (
     <Layout>
@@ -58,7 +75,7 @@ export default function Index() {
                 key={cat.id}
                 className="flex items-center gap-2 px-5 py-3 bg-card border border-border rounded-xl text-sm font-medium text-foreground whitespace-nowrap hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200 hover:scale-105 hover:shadow-lg animate-in fade-in slide-in-from-left-2"
                 style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => navigate('/search')}
+                onClick={() => navigate(`/search?category=${cat.id}`)}
               >
                 <span className="text-lg">{cat.emoji}</span>
                 <span>{cat.label}</span>
@@ -78,21 +95,28 @@ export default function Index() {
               {t('home.viewAll')} →
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-            {featuredPlaces.map((place, index) => (
-              <div
-                key={place.id}
-                className="animate-in fade-in slide-in-from-bottom-4"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <PlaceCard
-                  {...place}
-                  isFavorite={isFavorite(place.id)}
-                  onFavoriteToggle={toggleFavorite}
-                />
-              </div>
-            ))}
-          </div>
+
+          {placesLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+              {featuredPlaces.map((place, index) => (
+                <div
+                  key={place.id}
+                  className="animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <PlaceCard
+                    {...place}
+                    isFavorite={isFavorite(place.id)}
+                    onFavoriteToggle={toggleFavorite}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
