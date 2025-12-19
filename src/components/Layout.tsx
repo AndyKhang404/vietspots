@@ -1,30 +1,32 @@
 import { ReactNode } from "react";
 import { Home, Heart, Bell, Settings, Search } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { icon: Home, label: "Home", path: "/" },
-  { icon: Search, label: "Search", path: "/search" },
-  { icon: Heart, label: "Favorites", path: "/favorites" },
-  { icon: Bell, label: "Notifications", path: "/notifications" },
-  { icon: Settings, label: "Settings", path: "/settings" },
-];
-
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const { t } = useTranslation();
+
+  const navItems = [
+    { icon: Home, label: t('nav.home'), path: "/" },
+    { icon: Search, label: t('nav.search'), path: "/search" },
+    { icon: Heart, label: t('nav.favorites'), path: "/favorites" },
+    { icon: Bell, label: t('nav.notifications'), path: "/notifications" },
+    { icon: Settings, label: t('nav.settings'), path: "/settings" },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <h1 className="text-xl font-bold text-primary">VietSpots</h1>
-          <span className="text-sm text-muted-foreground">Khám phá Việt Nam</span>
+          <h1 className="text-xl font-bold text-primary">{t('app.name')}</h1>
+          <span className="text-sm text-muted-foreground">{t('app.tagline')}</span>
         </div>
       </header>
 

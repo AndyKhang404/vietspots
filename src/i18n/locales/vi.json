@@ -1,0 +1,81 @@
+{
+  "app": {
+    "name": "VietSpots",
+    "tagline": "Khám phá Việt Nam"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "search": "Tìm kiếm",
+    "favorites": "Yêu thích",
+    "notifications": "Thông báo",
+    "settings": "Cài đặt"
+  },
+  "home": {
+    "welcome": "Xin chào",
+    "explore": "Khám phá những địa điểm tuyệt vời",
+    "featured": "Địa điểm nổi bật",
+    "viewAll": "Xem tất cả"
+  },
+  "search": {
+    "title": "Tìm kiếm",
+    "placeholder": "Tìm địa điểm, món ăn...",
+    "noResults": "Không tìm thấy kết quả"
+  },
+  "favorites": {
+    "title": "Yêu thích của bạn",
+    "empty": "Chưa có địa điểm yêu thích nào"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "empty": "Không có thông báo mới"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "account": "Tài khoản",
+    "personalInfo": "Thông tin cá nhân",
+    "notifications": "Cài đặt thông báo",
+    "language": "Ngôn ngữ",
+    "appearance": "Giao diện",
+    "darkMode": "Chế độ tối",
+    "support": "Hỗ trợ",
+    "helpCenter": "Trung tâm trợ giúp",
+    "logout": "Đăng xuất",
+    "login": "Đăng nhập",
+    "version": "Phiên bản"
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "signup": "Đăng ký",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "fullName": "Họ và tên",
+    "forgotPassword": "Quên mật khẩu?",
+    "noAccount": "Chưa có tài khoản?",
+    "hasAccount": "Đã có tài khoản?",
+    "loginSuccess": "Đăng nhập thành công",
+    "signupSuccess": "Đăng ký thành công",
+    "loginError": "Đăng nhập thất bại",
+    "signupError": "Đăng ký thất bại",
+    "invalidCredentials": "Email hoặc mật khẩu không đúng",
+    "emailExists": "Email đã tồn tại",
+    "guest": "Khách"
+  },
+  "chatbot": {
+    "title": "VietSpots Bot",
+    "placeholder": "Hỏi tôi về địa điểm...",
+    "greeting": "Xin chào! Tôi có thể giúp bạn tìm địa điểm du lịch, món ăn ngon ở Việt Nam."
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Có lỗi xảy ra",
+    "retry": "Thử lại",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "user": "Người dùng"
+  },
+  "languages": {
+    "vi": "Tiếng Việt",
+    "en": "English"
+  }
+}
