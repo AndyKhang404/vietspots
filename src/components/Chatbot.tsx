@@ -152,7 +152,7 @@ export default function Chatbot() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: data.response || "Xin lỗi, tôi không thể xử lý yêu cầu này.",
+          content: data.answer || "Xin lỗi, tôi không thể xử lý yêu cầu này.",
         },
       ]);
 
