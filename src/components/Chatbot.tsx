@@ -318,13 +318,13 @@ export default function Chatbot() {
                       >
                         <div
                           className={cn(
-                            "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+                            "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
                             message.role === "user"
                               ? "bg-primary text-primary-foreground rounded-br-md"
                               : "bg-secondary text-secondary-foreground rounded-bl-md"
                           )}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                         </div>
                       </div>
                     ))}
