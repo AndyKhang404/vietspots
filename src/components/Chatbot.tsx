@@ -161,18 +161,36 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
   };
 }
 
+const CHAT_STORAGE_KEY = "vietspots_chat_history";
+const DEFAULT_MESSAGE: Message = {
+  id: "1",
+  role: "assistant",
+  content: "Xin chào! 👋 Tôi là VietSpots Bot - trợ lý du lịch của bạn. Hãy cho tôi biết bạn muốn khám phá Việt Nam như thế nào nhé! 🎒",
+};
+
 export default function Chatbot() {
   const { t } = useTranslation();
   const { favorites } = useFavorites();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved">("chat");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Xin chào! 👋 Tôi là VietSpots Bot - trợ lý du lịch của bạn. Hãy cho tôi biết bạn muốn khám phá Việt Nam như thế nào nhé! 🎒",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [DEFAULT_MESSAGE];
+      }
+    }
+    return [DEFAULT_MESSAGE];
+  });
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);

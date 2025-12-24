@@ -6,8 +6,25 @@ function getImageUrl(img: string | { url: string } | { id: string; url: string }
   return img.url;
 }
 
+// Place type
+export interface Place {
+  id: string;
+  name: string;
+  location: string;
+  image: string;
+  rating: number;
+  description: string;
+  category: string;
+  address?: string;
+  phone?: string;
+  website?: string;
+  latitude?: number;
+  longitude?: number;
+  images?: string[];
+}
+
 // Transform API PlaceInfo to app format
-export function transformPlace(place: PlaceInfo) {
+export function transformPlace(place: PlaceInfo): Place {
   const images = place.images?.map(getImageUrl) || [];
   const firstImage = images[0] || place.image_url || "https://images.unsplash.com/photo-1528127269322-539801943592?w=800";
   
