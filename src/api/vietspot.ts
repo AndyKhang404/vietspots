@@ -133,7 +133,7 @@ class VietSpotAPI {
     limit?: number;
   }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
-    searchParams.set("q", params.q);
+    searchParams.set("keyword", params.q); // API uses "keyword" not "q"
     if (params.category) searchParams.set("category", params.category);
     if (params.city) searchParams.set("city", params.city);
     if (params.limit) searchParams.set("limit", params.limit.toString());
