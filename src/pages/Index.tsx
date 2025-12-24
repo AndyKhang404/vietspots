@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search, TrendingUp, Sparkles, Loader2, MapPin } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,18 +12,6 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import vietSpotAPI from "@/api/vietspot";
 
-// Reverse geocoding to get city from coordinates
-async function getCityFromCoords(lat: number, lon: number): Promise<string | null> {
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=vi`
-    );
-    const data = await response.json();
-    return data.address?.city || data.address?.town || data.address?.state || null;
-  } catch {
-    return null;
-  }
-}
 
 export default function Index() {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -33,60 +21,32 @@ export default function Index() {
   
   const [featuredPlaces, setFeaturedPlaces] = useState<Place[]>([]);
   const [placesLoading, setPlacesLoading] = useState(true);
-  const [userCity, setUserCity] = useState<string | null>(null);
   
   const { data: categoriesResponse } = useCategories();
 
-  // Get user location and fetch places
+  // Fetch places - simple approach without city filter since API data doesn't have Vietnamese cities
   useEffect(() => {
     const fetchPlaces = async () => {
       setPlacesLoading(true);
       try {
-        // Try to get user's current location
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              const { latitude, longitude } = position.coords;
-              const city = await getCityFromCoords(latitude, longitude);
-              setUserCity(city);
-              
-              // Fetch places by city if available
-              const places = await vietSpotAPI.getPlaces({ 
-                city: city || undefined, 
-                limit: 20 
-              });
-              
-              // Sort by rating (descending)
-              const sortedPlaces = places
-                .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-                .slice(0, 8);
-              
-              setFeaturedPlaces(sortedPlaces.map(transformPlace));
-              setPlacesLoading(false);
-            },
-            async () => {
-              // Location denied - fetch without city filter
-              const places = await vietSpotAPI.getPlaces({ limit: 20 });
-              const sortedPlaces = places
-                .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-                .slice(0, 8);
-              setFeaturedPlaces(sortedPlaces.map(transformPlace));
-              setPlacesLoading(false);
-            },
-            { timeout: 5000 }
-          );
-        } else {
-          // Geolocation not supported
-          const places = await vietSpotAPI.getPlaces({ limit: 20 });
-          const sortedPlaces = places
-            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-            .slice(0, 8);
+        // Fetch all places and sort by rating
+        const places = await vietSpotAPI.getPlaces({ limit: 50 });
+        
+        // Sort by rating (descending), places with null rating go last
+        const sortedPlaces = places
+          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+          .slice(0, 8);
+        
+        if (sortedPlaces.length > 0) {
           setFeaturedPlaces(sortedPlaces.map(transformPlace));
-          setPlacesLoading(false);
+        } else {
+          // Fallback to static data if API returns empty
+          setFeaturedPlaces(fallbackPlaces.slice(0, 8));
         }
       } catch (error) {
         console.error("Error fetching places:", error);
         setFeaturedPlaces(fallbackPlaces.slice(0, 8));
+      } finally {
         setPlacesLoading(false);
       }
     };
@@ -156,15 +116,7 @@ export default function Index() {
         {/* Featured Places */}
         <div>
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-foreground">{t('home.featured')}</h3>
-              {userCity && (
-                <span className="text-sm text-muted-foreground flex items-center gap-1 bg-secondary px-3 py-1 rounded-full">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {userCity}
-                </span>
-              )}
-            </div>
+            <h3 className="text-lg font-semibold text-foreground">{t('home.featured')}</h3>
             <button 
               onClick={() => navigate('/search')}
               className="text-sm text-primary hover:underline font-medium"
