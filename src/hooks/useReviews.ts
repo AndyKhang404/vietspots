@@ -1,0 +1,248 @@
+import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import vietSpotAPI from "@/api/vietspot";
+
+export interface Review {
+  id: string;
+  user_id: string;
+  place_id: string;
+  rating: number;
+  content: string | null;
+  created_at: string;
+  updated_at: string;
+  images: ReviewImage[];
+  user_name?: string;
+  user_avatar?: string;
+}
+
+export interface ReviewImage {
+  id: string;
+  review_id: string;
+  image_url: string;
+  created_at: string;
+}
+
+export function useReviews(placeId?: string) {
+  const { user } = useAuth();
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch reviews for a place - from both backend API and local Supabase
+  const fetchReviews = useCallback(async () => {
+    if (!placeId) return;
+
+    setLoading(true);
+    try {
+      // Fetch from backend API
+      const apiResponse = await vietSpotAPI.getPlaceComments(placeId);
+      
+      // Fetch from local Supabase
+      const { data: localReviews, error } = await supabase
+        .from("reviews")
+        .select(`
+          *,
+          review_images (*)
+        `)
+        .eq("place_id", placeId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch user profiles for local reviews
+      const userIds = localReviews?.map((r) => r.user_id) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(
+        profiles?.map((p) => [p.user_id, { name: p.full_name, avatar: p.avatar_url }]) || []
+      );
+
+      // Combine reviews
+      const localFormatted: Review[] = (localReviews || []).map((r) => ({
+        id: r.id,
+        user_id: r.user_id,
+        place_id: r.place_id,
+        rating: r.rating,
+        content: r.content,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        images: (r.review_images || []).map((img: { id: string; image_url: string; created_at: string }) => ({
+          id: img.id,
+          review_id: r.id,
+          image_url: img.image_url,
+          created_at: img.created_at,
+        })),
+        user_name: profileMap.get(r.user_id)?.name || "Người dùng",
+        user_avatar: profileMap.get(r.user_id)?.avatar || undefined,
+      }));
+
+      // Format API reviews
+      const apiFormatted: Review[] = (apiResponse.data || []).map((r) => ({
+        id: r.comment_id,
+        user_id: r.user_id,
+        place_id: r.place_id,
+        rating: r.rating,
+        content: r.content,
+        created_at: r.created_at,
+        updated_at: r.updated_at || r.created_at,
+        images: (r.images || []).map((img) => ({
+          id: img.image_id,
+          review_id: r.comment_id,
+          image_url: img.url,
+          created_at: img.created_at,
+        })),
+        user_name: "Du khách",
+      }));
+
+      // Combine and sort by date
+      const combined = [...localFormatted, ...apiFormatted].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setReviews(combined);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [placeId]);
+
+  // Submit a new review
+  const submitReview = async (rating: number, content: string, imageFiles?: File[]) => {
+    if (!user || !placeId) {
+      toast.error("Vui lòng đăng nhập để đánh giá");
+      return false;
+    }
+
+    setSubmitting(true);
+    try {
+      // Insert review
+      const { data: review, error: reviewError } = await supabase
+        .from("reviews")
+        .insert({
+          user_id: user.id,
+          place_id: placeId,
+          rating,
+          content: content || null,
+        })
+        .select()
+        .single();
+
+      if (reviewError) throw reviewError;
+
+      // Upload images if any
+      if (imageFiles && imageFiles.length > 0) {
+        for (const file of imageFiles) {
+          const fileName = `${user.id}/${review.id}/${Date.now()}_${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from("review-images")
+            .upload(fileName, file);
+
+          if (uploadError) {
+            console.error("Error uploading image:", uploadError);
+            continue;
+          }
+
+          const { data: publicUrl } = supabase.storage
+            .from("review-images")
+            .getPublicUrl(fileName);
+
+          await supabase.from("review_images").insert({
+            review_id: review.id,
+            image_url: publicUrl.publicUrl,
+          });
+        }
+      }
+
+      toast.success("Đánh giá của bạn đã được gửi!");
+      await fetchReviews();
+      return true;
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      console.error("Error submitting review:", error);
+      if (err?.code === "23505") {
+        toast.error("Bạn đã đánh giá địa điểm này rồi");
+      } else {
+        toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      }
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Update a review
+  const updateReview = async (reviewId: string, rating: number, content: string) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from("reviews")
+        .update({ rating, content })
+        .eq("id", reviewId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast.success("Đánh giá đã được cập nhật!");
+      await fetchReviews();
+      return true;
+    } catch (error) {
+      console.error("Error updating review:", error);
+      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      return false;
+    }
+  };
+
+  // Delete a review
+  const deleteReview = async (reviewId: string) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from("reviews")
+        .delete()
+        .eq("id", reviewId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast.success("Đánh giá đã được xóa!");
+      await fetchReviews();
+      return true;
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      return false;
+    }
+  };
+
+  // Get user's own review for this place
+  const getUserReview = useCallback(() => {
+    if (!user) return null;
+    return reviews.find((r) => r.user_id === user.id);
+  }, [user, reviews]);
+
+  // Calculate average rating
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
+
+  return {
+    reviews,
+    loading,
+    submitting,
+    fetchReviews,
+    submitReview,
+    updateReview,
+    deleteReview,
+    getUserReview,
+    averageRating,
+    totalReviews: reviews.length,
+  };
+}

@@ -1,16 +1,24 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Heart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Heart, MapPin, Star, Trash2, Loader2 } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { allPlaces } from "@/data/places";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 export default function Favorites() {
   const { t } = useTranslation();
-  const { favorites, toggleFavorite, isFavorite } = useFavorites();
-  
-  const favoritePlaces = allPlaces.filter((place) => favorites.includes(place.id));
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { wishlistItems, loading, removeFavorite, refreshWishlist } = useFavorites();
+
+  useEffect(() => {
+    refreshWishlist();
+  }, [refreshWishlist]);
 
   return (
     <Layout>
@@ -27,23 +35,82 @@ export default function Favorites() {
             </div>
           </div>
           <span className="text-sm text-muted-foreground bg-secondary px-4 py-2 rounded-full">
-            {favorites.length} địa điểm
+            {wishlistItems.length} địa điểm
           </span>
         </div>
 
-        {favoritePlaces.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
-            {favoritePlaces.map((place, index) => (
+        {/* Login prompt for guests */}
+        {!user && (
+          <div className="bg-muted/50 rounded-xl p-6 mb-6 text-center">
+            <p className="text-muted-foreground mb-3">
+              Đăng nhập để đồng bộ danh sách yêu thích trên mọi thiết bị
+            </p>
+            <Button onClick={() => navigate("/auth")} variant="outline">
+              Đăng nhập
+            </Button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : wishlistItems.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+            {wishlistItems.map((item, index) => (
               <div
-                key={place.id}
-                className="animate-in fade-in slide-in-from-bottom-4"
+                key={item.id}
+                className="bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer animate-in fade-in slide-in-from-bottom-4"
                 style={{ animationDelay: `${index * 50}ms` }}
+                onClick={() => navigate(`/place/${item.place_id}`)}
               >
-                <PlaceCard
-                  {...place}
-                  isFavorite={isFavorite(place.id)}
-                  onFavoriteToggle={toggleFavorite}
-                />
+                <div className="relative h-44 lg:h-52 overflow-hidden">
+                  {item.place_image ? (
+                    <img
+                      src={item.place_image}
+                      alt={item.place_name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <MapPin className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-3 right-3 h-10 w-10 rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:scale-110 shadow-lg text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFavorite(item.place_id);
+                    }}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                  {item.place_rating && (
+                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
+                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      <span className="text-sm font-semibold">{item.place_rating}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 lg:p-5">
+                  <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">
+                    {item.place_name}
+                  </h3>
+                  {item.place_address && (
+                    <div className="flex items-center gap-1.5 text-primary mt-1.5">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm truncate">{item.place_address}</span>
+                    </div>
+                  )}
+                  {item.place_category && (
+                    <Badge variant="secondary" className="mt-2">
+                      {item.place_category}
+                    </Badge>
+                  )}
+                </div>
               </div>
             ))}
           </div>
