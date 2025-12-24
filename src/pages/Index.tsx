@@ -283,6 +283,7 @@ export default function Index() {
             >
               <PlaceCard
                 {...place}
+                ratingCount={place.ratingCount}
                 isFavorite={isFavorite(place.id)}
                 onFavoriteToggle={() => toggleFavorite({
                   id: place.id,
@@ -417,6 +418,7 @@ export default function Index() {
                 >
                   <PlaceCard
                     {...place}
+                    ratingCount={place.ratingCount}
                     isFavorite={isFavorite(place.id)}
                     onFavoriteToggle={() => toggleFavorite({
                       id: place.id,
