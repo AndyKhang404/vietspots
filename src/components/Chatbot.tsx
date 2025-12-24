@@ -206,6 +206,11 @@ export default function Chatbot() {
   const [minRating, setMinRating] = useState<number>(0);
   const [maxDistance, setMaxDistance] = useState<number>(50);
 
+  // Form state
+  const [formCategory, setFormCategory] = useState<string>("all");
+  const [formRating, setFormRating] = useState<number>(4);
+  const [formLimit, setFormLimit] = useState<string>("10");
+
   // Get user's location
   const getUserLocation = useCallback(() => {
     setIsGettingLocation(true);
@@ -973,17 +978,20 @@ export default function Chatbot() {
                 {/* Category */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Loại hình</label>
-                  <Select defaultValue="all">
+                  <Select value={formCategory} onValueChange={setFormCategory}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Tất cả" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="beach">Biển & Bãi biển</SelectItem>
-                      <SelectItem value="museum">Bảo tàng & Triển lãm</SelectItem>
-                      <SelectItem value="restaurant">Nhà hàng</SelectItem>
-                      <SelectItem value="cafe">Cafe</SelectItem>
-                      <SelectItem value="temple">Chùa & Đền</SelectItem>
+                      <SelectItem value="Biển & Bãi biển">Biển & Bãi biển</SelectItem>
+                      <SelectItem value="Bảo tàng & Triển lãm">Bảo tàng & Triển lãm</SelectItem>
+                      <SelectItem value="Nhà Hàng & Ẩm Thực">Nhà hàng & Ẩm thực</SelectItem>
+                      <SelectItem value="Cafe">Cafe</SelectItem>
+                      <SelectItem value="Di Tích Lịch Sử">Chùa & Đền</SelectItem>
+                      <SelectItem value="Giải Trí & Vui Chơi">Giải trí & Vui chơi</SelectItem>
+                      <SelectItem value="Núi & Thiên Nhiên">Núi & Thiên nhiên</SelectItem>
+                      <SelectItem value="Điểm Ngắm Cảnh">Điểm ngắm cảnh</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -992,10 +1000,11 @@ export default function Chatbot() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground flex items-center justify-between">
                     <span>Rating tối thiểu</span>
-                    <span className="text-primary">4.0 ★</span>
+                    <span className="text-primary">{formRating.toFixed(1)} ★</span>
                   </label>
                   <Slider
-                    defaultValue={[4]}
+                    value={[formRating]}
+                    onValueChange={(values) => setFormRating(values[0])}
                     min={0}
                     max={5}
                     step={0.5}
@@ -1006,7 +1015,7 @@ export default function Chatbot() {
                 {/* Number of results */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Số lượng kết quả</label>
-                  <Select defaultValue="10">
+                  <Select value={formLimit} onValueChange={setFormLimit}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="10" />
                     </SelectTrigger>
@@ -1024,8 +1033,25 @@ export default function Chatbot() {
                   onClick={() => {
                     const destination = (document.getElementById('form-destination') as HTMLInputElement)?.value || '';
                     if (destination) {
+                      // Build message with all form parameters
+                      let message = `Tìm ${formLimit} địa điểm`;
+                      if (formCategory !== "all") {
+                        message += ` loại ${formCategory}`;
+                      }
+                      message += ` tại ${destination}`;
+                      if (formRating > 0) {
+                        message += `, rating tối thiểu ${formRating} sao`;
+                      }
+                      
                       setActiveTab('chat');
-                      setInput(`Tìm địa điểm tại ${destination}`);
+                      setInput(message);
+                      // Auto-send after switching tab
+                      setTimeout(() => {
+                        const form = document.querySelector('form') as HTMLFormElement;
+                        if (form) {
+                          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                        }
+                      }, 100);
                     } else {
                       toast.error("Vui lòng nhập điểm đến");
                     }
