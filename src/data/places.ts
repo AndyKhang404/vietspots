@@ -215,6 +215,23 @@ export const fallbackPlaces: Place[] = [
 ];
 
 export const categories = [
+  // Categories from VietSpot API
+  { id: "Biển & Bãi Biển", label: "Biển & Bãi Biển", emoji: "🏖️" },
+  { id: "Bảo Tàng & Triển Lãm", label: "Bảo Tàng & Triển Lãm", emoji: "🏛️" },
+  { id: "Di Tích Lịch Sử", label: "Di Tích Lịch Sử", emoji: "🏯" },
+  { id: "Điểm Ngắm Cảnh", label: "Điểm Ngắm Cảnh", emoji: "🌄" },
+  { id: "Giải Trí & Vui Chơi", label: "Giải Trí & Vui Chơi", emoji: "🎡" },
+  { id: "Công Viên & Thiên Nhiên", label: "Công Viên & Thiên Nhiên", emoji: "🌳" },
+  { id: "Chùa & Đền", label: "Chùa & Đền", emoji: "⛩️" },
+  { id: "Nhà Thờ & Thánh Đường", label: "Nhà Thờ & Thánh Đường", emoji: "⛪" },
+  { id: "Mua Sắm", label: "Mua Sắm", emoji: "🛍️" },
+  { id: "Ẩm Thực", label: "Ẩm Thực", emoji: "🍜" },
+  { id: "Cafe", label: "Cafe", emoji: "☕" },
+  { id: "Nhà Hàng", label: "Nhà Hàng", emoji: "🍽️" },
+  { id: "Spa & Làm Đẹp", label: "Spa & Làm Đẹp", emoji: "💆" },
+  { id: "Thể Thao & Gym", label: "Thể Thao & Gym", emoji: "🏋️" },
+  { id: "Khách Sạn & Lưu Trú", label: "Khách Sạn & Lưu Trú", emoji: "🏨" },
+  // Legacy categories for backward compatibility
   { id: "beach", label: "Biển đảo", emoji: "🏖️" },
   { id: "mountain", label: "Núi rừng", emoji: "🏔️" },
   { id: "city", label: "Thành phố", emoji: "🏙️" },
