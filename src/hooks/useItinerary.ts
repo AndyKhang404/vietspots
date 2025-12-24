@@ -72,12 +72,30 @@ export function useItinerary() {
         preferences: params.preferences,
       });
 
-      if (response.data) {
-        setCurrentItinerary(response.data);
-        toast.success("Lịch trình đã được tạo!");
-        return response.data;
+      // Handle different response formats
+      let itineraryData: DayItinerary[] | null = null;
+      
+      if (Array.isArray(response)) {
+        // Direct array response
+        itineraryData = response as DayItinerary[];
+      } else if (response && typeof response === 'object') {
+        // Object with data property
+        if ('data' in response && Array.isArray(response.data)) {
+          itineraryData = response.data as DayItinerary[];
+        } else if ('itinerary' in response && Array.isArray(response.itinerary)) {
+          itineraryData = response.itinerary as DayItinerary[];
+        }
       }
-      return null;
+
+      if (itineraryData && itineraryData.length > 0) {
+        setCurrentItinerary(itineraryData);
+        toast.success("Lịch trình đã được tạo!");
+        return itineraryData;
+      } else {
+        console.error("Invalid itinerary response:", response);
+        toast.error("Không thể tạo lịch trình. Vui lòng thử lại.");
+        return null;
+      }
     } catch (error) {
       console.error("Error generating itinerary:", error);
       toast.error("Không thể tạo lịch trình. Vui lòng thử lại.");
