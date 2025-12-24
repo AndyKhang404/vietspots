@@ -21,26 +21,52 @@ export default function Index() {
   
   const [featuredPlaces, setFeaturedPlaces] = useState<Place[]>([]);
   const [placesLoading, setPlacesLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
   
   const { data: categoriesResponse } = useCategories();
 
-  // Fetch places - matching mobile app logic (minRating, sortBy)
+  // Get user's current GPS location
   useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.log("Geolocation error:", error.message);
+          // Default to Ho Chi Minh City if geolocation fails
+          setUserLocation({ lat: 10.8231, lon: 106.6297 });
+        }
+      );
+    } else {
+      // Default to Ho Chi Minh City if geolocation not supported
+      setUserLocation({ lat: 10.8231, lon: 106.6297 });
+    }
+  }, []);
+
+  // Fetch places when we have user location
+  useEffect(() => {
+    if (!userLocation) return;
+    
     const fetchPlaces = async () => {
       setPlacesLoading(true);
       try {
-        // Match mobile: get places with minRating and sortBy rating
+        // Match mobile: get places with lat, lon, maxDistance, minRating, sortBy
         const places = await vietSpotAPI.getPlaces({ 
           limit: 50,
-          minRating: 0.1, // Only get places with rating > 0
-          sortBy: 'rating', // Sort by rating descending
+          lat: userLocation.lat,
+          lon: userLocation.lon,
+          maxDistance: 100, // 100km radius like mobile app
+          minRating: 0.1,
+          sortBy: 'rating',
         });
         
-        // Take top 8 for featured (already sorted by rating from API)
         if (places.length > 0) {
           setFeaturedPlaces(places.slice(0, 8).map(transformPlace));
         } else {
-          // Fallback to static data if API returns empty
           setFeaturedPlaces(fallbackPlaces.slice(0, 8));
         }
       } catch (error) {
@@ -52,7 +78,7 @@ export default function Index() {
     };
     
     fetchPlaces();
-  }, []);
+  }, [userLocation]);
 
   const categories = categoriesResponse && categoriesResponse.length > 0
     ? categoriesResponse.map((cat, i) => ({
