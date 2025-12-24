@@ -111,6 +111,15 @@ const getAmenities = (place: PlaceInfo) => {
 export default function PlaceDetail() {
   const { placeId } = useParams<{ placeId: string }>();
   const navigate = useNavigate();
+
+  // React Router stores an internal history index in window.history.state.idx.
+  // This is more reliable than window.history.length inside embedded previews.
+  const canGoBack = typeof window.history.state?.idx === "number" && window.history.state.idx > 0;
+  const handleBack = () => {
+    if (canGoBack) navigate(-1);
+    else navigate("/", { replace: true });
+  };
+
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const {
@@ -415,7 +424,7 @@ export default function PlaceDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-10 text-center">
           <h1 className="text-2xl font-bold mb-4">Không tìm thấy địa điểm</h1>
-          <Button onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}>Quay lại</Button>
+          <Button onClick={handleBack}>Quay lại</Button>
         </div>
       </Layout>
     );
@@ -430,7 +439,7 @@ export default function PlaceDetail() {
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
         {/* Back Button & Actions */}
         <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" className="gap-2" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}>
+          <Button variant="ghost" className="gap-2" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4" />
             Quay lại
           </Button>
