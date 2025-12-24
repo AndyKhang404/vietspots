@@ -1,21 +1,30 @@
 import { PlaceInfo } from "@/api/vietspot";
 
+// Helper to get image URL from mixed format
+function getImageUrl(img: string | { url: string } | { id: string; url: string }): string {
+  if (typeof img === 'string') return img;
+  return img.url;
+}
+
 // Transform API PlaceInfo to app format
 export function transformPlace(place: PlaceInfo) {
+  const images = place.images?.map(getImageUrl) || [];
+  const firstImage = images[0] || place.image_url || "https://images.unsplash.com/photo-1528127269322-539801943592?w=800";
+  
   return {
-    id: place.place_id,
+    id: place.id || place.place_id || "",
     name: place.name,
-    location: place.city || place.district || place.address || "",
-    image: place.image_url || place.images?.[0] || "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
+    location: place.city || place.district || place.address?.split(',').slice(-2).join(',').trim() || "",
+    image: firstImage,
     rating: place.rating || 0,
-    description: place.description || "",
+    description: place.description || place.category || "",
     category: place.category || "other",
     address: place.address,
     phone: place.phone,
     website: place.website,
-    latitude: place.latitude,
-    longitude: place.longitude,
-    images: place.images || [],
+    latitude: place.latitude || place.coordinates?.lat,
+    longitude: place.longitude || place.coordinates?.lon,
+    images: images,
   };
 }
 

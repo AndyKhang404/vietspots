@@ -61,12 +61,15 @@ export default function PlaceDetail() {
       setLoading(true);
       try {
         const response = await vietSpotAPI.getPlace(placeId);
-        if (response.data) {
-          setPlace(response.data);
-          if (response.data.images && response.data.images.length > 0) {
-            setSelectedImage(response.data.images[0]);
-          } else if (response.data.image_url) {
-            setSelectedImage(response.data.image_url);
+        if (response) {
+          setPlace(response);
+          const imgs = response.images?.map((img: { url: string } | string) => 
+            typeof img === 'string' ? img : img.url
+          ) || [];
+          if (imgs.length > 0) {
+            setSelectedImage(imgs[0]);
+          } else if (response.image_url) {
+            setSelectedImage(response.image_url);
           }
         }
       } catch (error) {
@@ -138,7 +141,9 @@ export default function PlaceDetail() {
     );
   }
 
-  const images = place.images || (place.image_url ? [place.image_url] : []);
+  const images: string[] = (place.images || []).map((img: string | { url: string; id: string }) => 
+    typeof img === 'string' ? img : img.url
+  ).concat(place.image_url && !(place.images?.length) ? [place.image_url] : []);
 
   return (
     <Layout>
@@ -249,7 +254,11 @@ export default function PlaceDetail() {
               {place.opening_hours && (
                 <div className="flex items-start gap-3 text-muted-foreground mb-3">
                   <Clock className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-                  <span>{place.opening_hours}</span>
+                  <span>
+                    {typeof place.opening_hours === 'string' 
+                      ? place.opening_hours 
+                      : Object.entries(place.opening_hours).map(([day, time]) => `${day}: ${time}`).join(', ')}
+                  </span>
                 </div>
               )}
 

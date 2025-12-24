@@ -140,19 +140,21 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
   }
   
   return {
-    id: place.place_id,
+    id: place.place_id || place.id,
     name: place.name,
     address: place.address || `${place.city || ""}, Việt Nam`,
     phone: place.phone,
     website: place.website,
     rating: place.rating || 0,
-    gps: place.latitude && place.longitude ? `${place.latitude}, ${place.longitude}` : undefined,
-    images: place.images || (place.image_url ? [place.image_url] : []),
-    latitude: place.latitude,
-    longitude: place.longitude,
-    openingHours: place.opening_hours,
-    totalComments: place.total_comments,
-    matchingScore: Math.floor(Math.random() * 30 + 70), // Placeholder - backend should provide this
+    gps: (place.latitude && place.longitude) 
+      ? `${place.latitude}, ${place.longitude}` 
+      : (place.coordinates ? `${place.coordinates.lat}, ${place.coordinates.lon}` : undefined),
+    images: place.images?.map((img: { url: string } | string) => typeof img === 'string' ? img : img.url) || (place.image_url ? [place.image_url] : []),
+    latitude: place.latitude || place.coordinates?.lat,
+    longitude: place.longitude || place.coordinates?.lon,
+    openingHours: typeof place.opening_hours === 'string' ? place.opening_hours : (place.opening_hours ? JSON.stringify(place.opening_hours) : undefined),
+    totalComments: place.total_comments || place.rating_count,
+    matchingScore: Math.floor(Math.random() * 30 + 70),
     distance,
     category: place.category,
     description: place.description,

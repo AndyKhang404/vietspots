@@ -21,12 +21,12 @@ export default function Index() {
   const { data: categoriesResponse } = useCategories();
 
   // Transform API data or use fallback
-  const featuredPlaces = placesResponse?.data
-    ? placesResponse.data.map(transformPlace)
+  const featuredPlaces = placesResponse && placesResponse.length > 0
+    ? placesResponse.map(transformPlace)
     : fallbackPlaces.slice(0, 8);
 
-  const categories = categoriesResponse?.data
-    ? categoriesResponse.data.map((cat, i) => ({
+  const categories = categoriesResponse && categoriesResponse.length > 0
+    ? categoriesResponse.map((cat, i) => ({
         id: cat,
         label: cat,
         emoji: defaultCategories[i]?.emoji || "📍",
