@@ -127,10 +127,12 @@ export default function Search() {
 
   // Only fetch places when there's a search term or category filter
   const { data: categoriesResponse } = useCategories();
-  const shouldFetchPlaces = debouncedSearch.length > 0 || activeFilter !== "all";
+  // Always fetch places - no "all" filter anymore, fetch first category by default
+  const effectiveCategory = activeFilter || (categoriesResponse?.[0] || "");
+  const shouldFetchPlaces = debouncedSearch.length > 0 || !!effectiveCategory;
   const { data: placesResponse, isLoading: placesLoading } = usePlaces(
     shouldFetchPlaces ? {
-      category: activeFilter !== "all" ? activeFilter : undefined,
+      category: effectiveCategory || undefined,
       limit: 50,
       minRating: minRating > 0 ? minRating : 0.1,
       sortBy: 'rating',
@@ -140,19 +142,23 @@ export default function Search() {
   // Only search when user types something
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
-    category: activeFilter !== "all" ? activeFilter : undefined,
+    category: effectiveCategory || undefined,
     limit: 50,
   });
 
-  // Build filters from API or use defaults
+  // Build filters from API categories only (no "Tất cả")
   const apiCategories = categoriesResponse || [];
-  const filters = [
-    { id: "all", label: "Tất cả" },
-    ...apiCategories.map((cat) => {
-      const defaultCat = defaultCategories.find((c) => c.id === cat);
-      return { id: cat, label: defaultCat?.label || cat };
-    }),
-  ];
+  const filters = apiCategories.map((cat) => {
+    const defaultCat = defaultCategories.find((c) => c.id === cat);
+    return { id: cat, label: defaultCat?.label || cat };
+  });
+
+  // Set default filter to first category if not set
+  useEffect(() => {
+    if (!activeFilter && filters.length > 0) {
+      setActiveFilter(filters[0].id);
+    }
+  }, [filters, activeFilter]);
 
   // Transform API data (no mock-data fallback)
   const isSearching = debouncedSearch.length > 0;
@@ -165,7 +171,7 @@ export default function Search() {
       !isSearching ||
       place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       place.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = activeFilter === "all" || place.category === activeFilter;
+    const matchesFilter = !effectiveCategory || place.category === effectiveCategory;
     const matchesRating = minRating === 0 || place.rating >= minRating;
     return matchesSearch && matchesFilter && matchesRating;
   });
@@ -176,11 +182,7 @@ export default function Search() {
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
     const newParams = new URLSearchParams(searchParams);
-    if (filter === "all") {
-      newParams.delete("category");
-    } else {
-      newParams.set("category", filter);
-    }
+    newParams.set("category", filter);
     setSearchParams(newParams);
   };
 
