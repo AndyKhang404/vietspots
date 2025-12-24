@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCategories } from "@/hooks/useVietSpotAPI";
-import { transformPlace, fallbackPlaces, categories as defaultCategories, Place } from "@/data/places";
+import { transformPlace, categories as defaultCategories, Place } from "@/data/places";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import vietSpotAPI from "@/api/vietspot";
@@ -37,14 +37,27 @@ export default function Index() {
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=vi`
       );
       const data = await response.json();
-      // Try to get city from address components
-      const city = data.address?.city || 
-                   data.address?.town || 
-                   data.address?.municipality ||
-                   data.address?.state ||
-                   null;
-      console.log("Detected city from GPS:", city, data.address);
-      return city;
+
+      const rawCity =
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.municipality ||
+        data.address?.county ||
+        null;
+
+      const state: string | null = data.address?.state || null;
+
+      // Normalize for Vietnam big cities (Nominatim often returns districts like "Thành phố Thủ Đức")
+      const normalized = (() => {
+        const combined = `${rawCity || ""} ${state || ""}`.toLowerCase();
+        if (combined.includes("hồ chí minh") || combined.includes("ho chi minh")) return "Hồ Chí Minh";
+        if (combined.includes("hà nội") || combined.includes("ha noi")) return "Hà Nội";
+        if (combined.includes("đà nẵng") || combined.includes("da nang")) return "Đà Nẵng";
+        return rawCity || state;
+      })();
+
+      console.log("Detected city from GPS:", { rawCity, state, normalized, address: data.address });
+      return normalized;
     } catch (error) {
       console.error("Reverse geocoding error:", error);
       return null;
@@ -86,56 +99,46 @@ export default function Index() {
     getLocation();
   }, []);
 
-  // Fetch recommended places - using GPS city and rating > 4
+  // Fetch recommended places - prefer city match + rating >= 4
   useEffect(() => {
     if (!userLocation) return;
-    
+
     const fetchRecommended = async () => {
       setPlacesLoading(true);
       try {
-        // Use city filter if we have it, otherwise use coordinates
-        const places = await vietSpotAPI.getPlaces({ 
+        // If we successfully detected a city, ONLY recommend inside that city.
+        if (userCity) {
+          const places = await vietSpotAPI.getPlaces({
+            limit: 20,
+            city: userCity,
+            minRating: 4,
+            sortBy: "rating",
+          });
+
+          console.log("Recommended places fetched:", places.length, "for city:", userCity);
+          setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
+          return;
+        }
+
+        // If city is not available yet, fall back to GPS radius.
+        const places = await vietSpotAPI.getPlaces({
           limit: 20,
-          city: userCity || undefined, // Filter by detected city
           lat: userLocation.lat,
           lon: userLocation.lon,
-          maxDistance: 30, // Reduce to 30km to stay within city
-          minRating: 4, // Only places with rating > 4
-          sortBy: 'rating',
+          maxDistance: 30,
+          minRating: 4,
+          sortBy: "rating",
         });
-        
-        console.log("Recommended places fetched:", places.length, "for city:", userCity);
-        
-        if (places.length > 0) {
-          setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
-        } else {
-          // Fallback: get top rated places in the city without distance filter
-          const fallbackData = await vietSpotAPI.getPlaces({
-            limit: 10,
-            city: userCity || undefined,
-            minRating: 4,
-            sortBy: 'rating',
-          });
-          if (fallbackData.length > 0) {
-            setRecommendedPlaces(fallbackData.slice(0, 10).map(transformPlace));
-          } else {
-            // Last resort: any places with high rating
-            const anyPlaces = await vietSpotAPI.getPlaces({
-              limit: 10,
-              minRating: 4,
-              sortBy: 'rating',
-            });
-            setRecommendedPlaces(anyPlaces.length > 0 ? anyPlaces.slice(0, 10).map(transformPlace) : fallbackPlaces.slice(0, 10));
-          }
-        }
+
+        setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
       } catch (error) {
         console.error("Error fetching recommended places:", error);
-        setRecommendedPlaces(fallbackPlaces.slice(0, 10));
+        setRecommendedPlaces([]);
       } finally {
         setPlacesLoading(false);
       }
     };
-    
+
     fetchRecommended();
   }, [userLocation, userCity]);
 

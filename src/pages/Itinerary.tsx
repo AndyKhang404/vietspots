@@ -63,6 +63,7 @@ export default function Itinerary() {
     saveItinerary,
     deleteItinerary,
     getShareUrl,
+    setCurrentItinerary,
   } = useItinerary();
 
   const [activeTab, setActiveTab] = useState<"create" | "saved">("create");
@@ -366,11 +367,34 @@ export default function Itinerary() {
               itineraries.map((itinerary) => (
                 <div
                   key={itinerary.id}
-                  className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setCurrentItinerary(itinerary.itinerary_data);
+                    setTitle(itinerary.title);
+                    setDestination(itinerary.destination);
+                    setDays(itinerary.days);
+                    setBudget(itinerary.budget || "medium");
+                    setSelectedPreferences(itinerary.preferences || []);
+                    setActiveTab("create");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setCurrentItinerary(itinerary.itinerary_data);
+                      setTitle(itinerary.title);
+                      setDestination(itinerary.destination);
+                      setDays(itinerary.days);
+                      setBudget(itinerary.budget || "medium");
+                      setSelectedPreferences(itinerary.preferences || []);
+                      setActiveTab("create");
+                    }
+                  }}
+                  className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-bold text-lg">{itinerary.title}</h3>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -404,8 +428,8 @@ export default function Itinerary() {
                     <div className="flex flex-wrap gap-1 mb-4">
                       {itinerary.preferences.slice(0, 3).map((pref) => (
                         <Badge key={pref} variant="secondary" className="text-xs">
-                          {PREFERENCE_OPTIONS.find((p) => p.value === pref)
-                            ?.label || pref}
+                          {PREFERENCE_OPTIONS.find((p) => p.value === pref)?.label ||
+                            pref}
                         </Badge>
                       ))}
                     </div>
