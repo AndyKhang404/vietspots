@@ -71,6 +71,9 @@ export default function PlaceDetail() {
   const [newRating, setNewRating] = useState(5);
   const [newReviewContent, setNewReviewContent] = useState("");
   const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showRoute, setShowRoute] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
@@ -124,8 +127,8 @@ export default function PlaceDetail() {
       interactive: true,
     });
 
-    // Add marker
-    const marker = new maplibregl.Marker({ color: '#ef4444' })
+    // Add destination marker
+    new maplibregl.Marker({ color: '#ef4444' })
       .setLngLat([place.longitude, place.latitude])
       .addTo(map);
 
@@ -138,6 +141,135 @@ export default function PlaceDetail() {
       map.remove();
     };
   }, [place]);
+
+  // Add route to map when user location and showRoute are set
+  useEffect(() => {
+    if (!mapRef.current || !userLocation || !showRoute || !place?.latitude || !place?.longitude) return;
+
+    const map = mapRef.current;
+    const routeSourceId = 'route';
+    const routeLayerId = 'route-line';
+
+    // Add user location marker
+    const userMarkerEl = document.createElement('div');
+    userMarkerEl.className = 'user-location-marker';
+    userMarkerEl.style.width = '20px';
+    userMarkerEl.style.height = '20px';
+    userMarkerEl.style.backgroundColor = '#3b82f6';
+    userMarkerEl.style.borderRadius = '50%';
+    userMarkerEl.style.border = '3px solid white';
+    userMarkerEl.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+
+    new maplibregl.Marker({ element: userMarkerEl })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map);
+
+    // Fetch route from OSRM
+    const fetchRoute = async () => {
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${place.longitude},${place.latitude}?overview=full&geometries=geojson`
+        );
+        const data = await response.json();
+
+        if (data.routes && data.routes[0]) {
+          const routeGeometry = data.routes[0].geometry;
+
+          // Remove existing route layer/source if exists
+          if (map.getLayer(routeLayerId)) {
+            map.removeLayer(routeLayerId);
+          }
+          if (map.getSource(routeSourceId)) {
+            map.removeSource(routeSourceId);
+          }
+
+          // Add route source
+          map.addSource(routeSourceId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: routeGeometry,
+            },
+          });
+
+          // Add route layer
+          map.addLayer({
+            id: routeLayerId,
+            type: 'line',
+            source: routeSourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#3b82f6',
+              'line-width': 5,
+              'line-opacity': 0.8,
+            },
+          });
+
+          // Fit map to show entire route
+          const coordinates = routeGeometry.coordinates;
+          const bounds = coordinates.reduce(
+            (bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
+              return bounds.extend(coord as [number, number]);
+            },
+            new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+          );
+
+          map.fitBounds(bounds, { padding: 50 });
+
+          // Show route info
+          const distance = (data.routes[0].distance / 1000).toFixed(1);
+          const duration = Math.round(data.routes[0].duration / 60);
+          toast.success(`Khoảng cách: ${distance}km • Thời gian: ${duration} phút`);
+        }
+      } catch (error) {
+        console.error('Error fetching route:', error);
+        toast.error('Không thể tải lộ trình. Vui lòng thử lại.');
+      } finally {
+        setRouteLoading(false);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      fetchRoute();
+    } else {
+      map.on('load', fetchRoute);
+    }
+  }, [userLocation, showRoute, place]);
+
+  // Handle get directions - get user location and show route on map
+  const handleShowRouteOnMap = () => {
+    if (!place?.latitude || !place?.longitude) {
+      toast.error('Địa điểm không có tọa độ');
+      return;
+    }
+
+    setRouteLoading(true);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setShowRoute(true);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          toast.error('Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí.');
+          setRouteLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      toast.error('Trình duyệt không hỗ trợ định vị');
+      setRouteLoading(false);
+    }
+  };
 
   const handleSubmitReview = async () => {
     const success = await submitReview(newRating, newReviewContent, reviewImages);
@@ -425,9 +557,17 @@ export default function PlaceDetail() {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3">
-                <Button className="gap-2" onClick={handleOpenDirections}>
-                  <Navigation className="h-5 w-5" />
-                  Chỉ đường
+                <Button 
+                  className="gap-2" 
+                  onClick={handleShowRouteOnMap}
+                  disabled={routeLoading}
+                >
+                  {routeLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Navigation className="h-5 w-5" />
+                  )}
+                  {showRoute ? 'Đang hiển thị' : 'Chỉ đường'}
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={handleShare}>
                   <Share2 className="h-5 w-5" />

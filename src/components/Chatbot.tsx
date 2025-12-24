@@ -170,7 +170,7 @@ const DEFAULT_MESSAGE: Message = {
 
 export default function Chatbot() {
   const { t } = useTranslation();
-  const { favorites } = useFavorites();
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved">("chat");
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -822,22 +822,44 @@ export default function Chatbot() {
                           </div>
                         )}
 
-                        {/* Directions Button */}
-                        <Button 
-                          size="sm" 
-                          className="gap-2 bg-primary hover:bg-primary/90 mb-3"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (place.latitude && place.longitude) {
-                              window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
-                            } else {
-                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank');
-                            }
-                          }}
-                        >
-                          <Navigation className="h-4 w-4" />
-                          Chỉ đường
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mb-3">
+                          <Button 
+                            size="sm" 
+                            className="gap-2 bg-primary hover:bg-primary/90"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (place.latitude && place.longitude) {
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
+                              } else {
+                                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank');
+                              }
+                            }}
+                          >
+                            <Navigation className="h-4 w-4" />
+                            Chỉ đường
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={isFavorite(place.id) ? "default" : "outline"}
+                            className={cn("gap-2", isFavorite(place.id) && "bg-primary")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite({
+                                id: place.id,
+                                name: place.name,
+                                address: place.address,
+                                image: place.images[0],
+                                rating: place.rating,
+                                category: place.category,
+                              });
+                              toast.success(isFavorite(place.id) ? "Đã xóa khỏi danh sách yêu thích" : "Đã lưu vào danh sách yêu thích");
+                            }}
+                          >
+                            <Bookmark className={cn("h-4 w-4", isFavorite(place.id) && "fill-current")} />
+                            {isFavorite(place.id) ? "Đã lưu" : "Lưu"}
+                          </Button>
+                        </div>
 
                         {/* Image Gallery */}
                         {place.images.length > 0 && (
