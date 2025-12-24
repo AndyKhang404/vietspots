@@ -114,9 +114,11 @@ export default function PlaceDetail() {
       mapRef.current.remove();
     }
 
+    const trackAsiaKey = import.meta.env.VITE_TRACKASIA_PUBLIC_KEY || 'public_key';
+    
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://maps.track-asia.com/styles/v1/streets.json?key=public_key',
+      style: `https://maps.track-asia.com/styles/v1/streets.json?key=${trackAsiaKey}`,
       center: [place.longitude, place.latitude],
       zoom: 14,
       interactive: true,

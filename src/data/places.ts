@@ -62,7 +62,7 @@ export function transformPlace(place: PlaceInfo): Place {
   const formatStreetDistrict = (fullAddress: string | undefined, city?: string, district?: string): string => {
     if (!fullAddress && !district && !city) return '';
     
-    // Clean ZIP first
+    // Clean ZIP and Plus Code first
     const cleanAddr = cleanLocation(fullAddress);
     
     // Split by comma and clean each part
@@ -73,16 +73,16 @@ export function transformPlace(place: PlaceInfo): Place {
     // First part is usually street with number (e.g., "86 Phan Sào Nam")
     const streetPart = parts[0];
     
-    // Find district (Quận/District name like "Tân Bình", "Quận 1", etc.)
-    // Skip "Phường" parts, look for district
+    // Find district (Quận/District name like "Tân Bình", "Bình Chánh", "Quận 1", etc.)
+    // Skip "Phường", "Xã" parts and city names, look for district/huyện
     let districtPart = '';
     for (let i = 1; i < parts.length; i++) {
       const p = parts[i].toLowerCase();
-      // Skip phường, skip city names (Thành phố, TP, Việt Nam)
-      if (p.includes('phường') || p.includes('thành phố') || p.includes('việt nam') || p.startsWith('tp')) {
+      // Skip phường, xã, skip city names (Thành phố, TP, Việt Nam)
+      if (p.includes('phường') || p.includes('xã') || p.includes('thành phố') || p.includes('việt nam') || p.startsWith('tp')) {
         continue;
       }
-      // Found district
+      // Found district (Bình Chánh, Tân Bình, etc.)
       districtPart = parts[i];
       break;
     }
