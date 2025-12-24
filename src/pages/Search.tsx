@@ -38,14 +38,17 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Always fetch places on mount (not dependent on search term)
+  // Only fetch places when there's a search term or category filter
   const { data: categoriesResponse } = useCategories();
-  const { data: placesResponse, isLoading: placesLoading } = usePlaces({
-    category: activeFilter !== "all" ? activeFilter : undefined,
-    limit: 50,
-    minRating: 0.1,
-    sortBy: 'rating',
-  });
+  const shouldFetchPlaces = debouncedSearch.length > 0 || activeFilter !== "all";
+  const { data: placesResponse, isLoading: placesLoading } = usePlaces(
+    shouldFetchPlaces ? {
+      category: activeFilter !== "all" ? activeFilter : undefined,
+      limit: 50,
+      minRating: 0.1,
+      sortBy: 'rating',
+    } : { limit: 0 }
+  );
   
   // Only search when user types something
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({

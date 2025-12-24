@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, 
   ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark, 
-  Map as MapIcon, Clock, MapPinned, Filter, LocateFixed, Percent
+  Map as MapIcon, Clock, MapPinned, Filter, LocateFixed, Percent,
+  Plus, History, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useChatConversations } from "@/hooks/useChatConversations";
 import { fallbackPlaces, transformPlace } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import ChatbotMap from "./ChatbotMap";
@@ -171,29 +174,22 @@ const DEFAULT_MESSAGE: Message = {
 export default function Chatbot() {
   const { t } = useTranslation();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
+  const { user } = useAuth();
+  const {
+    conversations,
+    messages,
+    setMessages,
+    placeResults,
+    setPlaceResults,
+    startNewConversation,
+    loadConversation,
+    deleteConversation,
+  } = useChatConversations();
+  
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved">("chat");
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [DEFAULT_MESSAGE];
-      }
-    }
-    return [DEFAULT_MESSAGE];
-  });
-
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
-    }
-  }, [messages]);
+  const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved" | "history">("chat");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [selectedGps, setSelectedGps] = useState<string | null>(null);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [canScrollUp, setCanScrollUp] = useState(false);
@@ -447,6 +443,7 @@ export default function Chatbot() {
 
   const tabs = [
     { id: "chat" as const, label: "Chatbot", icon: MessageSquare },
+    { id: "history" as const, label: "Lịch sử", icon: History },
     { id: "form" as const, label: "Điền Form", icon: FileText },
     { id: "saved" as const, label: "Đã lưu", icon: Bookmark },
   ];
@@ -576,6 +573,17 @@ export default function Chatbot() {
             <>
               {/* Toolbar: Location + Filters */}
               <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-wrap">
+                {/* New Chat Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={startNewConversation}
+                >
+                  <Plus className="h-4 w-4" />
+                  Mới
+                </Button>
+                
                 {/* Location Button */}
                 <Button
                   variant={userLocation ? "default" : "outline"}
@@ -1028,6 +1036,70 @@ export default function Chatbot() {
                 </Button>
               </div>
             </div>
+          )}
+
+          {activeTab === "history" && (
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-3">
+                {!user ? (
+                  <div className="text-center py-12">
+                    <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">Đăng nhập để xem lịch sử</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Lịch sử chat sẽ được lưu khi bạn đăng nhập
+                    </p>
+                  </div>
+                ) : conversations.length > 0 ? (
+                  conversations.map((conv, index) => (
+                    <div
+                      key={conv.id}
+                      className="border border-border rounded-xl p-3 bg-card hover:bg-muted/50 cursor-pointer transition-colors animate-in fade-in slide-in-from-right-4 group"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                      onClick={() => {
+                        loadConversation(conv.id);
+                        setActiveTab('chat');
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-foreground text-sm truncate">
+                            {conv.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(conv.updatedAt).toLocaleDateString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteConversation(conv.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">Chưa có lịch sử chat</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Bắt đầu cuộc trò chuyện mới để lưu lịch sử
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           )}
 
           {activeTab === "saved" && (
