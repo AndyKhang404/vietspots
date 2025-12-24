@@ -42,11 +42,17 @@ export function transformPlace(place: PlaceInfo): Place {
     ? place.opening_hours as Record<string, string>
     : undefined;
   
-  // Clean address: remove ZIP code (5 digits at end after comma/space)
+  // Clean address: remove ZIP code (5-6 digits anywhere)
   const cleanLocation = (addr: string | undefined): string => {
     if (!addr) return '';
-    // Remove ZIP code pattern (e.g., ", 700000" or " 70000")
-    return addr.replace(/[,\s]+\d{5,6}\s*$/g, '').trim();
+    // Remove ZIP code patterns (e.g., "700000", "550000", etc.) anywhere in string
+    return addr
+      .replace(/\b\d{5,6}\b/g, '') // Remove 5-6 digit numbers
+      .replace(/,\s*,/g, ',') // Clean double commas
+      .replace(/,\s*$/g, '') // Remove trailing comma
+      .replace(/^\s*,/g, '') // Remove leading comma
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim();
   };
 
   const rawLocation = place.city || place.district || place.address?.split(',').slice(-2).join(',').trim() || "";

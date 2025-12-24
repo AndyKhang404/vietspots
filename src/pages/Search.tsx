@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
@@ -14,12 +14,21 @@ import { cn } from "@/lib/utils";
 
 export default function Search() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [activeFilter, setActiveFilter] = useState(searchParams.get("category") || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const { toggleFavorite, isFavorite } = useFavorites();
+  
+  // Sync activeFilter with URL params when component mounts or URL changes
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get("category");
+    if (categoryFromUrl && categoryFromUrl !== activeFilter) {
+      setActiveFilter(categoryFromUrl);
+    }
+  }, [searchParams]);
 
   // Debounce search term
   useEffect(() => {
@@ -171,8 +180,9 @@ export default function Search() {
               {filteredPlaces.map((place, index) => (
                 <div
                   key={place.id}
-                  className="animate-in fade-in slide-in-from-bottom-4"
+                  className="animate-in fade-in slide-in-from-bottom-4 cursor-pointer"
                   style={{ animationDelay: `${index * 30}ms` }}
+                  onClick={() => navigate(`/place/${place.id}`)}
                 >
                   <PlaceCard
                     {...place}
