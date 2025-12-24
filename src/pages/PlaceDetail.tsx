@@ -367,7 +367,7 @@ export default function PlaceDetail() {
                 {/* Address */}
                 <div className="flex items-start gap-3 text-muted-foreground p-4 bg-muted/50 rounded-xl">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <span>{place.address}</span>
+                  <span>{place.address?.replace(/\b\d{5,6}\b/g, '').replace(/,\s*,/g, ',').replace(/,\s*$/g, '').replace(/^\s*,/g, '').trim()}</span>
                 </div>
               </div>
 

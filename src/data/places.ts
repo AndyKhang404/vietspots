@@ -55,35 +55,46 @@ export function transformPlace(place: PlaceInfo): Place {
       .trim();
   };
   
-  // Format location as "Đường, Quận" from address
+  // Format location as "Số + Tên đường, Quận" from address
+  // Example: "86 Phan Sào Nam, Phường 11, Tân Bình, TP.HCM" -> "86 Phan Sào Nam, Tân Bình"
   const formatStreetDistrict = (fullAddress: string | undefined, city?: string, district?: string): string => {
     if (!fullAddress && !district && !city) return '';
     
-    // If we have district, use it
-    if (district) {
-      // Try to extract street from full address
-      const parts = fullAddress?.split(',').map(p => p.trim()) || [];
-      const street = parts.find(p => 
-        p.toLowerCase().includes('đường') || 
-        p.toLowerCase().includes('phố') ||
-        /^\d+\s/.test(p) // Starts with number (house number)
-      ) || parts[0];
-      
-      if (street && street !== district) {
-        return cleanLocation(`${street}, ${district}`);
+    // Clean ZIP first
+    const cleanAddr = cleanLocation(fullAddress);
+    
+    // Split by comma and clean each part
+    const parts = cleanAddr?.split(',').map(p => p.trim()).filter(Boolean) || [];
+    
+    if (parts.length === 0) return cleanLocation(city || '');
+    
+    // First part is usually street with number (e.g., "86 Phan Sào Nam")
+    const streetPart = parts[0];
+    
+    // Find district (Quận/District name like "Tân Bình", "Quận 1", etc.)
+    // Skip "Phường" parts, look for district
+    let districtPart = '';
+    for (let i = 1; i < parts.length; i++) {
+      const p = parts[i].toLowerCase();
+      // Skip phường, skip city names (Thành phố, TP, Việt Nam)
+      if (p.includes('phường') || p.includes('thành phố') || p.includes('việt nam') || p.startsWith('tp')) {
+        continue;
       }
-      return cleanLocation(district);
+      // Found district
+      districtPart = parts[i];
+      break;
     }
     
-    // Otherwise extract last 2 parts from address
-    const parts = fullAddress?.split(',').map(p => p.trim()).filter(Boolean) || [];
-    if (parts.length >= 2) {
-      // Get street and district (usually 2nd and 3rd from end, before city)
-      const streetPart = parts.slice(0, 2).join(', ');
-      return cleanLocation(streetPart);
+    // If we have district from API, prefer it
+    if (district && !districtPart) {
+      districtPart = district;
     }
     
-    return cleanLocation(city || fullAddress || '');
+    if (streetPart && districtPart) {
+      return `${streetPart}, ${districtPart}`;
+    }
+    
+    return streetPart || districtPart || cleanLocation(city || '');
   };
 
   const rawLocation = formatStreetDistrict(place.address, place.city, place.district);
