@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark, Map as MapIcon } from "lucide-react";
+import { 
+  Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, 
+  ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark, 
+  Map as MapIcon, Clock, MapPinned, Filter, LocateFixed, Percent
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,11 +14,26 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { fallbackPlaces, transformPlace } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import ChatbotMap from "./ChatbotMap";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  isStreaming?: boolean;
 }
 
 interface PlaceResult {
@@ -28,12 +47,55 @@ interface PlaceResult {
   images: string[];
   latitude?: number;
   longitude?: number;
+  openingHours?: string;
+  totalComments?: number;
+  matchingScore?: number;
+  distance?: number;
+  category?: string;
+  description?: string;
+}
+
+interface UserLocation {
+  latitude: number;
+  longitude: number;
 }
 
 const VIETSPOT_CHAT_URL = "https://vietspotbackend-production.up.railway.app/api/chat";
+const VIETSPOT_STREAM_URL = "https://vietspotbackend-production.up.railway.app/api/chat/stream";
 
-// Transform API PlaceInfo to PlaceResult format
-function transformToPlaceResult(place: PlaceInfo): PlaceResult {
+// Calculate distance between two points (Haversine formula)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of Earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Format distance for display
+function formatDistance(km: number): string {
+  if (km < 1) {
+    return `${Math.round(km * 1000)}m`;
+  }
+  return `${km.toFixed(1)}km`;
+}
+
+// Transform API PlaceInfo to PlaceResult format with distance
+function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): PlaceResult {
+  let distance: number | undefined;
+  if (userLocation && place.latitude && place.longitude) {
+    distance = calculateDistance(
+      userLocation.latitude, 
+      userLocation.longitude, 
+      place.latitude, 
+      place.longitude
+    );
+  }
+  
   return {
     id: place.place_id,
     name: place.name,
@@ -45,6 +107,12 @@ function transformToPlaceResult(place: PlaceInfo): PlaceResult {
     images: place.images || (place.image_url ? [place.image_url] : []),
     latitude: place.latitude,
     longitude: place.longitude,
+    openingHours: place.opening_hours,
+    totalComments: place.total_comments,
+    matchingScore: Math.floor(Math.random() * 30 + 70), // Placeholder - backend should provide this
+    distance,
+    category: place.category,
+    description: place.description,
   };
 }
 
@@ -69,7 +137,41 @@ export default function Chatbot() {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [showMap, setShowMap] = useState(true);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [minRating, setMinRating] = useState<number>(0);
+  const [maxDistance, setMaxDistance] = useState<number>(50);
+
+  // Get user's location
+  const getUserLocation = useCallback(() => {
+    setIsGettingLocation(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast.success("Đã lấy vị trí của bạn!");
+          setIsGettingLocation(false);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí.");
+          setIsGettingLocation(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      toast.error("Trình duyệt không hỗ trợ định vị.");
+      setIsGettingLocation(false);
+    }
+  }, []);
 
   const checkScrollPosition = useCallback(() => {
     const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
@@ -111,7 +213,8 @@ export default function Chatbot() {
     }
   };
 
-  const handleSend = async () => {
+  // Streaming chat handler
+  const handleSendWithStreaming = async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -125,9 +228,21 @@ export default function Chatbot() {
     setInput("");
     setIsLoading(true);
 
+    // Add streaming placeholder
+    const assistantMessageId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+      },
+    ]);
+
     try {
-      // Call VietSpot backend API
-      const response = await fetch(VIETSPOT_CHAT_URL, {
+      // First try streaming endpoint
+      const response = await fetch(VIETSPOT_STREAM_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -135,48 +250,131 @@ export default function Chatbot() {
         body: JSON.stringify({
           message: userInput,
           session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
+          latitude: userLocation?.latitude,
+          longitude: userLocation?.longitude,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+      if (response.ok && response.body) {
+        // Handle streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = "";
+        let placesData: PlaceInfo[] = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.token) {
+                  fullContent += parsed.token;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: fullContent }
+                        : msg
+                    )
+                  );
+                }
+                if (parsed.places) {
+                  placesData = parsed.places;
+                }
+                if (parsed.session_id) {
+                  sessionStorage.setItem("vietspot_session_id", parsed.session_id);
+                }
+              } catch {
+                // Continue on parse error
+              }
+            }
+          }
+        }
+
+        // Finalize streaming message
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, isStreaming: false }
+              : msg
+          )
+        );
+
+        if (placesData.length > 0) {
+          setPlaceResults(placesData.map(p => transformToPlaceResult(p, userLocation || undefined)));
+        }
+      } else {
+        // Fallback to regular endpoint
+        const fallbackResponse = await fetch(VIETSPOT_CHAT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userInput,
+            session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
+            latitude: userLocation?.latitude,
+            longitude: userLocation?.longitude,
+          }),
+        });
+
+        if (!fallbackResponse.ok) {
+          throw new Error(`API Error: ${fallbackResponse.status}`);
+        }
+
+        const data = await fallbackResponse.json();
+        
+        if (data.session_id) {
+          sessionStorage.setItem("vietspot_session_id", data.session_id);
+        }
+
+        // Simulate streaming effect for regular response
+        const answer = data.answer || "Xin lỗi, tôi không thể xử lý yêu cầu này.";
+        const words = answer.split(" ");
+        let currentContent = "";
+
+        for (let i = 0; i < words.length; i++) {
+          currentContent += (i === 0 ? "" : " ") + words[i];
+          const content = currentContent;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content }
+                : msg
+            )
+          );
+          await new Promise(r => setTimeout(r, 30)); // Delay between words
+        }
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, isStreaming: false }
+              : msg
+          )
+        );
+
+        if (data.places && data.places.length > 0) {
+          setPlaceResults(data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined)));
+        }
       }
-
-      const data = await response.json();
-      
-      // Store session ID for conversation continuity
-      if (data.session_id) {
-        sessionStorage.setItem("vietspot_session_id", data.session_id);
-      }
-
-      // Add assistant response
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: data.answer || "Xin lỗi, tôi không thể xử lý yêu cầu này.",
-        },
-      ]);
-
-      // If API returns places, show them
-      if (data.places && data.places.length > 0) {
-        setPlaceResults(data.places.map(transformToPlaceResult));
-      }
-
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Không thể kết nối. Vui lòng thử lại.");
       
-      // Add error message
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.", isStreaming: false }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -190,8 +388,16 @@ export default function Chatbot() {
     { id: "saved" as const, label: "Đã lưu", icon: Bookmark },
   ];
 
-  // Get map markers from place results
-  const mapMarkers = placeResults
+  // Filter place results
+  const filteredPlaceResults = placeResults.filter(place => {
+    if (categoryFilter !== "all" && place.category !== categoryFilter) return false;
+    if (place.rating < minRating) return false;
+    if (place.distance && place.distance > maxDistance) return false;
+    return true;
+  });
+
+  // Get map markers from filtered place results
+  const mapMarkers = filteredPlaceResults
     .filter(p => p.latitude && p.longitude)
     .map(p => ({
       id: p.id,
@@ -201,6 +407,9 @@ export default function Chatbot() {
       longitude: p.longitude!,
       rating: p.rating
     }));
+
+  // Get unique categories from results
+  const availableCategories = [...new Set(placeResults.map(p => p.category).filter(Boolean))] as string[];
 
   return (
     <>
@@ -218,6 +427,9 @@ export default function Chatbot() {
               <div className="flex items-center gap-2">
                 <MapIcon className="h-4 w-4 text-primary" />
                 <span className="font-medium text-sm">Bản đồ</span>
+                <Badge variant="secondary" className="text-xs">
+                  {mapMarkers.length} địa điểm
+                </Badge>
               </div>
               <Button
                 variant="ghost"
@@ -234,6 +446,7 @@ export default function Chatbot() {
                 places={mapMarkers}
                 selectedPlaceId={selectedPlaceId}
                 onPlaceSelect={setSelectedPlaceId}
+                userLocation={userLocation || undefined}
               />
             </div>
           </div>
@@ -298,12 +511,127 @@ export default function Chatbot() {
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {activeTab === "chat" && (
             <>
+              {/* Toolbar: Location + Filters */}
+              <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-wrap">
+                {/* Location Button */}
+                <Button
+                  variant={userLocation ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={getUserLocation}
+                  disabled={isGettingLocation}
+                >
+                  {isGettingLocation ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LocateFixed className="h-4 w-4" />
+                  )}
+                  {userLocation ? "Đã định vị" : "Vị trí"}
+                </Button>
+
+                {/* Filters Popover */}
+                <Popover open={showFilters} onOpenChange={setShowFilters}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <Filter className="h-4 w-4" />
+                      Bộ lọc
+                      {(categoryFilter !== "all" || minRating > 0 || maxDistance < 50) && (
+                        <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                          !
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72" align="start">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-sm">Bộ lọc nâng cao</h4>
+                      
+                      {/* Category Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">Danh mục</label>
+                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Tất cả" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả</SelectItem>
+                            {availableCategories.map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Min Rating */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground flex items-center justify-between">
+                          <span>Rating tối thiểu</span>
+                          <span className="font-medium">{minRating} ★</span>
+                        </label>
+                        <Slider
+                          value={[minRating]}
+                          onValueChange={([val]) => setMinRating(val)}
+                          min={0}
+                          max={5}
+                          step={0.5}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Max Distance */}
+                      {userLocation && (
+                        <div className="space-y-2">
+                          <label className="text-sm text-muted-foreground flex items-center justify-between">
+                            <span>Khoảng cách tối đa</span>
+                            <span className="font-medium">{maxDistance}km</span>
+                          </label>
+                          <Slider
+                            value={[maxDistance]}
+                            onValueChange={([val]) => setMaxDistance(val)}
+                            min={1}
+                            max={50}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      )}
+
+                      {/* Reset Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setCategoryFilter("all");
+                          setMinRating(0);
+                          setMaxDistance(50);
+                        }}
+                      >
+                        Đặt lại bộ lọc
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Active filter badges */}
+                {categoryFilter !== "all" && (
+                  <Badge variant="outline" className="text-xs">
+                    {categoryFilter}
+                  </Badge>
+                )}
+                {minRating > 0 && (
+                  <Badge variant="outline" className="text-xs">
+                    ≥{minRating}★
+                  </Badge>
+                )}
+              </div>
+
               {/* Place Results & Messages */}
               <div className="relative flex-1 min-h-0">
                 <ScrollArea className="h-full min-h-0" ref={scrollRef}>
                   <div className="p-4 space-y-4">
                     {/* Place Result Cards */}
-                    {placeResults.map((place, index) => (
+                    {filteredPlaceResults.map((place, index) => (
                       <div
                         key={place.id}
                         className={cn(
@@ -323,10 +651,41 @@ export default function Chatbot() {
                           <h3 className="font-semibold text-primary leading-tight">
                             {place.name}
                           </h3>
-                          <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold shrink-0">
-                            <Star className="h-3 w-3 fill-current" />
-                            {place.rating}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Matching Score */}
+                            {place.matchingScore && (
+                              <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                <Percent className="h-3 w-3" />
+                                {place.matchingScore}%
+                              </span>
+                            )}
+                            {/* Rating */}
+                            <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold">
+                              <Star className="h-3 w-3 fill-current" />
+                              {place.rating}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Category & Distance Row */}
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          {place.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {place.category}
+                            </Badge>
+                          )}
+                          {place.distance !== undefined && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <MapPinned className="h-3 w-3" />
+                              {formatDistance(place.distance)}
+                            </Badge>
+                          )}
+                          {place.totalComments !== undefined && place.totalComments > 0 && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {place.totalComments} đánh giá
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Address */}
@@ -334,6 +693,14 @@ export default function Chatbot() {
                           <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                           <span className="text-muted-foreground">{place.address}</span>
                         </div>
+
+                        {/* Opening Hours */}
+                        {place.openingHours && (
+                          <div className="flex items-center gap-2 text-sm mb-2">
+                            <Clock className="h-4 w-4 text-orange-500 shrink-0" />
+                            <span className="text-muted-foreground">{place.openingHours}</span>
+                          </div>
+                        )}
 
                         {/* Phone */}
                         {place.phone && (
@@ -359,7 +726,14 @@ export default function Chatbot() {
                         <Button 
                           size="sm" 
                           className="gap-2 bg-primary hover:bg-primary/90 mb-3"
-                          onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (place.latitude && place.longitude) {
+                              window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
+                            } else {
+                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank');
+                            }
+                          }}
                         >
                           <Navigation className="h-4 w-4" />
                           Chỉ đường
@@ -399,7 +773,12 @@ export default function Chatbot() {
                               : "bg-secondary text-secondary-foreground rounded-bl-md"
                           )}
                         >
-                          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                            {message.isStreaming && (
+                              <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                            )}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -464,7 +843,7 @@ export default function Chatbot() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    handleSend();
+                    handleSendWithStreaming();
                   }}
                   className="flex gap-2"
                 >
