@@ -29,11 +29,13 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Fetch data from API
+  // Fetch data from API - match mobile params
   const { data: categoriesResponse } = useCategories();
   const { data: placesResponse, isLoading: placesLoading } = usePlaces({
     category: activeFilter !== "all" ? activeFilter : undefined,
     limit: 50,
+    minRating: 0.1, // Only get places with rating
+    sortBy: 'rating',
   });
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
