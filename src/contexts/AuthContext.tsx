@@ -63,6 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Clear chat history on logout
+    localStorage.removeItem('vietspots_chat_history');
+    sessionStorage.removeItem('vietspot_session_id');
     await supabase.auth.signOut();
   };
 
