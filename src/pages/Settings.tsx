@@ -48,6 +48,9 @@ export default function Settings() {
   
   // Profile form state
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || "");
+  const [phone, setPhone] = useState(user?.user_metadata?.phone || "");
+  const [bio, setBio] = useState(user?.user_metadata?.bio || "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   
@@ -67,7 +70,12 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName }
+        data: { 
+          full_name: fullName,
+          phone: phone,
+          bio: bio,
+          avatar_url: avatarUrl
+        }
       });
       
       if (error) throw error;
@@ -324,11 +332,32 @@ export default function Settings() {
 
       {/* Profile Dialog */}
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Thông tin cá nhân</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
+            {/* Avatar preview */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="h-10 w-10 text-primary" />
+                )}
+              </div>
+              <div className="w-full">
+                <Label htmlFor="avatarUrl">URL ảnh đại diện</Label>
+                <Input 
+                  id="avatarUrl" 
+                  value={avatarUrl} 
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="mt-1.5" 
+                />
+              </div>
+            </div>
+            
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={user?.email || ""} disabled className="mt-1.5" />
@@ -339,9 +368,50 @@ export default function Settings() {
                 id="fullName" 
                 value={fullName} 
                 onChange={(e) => setFullName(e.target.value)}
+                placeholder="Nhập họ và tên của bạn"
                 className="mt-1.5" 
               />
             </div>
+            <div>
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <Input 
+                id="phone" 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0123 456 789"
+                className="mt-1.5" 
+              />
+            </div>
+            <div>
+              <Label htmlFor="bio">Giới thiệu bản thân</Label>
+              <Input 
+                id="bio" 
+                value={bio} 
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tôi yêu thích du lịch..."
+                className="mt-1.5" 
+              />
+            </div>
+            
+            {/* Account info */}
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground mb-2">Thông tin tài khoản</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ngày tạo tài khoản:</span>
+                  <span className="text-foreground">
+                    {user?.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Đăng nhập gần nhất:</span>
+                  <span className="text-foreground">
+                    {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('vi-VN') : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
             <Button onClick={handleSaveProfile} className="w-full">
               Lưu thay đổi
             </Button>
