@@ -3,21 +3,42 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X, Star, Clock, Navigation, Heart, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePlaces, useSearchPlaces, useCategories } from "@/hooks/useVietSpotAPI";
 import { transformPlace, categories as defaultCategories } from "@/data/places";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+interface SavedFilter {
+  id: string;
+  name: string;
+  minRating: number;
+  maxDistance: number;
+  openNow: boolean;
+}
+
+const SAVED_FILTERS_KEY = "vietspots_saved_filters";
 
 export default function Search() {
   const { t } = useTranslation();
@@ -28,8 +49,65 @@ export default function Search() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [minRating, setMinRating] = useState(0);
+  const [maxDistance, setMaxDistance] = useState(0);
+  const [openNow, setOpenNow] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [filterName, setFilterName] = useState("");
   const { toggleFavorite, isFavorite } = useFavorites();
+
+  // Load saved filters from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_FILTERS_KEY);
+    if (saved) {
+      try {
+        setSavedFilters(JSON.parse(saved));
+      } catch (e) {
+        console.error("Error loading saved filters:", e);
+      }
+    }
+  }, []);
+
+  const activeFiltersCount = [minRating > 0, maxDistance > 0, openNow].filter(Boolean).length;
+
+  const handleSaveFilter = () => {
+    if (!filterName.trim()) {
+      toast.error("Vui lòng nhập tên bộ lọc");
+      return;
+    }
+    const newFilter: SavedFilter = {
+      id: Date.now().toString(),
+      name: filterName.trim(),
+      minRating,
+      maxDistance,
+      openNow,
+    };
+    const updated = [...savedFilters, newFilter];
+    setSavedFilters(updated);
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(updated));
+    setFilterName("");
+    toast.success("Đã lưu bộ lọc!");
+  };
+
+  const handleLoadFilter = (filter: SavedFilter) => {
+    setMinRating(filter.minRating);
+    setMaxDistance(filter.maxDistance);
+    setOpenNow(filter.openNow);
+    toast.success(`Đã áp dụng bộ lọc "${filter.name}"`);
+  };
+
+  const handleDeleteFilter = (id: string) => {
+    const updated = savedFilters.filter((f) => f.id !== id);
+    setSavedFilters(updated);
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(updated));
+    toast.success("Đã xóa bộ lọc");
+  };
+
+  const handleClearFilters = () => {
+    setMinRating(0);
+    setMaxDistance(0);
+    setOpenNow(false);
+  };
   
   // Sync activeFilter with URL params when component mounts or URL changes
   useEffect(() => {
@@ -131,61 +209,160 @@ export default function Search() {
             <Popover open={filterOpen} onOpenChange={setFilterOpen}>
               <PopoverTrigger asChild>
                 <Button 
-                  variant={minRating > 0 ? "default" : "outline"} 
+                  variant={activeFiltersCount > 0 ? "default" : "outline"} 
                   size="icon" 
                   className="h-12 w-12 rounded-xl relative"
                 >
                   <SlidersHorizontal className="h-5 w-5" />
-                  {minRating > 0 && (
+                  {activeFiltersCount > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
-                      1
+                      {activeFiltersCount}
                     </span>
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72" align="end">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Bộ lọc nâng cao</h4>
-                    {minRating > 0 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 px-2 text-xs"
-                        onClick={() => setMinRating(0)}
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Xóa bộ lọc
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-3">
+              <PopoverContent className="w-80" align="end">
+                <ScrollArea className="max-h-[70vh]">
+                  <div className="space-y-4 p-1">
                     <div className="flex items-center justify-between">
-                      <Label>Rating tối thiểu</Label>
-                      <span className="text-sm font-medium text-primary">
-                        {minRating > 0 ? `${minRating}+ sao` : "Tất cả"}
-                      </span>
+                      <h4 className="font-semibold">Bộ lọc nâng cao</h4>
+                      {activeFiltersCount > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-2 text-xs"
+                          onClick={handleClearFilters}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Xóa tất cả
+                        </Button>
+                      )}
                     </div>
-                    <Slider
-                      value={[minRating]}
-                      onValueChange={(value) => setMinRating(value[0])}
-                      min={0}
-                      max={5}
-                      step={0.5}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Tất cả</span>
-                      <span>5 sao</span>
+
+                    {/* Rating Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <Label>Rating tối thiểu</Label>
+                        <span className="ml-auto text-sm font-medium text-primary">
+                          {minRating > 0 ? `${minRating}+ sao` : "Tất cả"}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[minRating]}
+                        onValueChange={(value) => setMinRating(value[0])}
+                        min={0}
+                        max={5}
+                        step={0.5}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Tất cả</span>
+                        <span>5 sao</span>
+                      </div>
                     </div>
+
+                    <Separator />
+
+                    {/* Distance Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Navigation className="h-4 w-4 text-primary" />
+                        <Label>Khoảng cách tối đa</Label>
+                        <span className="ml-auto text-sm font-medium text-primary">
+                          {maxDistance > 0 ? `${maxDistance} km` : "Không giới hạn"}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[maxDistance]}
+                        onValueChange={(value) => setMaxDistance(value[0])}
+                        min={0}
+                        max={50}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Không giới hạn</span>
+                        <span>50 km</span>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Open Now Filter */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-green-500" />
+                        <Label>Đang mở cửa</Label>
+                      </div>
+                      <Switch
+                        checked={openNow}
+                        onCheckedChange={setOpenNow}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Save Filter */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Lưu bộ lọc yêu thích</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Tên bộ lọc..."
+                          value={filterName}
+                          onChange={(e) => setFilterName(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={handleSaveFilter}
+                          disabled={!filterName.trim() || activeFiltersCount === 0}
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Saved Filters */}
+                    {savedFilters.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Bộ lọc đã lưu</Label>
+                        <div className="space-y-1">
+                          {savedFilters.map((filter) => (
+                            <div
+                              key={filter.id}
+                              className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                            >
+                              <button
+                                className="flex-1 text-left text-sm font-medium"
+                                onClick={() => handleLoadFilter(filter)}
+                              >
+                                <Heart className="h-3 w-3 inline mr-1.5 text-primary" />
+                                {filter.name}
+                              </button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleDeleteFilter(filter.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button 
+                      className="w-full" 
+                      onClick={() => setFilterOpen(false)}
+                    >
+                      Áp dụng
+                    </Button>
                   </div>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => setFilterOpen(false)}
-                  >
-                    Áp dụng
-                  </Button>
-                </div>
+                </ScrollArea>
               </PopoverContent>
             </Popover>
             <div className="hidden lg:flex border border-border rounded-xl overflow-hidden">
