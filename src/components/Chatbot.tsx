@@ -196,6 +196,7 @@ export default function Chatbot() {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [showMap, setShowMap] = useState(true);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [routeToPlaceId, setRouteToPlaceId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -512,6 +513,12 @@ export default function Chatbot() {
                 selectedPlaceId={selectedPlaceId}
                 onPlaceSelect={setSelectedPlaceId}
                 userLocation={userLocation || undefined}
+                routeToPlaceId={routeToPlaceId}
+                onRouteRequest={(placeId) => {
+                  setRouteToPlaceId(placeId);
+                  setSelectedPlaceId(null);
+                }}
+                onRouteClear={() => setRouteToPlaceId(null)}
               />
             </div>
           </div>
@@ -843,7 +850,35 @@ export default function Chatbot() {
                             onClick={(e) => {
                               e.stopPropagation();
                               if (place.latitude && place.longitude) {
-                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
+                                if (userLocation) {
+                                  // Show route on map
+                                  setRouteToPlaceId(place.id);
+                                  setSelectedPlaceId(null);
+                                  if (!showMap) setShowMap(true);
+                                } else {
+                                  // Get location first, then show route
+                                  toast.info('Đang lấy vị trí của bạn...');
+                                  if (navigator.geolocation) {
+                                    navigator.geolocation.getCurrentPosition(
+                                      (position) => {
+                                        setUserLocation({
+                                          latitude: position.coords.latitude,
+                                          longitude: position.coords.longitude,
+                                        });
+                                        setRouteToPlaceId(place.id);
+                                        setSelectedPlaceId(null);
+                                        if (!showMap) setShowMap(true);
+                                      },
+                                      () => {
+                                        // Fallback to Google Maps if location fails
+                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
+                                      },
+                                      { enableHighAccuracy: true, timeout: 10000 }
+                                    );
+                                  } else {
+                                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
+                                  }
+                                }
                               } else {
                                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank');
                               }
