@@ -277,7 +277,7 @@ export default function Index() {
           {places.map((place, index) => (
             <div
               key={place.id}
-              className="w-[200px] shrink-0 animate-in fade-in slide-in-from-right-4"
+              className="w-[260px] shrink-0 animate-in fade-in slide-in-from-right-4"
               style={{ animationDelay: `${index * 50}ms` }}
               onClick={() => navigate(`/place/${place.id}`)}
             >
@@ -328,27 +328,6 @@ export default function Index() {
                 readOnly
               />
             </div>
-          </div>
-        </div>
-
-        {/* Categories */}
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Danh mục phổ biến</h3>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {categories.map((cat, index) => (
-              <button
-                key={cat.id}
-                className="flex items-center gap-2 px-5 py-3 bg-card border border-border rounded-xl text-sm font-medium text-foreground whitespace-nowrap hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200 hover:scale-105 hover:shadow-lg animate-in fade-in slide-in-from-left-2"
-                style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => navigate(`/search?category=${cat.id}`)}
-              >
-                <span className="text-lg">{cat.emoji}</span>
-                <span>{cat.label}</span>
-              </button>
-            ))}
           </div>
         </div>
 

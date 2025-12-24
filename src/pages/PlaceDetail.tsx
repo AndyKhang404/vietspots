@@ -116,7 +116,7 @@ export default function PlaceDetail() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://maps.track-asia.com/styles/v1/streets.json?key=public_key',
       center: [place.longitude, place.latitude],
       zoom: 14,
       interactive: true,
@@ -367,7 +367,7 @@ export default function PlaceDetail() {
                 {/* Address */}
                 <div className="flex items-start gap-3 text-muted-foreground p-4 bg-muted/50 rounded-xl">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <span>{place.address?.replace(/\b\d{5,6}\b/g, '').replace(/,\s*,/g, ',').replace(/,\s*$/g, '').replace(/^\s*,/g, '').trim()}</span>
+                  <span>{place.address?.replace(/\b[A-Z0-9]{4,}\+[A-Z0-9]{2,}\b/gi, '').replace(/\b\d{5,6}\b/g, '').replace(/,\s*,/g, ',').replace(/,\s*$/g, '').replace(/^\s*,/g, '').trim()}</span>
                 </div>
               </div>
 
