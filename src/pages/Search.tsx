@@ -178,7 +178,14 @@ export default function Search() {
                   <PlaceCard
                     {...place}
                     isFavorite={isFavorite(place.id)}
-                    onFavoriteToggle={toggleFavorite}
+                    onFavoriteToggle={() => toggleFavorite({
+                      id: place.id,
+                      name: place.name,
+                      address: place.location,
+                      image: place.image,
+                      rating: place.rating,
+                      category: place.category,
+                    })}
                     className={viewMode === "list" ? "flex-row" : ""}
                   />
                 </div>

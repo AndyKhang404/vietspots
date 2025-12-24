@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Home, Heart, Bell, Settings, Search, MapPin, User } from "lucide-react";
+import { Home, Heart, Bell, Settings, Search, MapPin, User, Calendar } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,8 +17,8 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { icon: Home, label: t('nav.home'), path: "/" },
     { icon: Search, label: t('nav.search'), path: "/search" },
+    { icon: Calendar, label: "Lịch trình", path: "/itinerary" },
     { icon: Heart, label: t('nav.favorites'), path: "/favorites" },
-    { icon: Bell, label: t('nav.notifications'), path: "/notifications" },
     { icon: Settings, label: t('nav.settings'), path: "/settings" },
   ];
 
