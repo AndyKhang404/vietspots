@@ -36,10 +36,10 @@ export function useReviews(placeId?: string) {
 
     setLoading(true);
     try {
-      // Fetch from backend API
-      const apiResponse = await vietSpotAPI.getPlaceComments(placeId);
-      
-      // Fetch from local Supabase
+      // Fetch from backend API (Railway) - returns raw array
+      const apiComments = await vietSpotAPI.getPlaceComments(placeId);
+
+      // Fetch from local database
       const { data: localReviews, error } = await supabase
         .from("reviews")
         .select(`
@@ -62,7 +62,7 @@ export function useReviews(placeId?: string) {
         profiles?.map((p) => [p.user_id, { name: p.full_name, avatar: p.avatar_url }]) || []
       );
 
-      // Combine reviews
+      // Format local reviews
       const localFormatted: Review[] = (localReviews || []).map((r) => ({
         id: r.id,
         user_id: r.user_id,
@@ -81,22 +81,25 @@ export function useReviews(placeId?: string) {
         user_avatar: profileMap.get(r.user_id)?.avatar || undefined,
       }));
 
-      // Format API reviews
-      const apiFormatted: Review[] = (apiResponse.data || []).map((r) => ({
-        id: r.comment_id,
-        user_id: r.user_id,
-        place_id: r.place_id,
-        rating: r.rating,
-        content: r.content,
-        created_at: r.created_at,
-        updated_at: r.updated_at || r.created_at,
-        images: (r.images || []).map((img) => ({
-          id: img.image_id,
-          review_id: r.comment_id,
-          image_url: img.url,
-          created_at: img.created_at,
-        })),
-        user_name: "Du khách",
+      // Format API comments to Review shape
+      const apiFormatted: Review[] = (apiComments || []).map((c: any) => ({
+        id: c.id,
+        user_id: c.user_id ?? "",
+        place_id: c.place_id,
+        rating: Number(c.rating) || 0,
+        content: c.text ?? null,
+        created_at: c.date,
+        updated_at: c.date,
+        images: (c.images || []).map((img: any, idx: number) => {
+          const url = typeof img === "string" ? img : img?.url;
+          return {
+            id: (typeof img === "object" && img?.id) ? img.id : `${c.id}_${idx}`,
+            review_id: c.id,
+            image_url: url,
+            created_at: c.date,
+          };
+        }).filter((img: any) => Boolean(img.image_url)),
+        user_name: c.author || "Du khách",
       }));
 
       // Combine and sort by date

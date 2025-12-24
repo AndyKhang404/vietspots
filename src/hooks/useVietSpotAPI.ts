@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import vietSpotAPI, { PlaceInfo, ChatRequest, ChatResponse } from "@/api/vietspot";
+import vietSpotAPI, { PlaceInfo, ChatRequest, ChatResponse, CommentResponse } from "@/api/vietspot";
 
 // Places hooks - matching mobile app params
 export function usePlaces(params?: {
@@ -62,7 +62,7 @@ export function usePlaceComments(
   placeId: string,
   params?: { skip?: number; limit?: number }
 ) {
-  return useQuery({
+  return useQuery<CommentResponse[]>({
     queryKey: ["placeComments", placeId, params],
     queryFn: () => vietSpotAPI.getPlaceComments(placeId, params),
     enabled: !!placeId,

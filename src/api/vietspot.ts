@@ -29,14 +29,14 @@ export interface PlaceInfo {
 }
 
 export interface CommentResponse {
-  comment_id: string;
+  id: string;
   place_id: string;
-  user_id: string;
-  content: string;
+  user_id: string | null;
+  author: string | null;
   rating: number;
-  created_at: string;
-  updated_at?: string;
-  images?: ImageResponse[];
+  text: string | null;
+  date: string;
+  images: Array<{ id?: string; url?: string } | string>;
 }
 
 export interface ImageResponse {
@@ -194,15 +194,25 @@ class VietSpotAPI {
   async getPlaceComments(
     placeId: string,
     params?: { skip?: number; limit?: number }
-  ): Promise<APIResponse<CommentResponse[]>> {
+  ): Promise<CommentResponse[]> {
     const searchParams = new URLSearchParams();
     if (params?.skip) searchParams.set("skip", params.skip.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
 
     const query = searchParams.toString();
-    return this.request(
+    const res = await this.request<any>(
       `/api/places/${placeId}/comments${query ? `?${query}` : ""}`
     );
+
+    // Railway API currently returns a raw array (mobile expects this)
+    if (Array.isArray(res)) return res as CommentResponse[];
+
+    // Backward compatible: if API is wrapped
+    if (res && typeof res === "object" && Array.isArray(res.data)) {
+      return res.data as CommentResponse[];
+    }
+
+    return [];
   }
 
   // Images endpoints
