@@ -630,7 +630,44 @@ export default function Chatbot() {
               <div className="relative flex-1 min-h-0">
                 <ScrollArea className="h-full min-h-0" ref={scrollRef}>
                   <div className="p-4 space-y-4">
-                    {/* Place Result Cards */}
+                    {/* Chat Messages */}
+                    {messages.map((message, index) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                          message.role === "user" ? "justify-end" : "justify-start"
+                        )}
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
+                            message.role === "user"
+                              ? "bg-primary text-primary-foreground rounded-br-md"
+                              : "bg-secondary text-secondary-foreground rounded-bl-md"
+                          )}
+                        >
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                            {message.isStreaming && (
+                              <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+
+                    {isLoading && messages[messages.length - 1]?.role === "user" && (
+                      <div className="flex justify-start">
+                        <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          <span className="text-sm text-muted-foreground">VietSpots AI đang suy nghĩ...</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Place Result Cards - Below messages */}
                     {filteredPlaceResults.map((place, index) => (
                       <div
                         key={place.id}
@@ -648,7 +685,7 @@ export default function Chatbot() {
                       >
                         {/* Place Header */}
                         <div className="flex items-start justify-between gap-3 mb-3">
-                          <h3 className="font-semibold text-primary leading-tight">
+                          <h3 className="font-bold text-primary leading-tight">
                             {place.name}
                           </h3>
                           <div className="flex items-center gap-2 shrink-0">
@@ -755,42 +792,6 @@ export default function Chatbot() {
                       </div>
                     ))}
 
-                    {/* Chat Messages */}
-                    {messages.map((message, index) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
-                          message.role === "user" ? "justify-end" : "justify-start"
-                        )}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground rounded-br-md"
-                              : "bg-secondary text-secondary-foreground rounded-bl-md"
-                          )}
-                        >
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
-                            {message.isStreaming && (
-                              <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {isLoading && messages[messages.length - 1]?.role === "user" && (
-                      <div className="flex justify-start">
-                        <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </ScrollArea>
 
