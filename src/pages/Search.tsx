@@ -42,7 +42,7 @@ export default function Search() {
   });
 
   // Build filters from API or use defaults
-  const apiCategories = categoriesResponse?.data || [];
+  const apiCategories = categoriesResponse || [];
   const filters = [
     { id: "all", label: "Tất cả" },
     ...apiCategories.map((cat) => {
@@ -54,8 +54,8 @@ export default function Search() {
   // Transform API data or use fallback
   const isSearching = debouncedSearch.length > 0;
   const rawPlaces = isSearching
-    ? searchResponse?.data || []
-    : placesResponse?.data || [];
+    ? searchResponse || []
+    : placesResponse || [];
 
   const places = rawPlaces.length > 0
     ? rawPlaces.map(transformPlace)

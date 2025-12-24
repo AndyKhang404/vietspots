@@ -1,9 +1,10 @@
 // VietSpot Backend API Client
 const API_BASE_URL = "https://vietspotbackend-production.up.railway.app";
 
-// Types based on API schema
+// Types based on API schema - matching actual API response
 export interface PlaceInfo {
-  place_id: string;
+  id: string;
+  place_id?: string;
   name: string;
   address: string;
   city?: string;
@@ -13,12 +14,15 @@ export interface PlaceInfo {
   category?: string;
   phone?: string;
   website?: string;
-  opening_hours?: string;
+  opening_hours?: Record<string, string> | string;
   rating?: number;
+  rating_count?: number;
   total_comments?: number;
   image_url?: string;
-  images?: string[];
+  images?: { id: string; url: string }[];
   description?: string;
+  about?: Record<string, unknown>;
+  coordinates?: { lat: number; lon: number };
   created_at?: string;
   updated_at?: string;
 }
@@ -107,7 +111,7 @@ class VietSpotAPI {
     limit?: number;
     category?: string;
     city?: string;
-  }): Promise<APIResponse<PlaceInfo[]>> {
+  }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
     if (params?.skip) searchParams.set("skip", params.skip.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
@@ -118,7 +122,7 @@ class VietSpotAPI {
     return this.request(`/api/places${query ? `?${query}` : ""}`);
   }
 
-  async getPlace(placeId: string): Promise<APIResponse<PlaceInfo>> {
+  async getPlace(placeId: string): Promise<PlaceInfo> {
     return this.request(`/api/places/${placeId}`);
   }
 
@@ -127,7 +131,7 @@ class VietSpotAPI {
     category?: string;
     city?: string;
     limit?: number;
-  }): Promise<APIResponse<PlaceInfo[]>> {
+  }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
     searchParams.set("q", params.q);
     if (params.category) searchParams.set("category", params.category);
@@ -142,7 +146,7 @@ class VietSpotAPI {
     longitude: number;
     radius?: number;
     limit?: number;
-  }): Promise<APIResponse<PlaceInfo[]>> {
+  }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
     searchParams.set("latitude", params.latitude.toString());
     searchParams.set("longitude", params.longitude.toString());
@@ -152,7 +156,7 @@ class VietSpotAPI {
     return this.request(`/api/places/nearby?${searchParams.toString()}`);
   }
 
-  async getCategories(): Promise<APIResponse<string[]>> {
+  async getCategories(): Promise<string[]> {
     return this.request("/api/places/categories");
   }
 
