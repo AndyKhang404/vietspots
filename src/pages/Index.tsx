@@ -25,32 +25,65 @@ export default function Index() {
   const [placesLoading, setPlacesLoading] = useState(true);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [userCity, setUserCity] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   
   const { data: categoriesResponse } = useCategories();
 
+  // Reverse geocode to get city name from coordinates
+  const getCityFromCoords = async (lat: number, lon: number): Promise<string | null> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=vi`
+      );
+      const data = await response.json();
+      // Try to get city from address components
+      const city = data.address?.city || 
+                   data.address?.town || 
+                   data.address?.municipality ||
+                   data.address?.state ||
+                   null;
+      console.log("Detected city from GPS:", city, data.address);
+      return city;
+    } catch (error) {
+      console.error("Reverse geocoding error:", error);
+      return null;
+    }
+  };
+
   // Get user's current GPS location
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lon: position.coords.longitude
-          });
-          setLocationError(null);
-        },
-        (error) => {
-          console.log("Geolocation error:", error.message);
-          setLocationError("Bật vị trí để xem địa điểm gần bạn");
-          // Default to Ho Chi Minh City if geolocation fails
-          setUserLocation({ lat: 10.8231, lon: 106.6297 });
-        }
-      );
-    } else {
-      setLocationError("Trình duyệt không hỗ trợ định vị");
-      setUserLocation({ lat: 10.8231, lon: 106.6297 });
-    }
+    const getLocation = async () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const coords = {
+              lat: position.coords.latitude,
+              lon: position.coords.longitude
+            };
+            setUserLocation(coords);
+            setLocationError(null);
+            
+            // Get city name from coordinates
+            const city = await getCityFromCoords(coords.lat, coords.lon);
+            setUserCity(city);
+          },
+          (error) => {
+            console.log("Geolocation error:", error.message);
+            setLocationError("Bật vị trí để xem địa điểm gần bạn");
+            // Default to Ho Chi Minh City if geolocation fails
+            setUserLocation({ lat: 10.8231, lon: 106.6297 });
+            setUserCity("Hồ Chí Minh");
+          }
+        );
+      } else {
+        setLocationError("Trình duyệt không hỗ trợ định vị");
+        setUserLocation({ lat: 10.8231, lon: 106.6297 });
+        setUserCity("Hồ Chí Minh");
+      }
+    };
+    
+    getLocation();
   }, []);
 
   // Fetch recommended places - using GPS city and rating > 4
@@ -60,29 +93,39 @@ export default function Index() {
     const fetchRecommended = async () => {
       setPlacesLoading(true);
       try {
-        // Use GPS location to get places with rating > 4 in user's area
+        // Use city filter if we have it, otherwise use coordinates
         const places = await vietSpotAPI.getPlaces({ 
           limit: 20,
+          city: userCity || undefined, // Filter by detected city
           lat: userLocation.lat,
           lon: userLocation.lon,
-          maxDistance: 100, // 100km radius to cover the city
+          maxDistance: 30, // Reduce to 30km to stay within city
           minRating: 4, // Only places with rating > 4
           sortBy: 'rating',
         });
         
+        console.log("Recommended places fetched:", places.length, "for city:", userCity);
+        
         if (places.length > 0) {
           setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
         } else {
-          // Fallback: get top rated places without location filter
+          // Fallback: get top rated places in the city without distance filter
           const fallbackData = await vietSpotAPI.getPlaces({
             limit: 10,
+            city: userCity || undefined,
             minRating: 4,
             sortBy: 'rating',
           });
           if (fallbackData.length > 0) {
             setRecommendedPlaces(fallbackData.slice(0, 10).map(transformPlace));
           } else {
-            setRecommendedPlaces(fallbackPlaces.slice(0, 10));
+            // Last resort: any places with high rating
+            const anyPlaces = await vietSpotAPI.getPlaces({
+              limit: 10,
+              minRating: 4,
+              sortBy: 'rating',
+            });
+            setRecommendedPlaces(anyPlaces.length > 0 ? anyPlaces.slice(0, 10).map(transformPlace) : fallbackPlaces.slice(0, 10));
           }
         }
       } catch (error) {
@@ -94,7 +137,7 @@ export default function Index() {
     };
     
     fetchRecommended();
-  }, [userLocation]);
+  }, [userLocation, userCity]);
 
   // Fetch nearby places when we have user location
   useEffect(() => {
@@ -135,19 +178,26 @@ export default function Index() {
 
   const handleRefreshLocation = () => {
     setNearbyLoading(true);
+    setPlacesLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
+        async (position) => {
+          const coords = {
             lat: position.coords.latitude,
             lon: position.coords.longitude
-          });
+          };
+          setUserLocation(coords);
           setLocationError(null);
+          
+          // Update city from new coordinates
+          const city = await getCityFromCoords(coords.lat, coords.lon);
+          setUserCity(city);
         },
         (error) => {
           console.log("Geolocation error:", error.message);
           setLocationError("Không thể lấy vị trí");
           setNearbyLoading(false);
+          setPlacesLoading(false);
         }
       );
     }
