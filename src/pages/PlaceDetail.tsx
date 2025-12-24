@@ -39,14 +39,74 @@ import { toast } from "sonner";
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-// Highlight chips data
-const highlightChips = [
-  { icon: Wifi, label: "Free WiFi" },
-  { icon: ParkingCircle, label: "Parking" },
-  { icon: UtensilsCrossed, label: "Restaurant" },
-  { icon: Camera, label: "Photo Spot" },
-  { icon: Clock, label: "24/7 Open" },
-];
+// Helper to get coordinates from API response
+const getCoordinates = (place: PlaceInfo) => {
+  if (place.latitude && place.longitude) {
+    return { lat: place.latitude, lng: place.longitude };
+  }
+  if (place.coordinates?.lat && place.coordinates?.lon) {
+    return { lat: place.coordinates.lat, lng: place.coordinates.lon };
+  }
+  return null;
+};
+
+// Amenity icon mapping
+const amenityIcons: Record<string, typeof Wifi> = {
+  "Free WiFi": Wifi,
+  "WiFi": Wifi,
+  "Parking": ParkingCircle,
+  "Bãi đỗ xe": ParkingCircle,
+  "Restaurant": UtensilsCrossed,
+  "Nhà hàng": UtensilsCrossed,
+  "Photo Spot": Camera,
+  "24/7 Open": Clock,
+  "Mở cửa 24/7": Clock,
+  "Nhà vệ sinh": RefreshCw,
+  "Phù hợp cho trẻ em": Camera,
+  "Thẻ tín dụng": DollarSign,
+  "Chỗ ngồi cho xe lăn": Navigation,
+  "Nhà vệ sinh cho xe lăn": Navigation,
+};
+
+// Extract amenities from API response
+const getAmenities = (place: PlaceInfo) => {
+  const amenities: { icon: typeof Wifi; label: string }[] = [];
+  const about = place.about;
+  
+  if (!about) return amenities;
+  
+  // Check amenities section
+  if (about.amenities && typeof about.amenities === 'object') {
+    Object.entries(about.amenities).forEach(([key, value]) => {
+      if (value === true) {
+        const icon = amenityIcons[key] || Camera;
+        amenities.push({ icon, label: key });
+      }
+    });
+  }
+  
+  // Check accessibility section
+  if (about.accessibility && typeof about.accessibility === 'object') {
+    Object.entries(about.accessibility).forEach(([key, value]) => {
+      if (value === true) {
+        const icon = amenityIcons[key] || Navigation;
+        amenities.push({ icon, label: key });
+      }
+    });
+  }
+  
+  // Check payments section  
+  if (about.payments && typeof about.payments === 'object') {
+    Object.entries(about.payments).forEach(([key, value]) => {
+      if (value === true) {
+        const icon = amenityIcons[key] || DollarSign;
+        amenities.push({ icon, label: key });
+      }
+    });
+  }
+  
+  return amenities;
+};
 
 export default function PlaceDetail() {
   const { placeId } = useParams<{ placeId: string }>();
@@ -110,7 +170,8 @@ export default function PlaceDetail() {
   // Initialize map when place data is loaded
   useEffect(() => {
     if (!place || !mapContainerRef.current) return;
-    if (!place.latitude || !place.longitude) return;
+    const coords = getCoordinates(place);
+    if (!coords) return;
 
     // Clean up existing map
     if (mapRef.current) {
@@ -122,14 +183,14 @@ export default function PlaceDetail() {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: `https://maps.track-asia.com/styles/v1/streets.json?key=${trackAsiaKey}`,
-      center: [place.longitude, place.latitude],
+      center: [coords.lng, coords.lat],
       zoom: 14,
       interactive: true,
     });
 
     // Add destination marker
     new maplibregl.Marker({ color: '#ef4444' })
-      .setLngLat([place.longitude, place.latitude])
+      .setLngLat([coords.lng, coords.lat])
       .addTo(map);
 
     // Add navigation controls
@@ -144,8 +205,8 @@ export default function PlaceDetail() {
 
   // Add route to map when user location and showRoute are set
   useEffect(() => {
-    if (!mapRef.current || !userLocation || !showRoute || !place?.latitude || !place?.longitude) return;
-
+    const coords = place ? getCoordinates(place) : null;
+    if (!mapRef.current || !userLocation || !showRoute || !coords) return;
     const map = mapRef.current;
     const routeSourceId = 'route';
     const routeLayerId = 'route-line';
@@ -168,7 +229,7 @@ export default function PlaceDetail() {
     const fetchRoute = async () => {
       try {
         const response = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${place.longitude},${place.latitude}?overview=full&geometries=geojson`
+          `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${coords.lng},${coords.lat}?overview=full&geometries=geojson`
         );
         const data = await response.json();
 
@@ -242,7 +303,8 @@ export default function PlaceDetail() {
 
   // Handle get directions - get user location and show route on map
   const handleShowRouteOnMap = () => {
-    if (!place?.latitude || !place?.longitude) {
+    const coords = place ? getCoordinates(place) : null;
+    if (!coords) {
       toast.error('Địa điểm không có tọa độ');
       return;
     }
@@ -306,9 +368,10 @@ export default function PlaceDetail() {
   };
 
   const handleOpenDirections = () => {
-    if (place?.latitude && place?.longitude) {
+    const coords = place ? getCoordinates(place) : null;
+    if (coords) {
       window.open(
-        `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`,
+        `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`,
         "_blank"
       );
     } else if (place?.address) {
@@ -463,20 +526,26 @@ export default function PlaceDetail() {
               </div>
 
               {/* Highlights */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Tiện ích</h3>
-                <div className="flex flex-wrap gap-2">
-                  {highlightChips.map((chip) => (
-                    <div
-                      key={chip.label}
-                      className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
-                    >
-                      <chip.icon className="h-4 w-4 text-primary" />
-                      <span className="text-foreground">{chip.label}</span>
+              {(() => {
+                const amenities = getAmenities(place);
+                if (amenities.length === 0) return null;
+                return (
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-foreground mb-3">Tiện ích</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {amenities.map((chip) => (
+                        <div
+                          key={chip.label}
+                          className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
+                        >
+                          <chip.icon className="h-4 w-4 text-primary" />
+                          <span className="text-foreground">{chip.label}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
 
               {/* Description */}
               {place.description && (
@@ -491,7 +560,7 @@ export default function PlaceDetail() {
                 <h3 className="font-semibold text-foreground mb-3">Vị trí</h3>
                 
                 {/* Map Preview */}
-                {place.latitude && place.longitude && (
+                {getCoordinates(place) && (
                   <div 
                     ref={mapContainerRef} 
                     className="w-full h-[200px] rounded-xl overflow-hidden mb-4"
