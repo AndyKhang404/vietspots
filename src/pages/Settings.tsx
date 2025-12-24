@@ -5,7 +5,7 @@ import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
 import LanguageSelector from "@/components/LanguageSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, colorThemes, ColorTheme } from "@/contexts/ThemeContext";
 import {
   Settings as SettingsIcon,
   User,
@@ -18,17 +18,43 @@ import {
   ChevronRight,
   Shield,
   Palette,
+  Check,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, colorTheme, toggleTheme, setColorTheme } = useTheme();
   const { toast } = useToast();
+  
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [colorThemeOpen, setColorThemeOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  
+  // Profile form state
+  const [fullName, setFullName] = useState(user?.user_metadata?.full_name || "");
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  
+  // Security form state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleLogout = async () => {
     await signOut();
@@ -38,17 +64,81 @@ export default function Settings() {
     navigate('/');
   };
 
+  const handleSaveProfile = async () => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: fullName }
+      });
+      
+      if (error) throw error;
+      
+      toast({ title: "Đã cập nhật thông tin cá nhân" });
+      setProfileOpen(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({ title: "Có lỗi xảy ra", variant: "destructive" });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Mật khẩu xác nhận không khớp", variant: "destructive" });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast({ title: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast({ title: "Đã đổi mật khẩu thành công" });
+      setSecurityOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast({ title: "Có lỗi xảy ra", variant: "destructive" });
+    }
+  };
+
   const getCurrentLanguageName = () => {
     return i18n.language === 'vi' ? 'Tiếng Việt' : 'English';
+  };
+
+  const getCurrentColorThemeName = () => {
+    return colorThemes.find(t => t.value === colorTheme)?.label || 'Đỏ/Hồng';
   };
 
   const settingsGroups = [
     {
       title: t('settings.account'),
       items: [
-        { icon: User, label: t('settings.personalInfo'), hasArrow: true, onClick: () => {} },
-        { icon: Bell, label: t('settings.notifications'), hasArrow: true, onClick: () => {} },
-        { icon: Shield, label: "Bảo mật", hasArrow: true, onClick: () => {} },
+        { 
+          icon: User, 
+          label: t('settings.personalInfo'), 
+          hasArrow: true, 
+          onClick: () => user ? setProfileOpen(true) : navigate('/auth')
+        },
+        { 
+          icon: Bell, 
+          label: t('settings.notifications'), 
+          hasArrow: true, 
+          onClick: () => setNotificationsOpen(true)
+        },
+        { 
+          icon: Shield, 
+          label: "Bảo mật", 
+          hasArrow: true, 
+          onClick: () => user ? setSecurityOpen(true) : navigate('/auth')
+        },
       ],
     },
     {
@@ -68,7 +158,13 @@ export default function Settings() {
           hasArrow: true,
           onClick: () => setLanguageOpen(true)
         },
-        { icon: Palette, label: "Chủ đề màu", value: "Đỏ/Hồng", hasArrow: true, onClick: () => {} },
+        { 
+          icon: Palette, 
+          label: "Chủ đề màu", 
+          value: getCurrentColorThemeName(), 
+          hasArrow: true, 
+          onClick: () => setColorThemeOpen(true)
+        },
       ],
     },
     {
@@ -189,7 +285,135 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Language Selector */}
       <LanguageSelector open={languageOpen} onOpenChange={setLanguageOpen} />
+
+      {/* Color Theme Dialog */}
+      <Dialog open={colorThemeOpen} onOpenChange={setColorThemeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chọn chủ đề màu</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {colorThemes.map((themeOption) => (
+              <button
+                key={themeOption.value}
+                onClick={() => {
+                  setColorTheme(themeOption.value);
+                  setColorThemeOpen(false);
+                }}
+                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                  colorTheme === themeOption.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div 
+                  className="w-8 h-8 rounded-full" 
+                  style={{ backgroundColor: themeOption.primary }}
+                />
+                <span className="font-medium text-foreground">{themeOption.label}</span>
+                {colorTheme === themeOption.value && (
+                  <Check className="h-5 w-5 text-primary ml-auto" />
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Dialog */}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thông tin cá nhân</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" value={user?.email || ""} disabled className="mt-1.5" />
+            </div>
+            <div>
+              <Label htmlFor="fullName">Họ và tên</Label>
+              <Input 
+                id="fullName" 
+                value={fullName} 
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-1.5" 
+              />
+            </div>
+            <Button onClick={handleSaveProfile} className="w-full">
+              Lưu thay đổi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notifications Dialog */}
+      <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cài đặt thông báo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+              <div>
+                <p className="font-medium text-foreground">Thông báo đẩy</p>
+                <p className="text-sm text-muted-foreground">Nhận thông báo trên thiết bị</p>
+              </div>
+              <Switch 
+                checked={pushNotifications} 
+                onCheckedChange={setPushNotifications}
+              />
+            </div>
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+              <div>
+                <p className="font-medium text-foreground">Thông báo email</p>
+                <p className="text-sm text-muted-foreground">Nhận cập nhật qua email</p>
+              </div>
+              <Switch 
+                checked={emailNotifications} 
+                onCheckedChange={setEmailNotifications}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Security Dialog */}
+      <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Đổi mật khẩu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="newPassword">Mật khẩu mới</Label>
+              <Input 
+                id="newPassword" 
+                type="password"
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="mt-1.5" 
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+              <Input 
+                id="confirmPassword" 
+                type="password"
+                value={confirmPassword} 
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1.5" 
+              />
+            </div>
+            <Button onClick={handleChangePassword} className="w-full">
+              Đổi mật khẩu
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Chatbot />
     </Layout>
   );

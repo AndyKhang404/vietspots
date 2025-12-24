@@ -549,7 +549,7 @@ export default function PlaceDetail() {
                 </div>
               ) : null}
 
-              {/* Reviews List */}
+              {/* Reviews List - Show only first 3 */}
               <ScrollArea className="h-[400px]">
                 <div className="space-y-4 pr-4">
                   {reviewsLoading ? (
@@ -557,7 +557,7 @@ export default function PlaceDetail() {
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                   ) : reviews.length > 0 ? (
-                    reviews.map((review) => (
+                    reviews.slice(0, 3).map((review) => (
                       <div
                         key={review.id}
                         className="p-4 bg-muted/30 rounded-xl"

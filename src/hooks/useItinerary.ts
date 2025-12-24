@@ -57,7 +57,7 @@ export function useItinerary() {
     }
   }, [user]);
 
-  // Generate a new itinerary using the backend API
+  // Generate a new itinerary using the Chat API
   const generateItinerary = async (params: {
     destination: string;
     days: number;
@@ -66,36 +66,76 @@ export function useItinerary() {
   }) => {
     setGenerating(true);
     try {
-      const response = await vietSpotAPI.generateItinerary({
-        destination: params.destination,
-        days: params.days,
-        preferences: params.preferences,
+      // Build a natural language prompt for the chatbot
+      const prefsText = params.preferences?.length 
+        ? ` với sở thích: ${params.preferences.join(", ")}`
+        : "";
+      const budgetText = params.budget 
+        ? ` ngân sách ${params.budget === "low" ? "tiết kiệm" : params.budget === "high" ? "cao cấp" : "trung bình"}`
+        : "";
+      
+      const message = `Hãy lập lịch trình du lịch ${params.days} ngày ở ${params.destination}${budgetText}${prefsText}. Trả về chi tiết từng ngày với thời gian và địa điểm cụ thể.`;
+
+      // Call the chat API
+      const response = await vietSpotAPI.chat({
+        message,
+        session_id: sessionStorage.getItem("vietspot_itinerary_session") || undefined,
       });
 
-      // Handle different response formats
-      let itineraryData: DayItinerary[] | null = null;
-      
-      if (Array.isArray(response)) {
-        // Direct array response
-        itineraryData = response as DayItinerary[];
-      } else if (response && typeof response === 'object') {
-        // Object with data property
-        if ('data' in response && Array.isArray(response.data)) {
-          itineraryData = response.data as DayItinerary[];
-        } else if ('itinerary' in response && Array.isArray(response.itinerary)) {
-          itineraryData = response.itinerary as DayItinerary[];
+      // Save session for continuity
+      if (response.session_id) {
+        sessionStorage.setItem("vietspot_itinerary_session", response.session_id);
+      }
+
+      // Check if response has itinerary data
+      if (response.itinerary && response.itinerary.length > 0) {
+        setCurrentItinerary(response.itinerary);
+        toast.success("Lịch trình đã được tạo!");
+        return response.itinerary;
+      }
+
+      // Try to parse from places if no itinerary
+      if (response.places && response.places.length > 0) {
+        // Create a simple itinerary from returned places
+        const generatedItinerary: DayItinerary[] = [];
+        const placesPerDay = Math.ceil(response.places.length / params.days);
+        
+        for (let day = 1; day <= params.days; day++) {
+          const dayPlaces = response.places.slice(
+            (day - 1) * placesPerDay,
+            day * placesPerDay
+          );
+          
+          const activities = dayPlaces.map((place, idx) => {
+            const hour = 8 + idx * 2; // Start at 8AM, 2 hours per activity
+            return {
+              time: `${hour.toString().padStart(2, "0")}:00`,
+              place: {
+                ...place,
+                place_id: place.place_id || place.id,
+              },
+              duration: "2 giờ",
+              notes: place.description || undefined,
+            };
+          });
+
+          generatedItinerary.push({
+            day,
+            activities,
+          });
+        }
+
+        if (generatedItinerary.length > 0) {
+          setCurrentItinerary(generatedItinerary);
+          toast.success("Lịch trình đã được tạo từ các địa điểm gợi ý!");
+          return generatedItinerary;
         }
       }
 
-      if (itineraryData && itineraryData.length > 0) {
-        setCurrentItinerary(itineraryData);
-        toast.success("Lịch trình đã được tạo!");
-        return itineraryData;
-      } else {
-        console.error("Invalid itinerary response:", response);
-        toast.error("Không thể tạo lịch trình. Vui lòng thử lại.");
-        return null;
-      }
+      // No itinerary or places returned
+      console.log("Chat response:", response);
+      toast.error("Không thể tạo lịch trình. Vui lòng thử lại với yêu cầu khác.");
+      return null;
     } catch (error) {
       console.error("Error generating itinerary:", error);
       toast.error("Không thể tạo lịch trình. Vui lòng thử lại.");
