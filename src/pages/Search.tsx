@@ -128,34 +128,54 @@ export default function Search() {
 
   // Only fetch places when there's a search term or category filter
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
-  // Use only categories that API actually supports
-  const categoryList = categoriesResponse || [];
+  // Use hardcoded categories if API returns limited results
+  const allCategories = [
+    "Biển & Bãi Biển",
+    "Bảo Tàng & Triển Lãm", 
+    "Di Tích Lịch Sử",
+    "Điểm Ngắm Cảnh",
+    "Giải Trí & Vui Chơi",
+    "Công Viên & Thiên Nhiên",
+    "Chùa & Đền",
+    "Nhà Thờ & Thánh Đường",
+    "Mua Sắm",
+    "Ẩm Thực",
+    "Cafe",
+    "Nhà Hàng",
+    "Spa & Làm Đẹp",
+    "Thể Thao & Gym",
+    "Khách Sạn & Lưu Trú",
+  ];
   
-  // Fetch ALL places first, then filter client-side
-  const { data: placesResponse, isLoading: placesLoading } = usePlaces({
-    limit: 500, // Fetch more places to allow client-side filtering
-    minRating: 0,
-    sortBy: 'rating',
-  });
+  // Use API categories if available and has more than 2, otherwise use hardcoded
+  const categoryList = (categoriesResponse && categoriesResponse.length > 2) 
+    ? categoriesResponse 
+    : allCategories;
+  
+  // Always fetch places - no "all" filter anymore, fetch first category by default
+  const effectiveCategory = activeFilter || categoryList[0] || "";
+  const shouldFetchPlaces = !!effectiveCategory;
+  const { data: placesResponse, isLoading: placesLoading } = usePlaces(
+    shouldFetchPlaces ? {
+      category: effectiveCategory || undefined,
+      limit: 200, // Increased limit to get more places
+      minRating: minRating > 0 ? minRating : 0,
+      sortBy: 'rating',
+    } : { limit: 0 }
+  );
   
   // Only search when user types something
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
+    category: effectiveCategory || undefined,
     limit: 200,
   });
 
-  // Build filters from API categories only (only show categories that exist)
+  // Build filters from categories
   const filters = categoryList.map((cat) => {
     const defaultCat = defaultCategories.find((c) => c.id === cat);
     return { id: cat, label: defaultCat?.label || cat };
   });
-  
-  // Set default filter to first available category
-  useEffect(() => {
-    if (!activeFilter && filters.length > 0) {
-      setActiveFilter(filters[0].id);
-    }
-  }, [filters.length]);
 
   // Check if search term matches a category for quick category search
   const matchedCategoryBySearch = filters.find(
@@ -181,13 +201,13 @@ export default function Search() {
   const rawPlaces = isSearching ? searchResponse || [] : placesResponse || [];
   const places = rawPlaces.map(transformPlace);
 
-  // Filter by category on client side
+  // Filter by category on client side if needed
   const filteredPlaces = places.filter((place) => {
     const matchesSearch =
       !isSearching ||
       place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       place.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = !activeFilter || place.category === activeFilter;
+    const matchesFilter = !effectiveCategory || place.category === effectiveCategory;
     const matchesRating = minRating === 0 || place.rating >= minRating;
     return matchesSearch && matchesFilter && matchesRating;
   });
