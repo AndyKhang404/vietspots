@@ -38,14 +38,16 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Fetch data from API - match mobile params
+  // Always fetch places on mount (not dependent on search term)
   const { data: categoriesResponse } = useCategories();
   const { data: placesResponse, isLoading: placesLoading } = usePlaces({
     category: activeFilter !== "all" ? activeFilter : undefined,
     limit: 50,
-    minRating: 0.1, // Only get places with rating
+    minRating: 0.1,
     sortBy: 'rating',
   });
+  
+  // Only search when user types something
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
     category: activeFilter !== "all" ? activeFilter : undefined,
