@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
@@ -22,6 +22,13 @@ import {
   Loader2,
   Send,
   Trash2,
+  Wifi,
+  ParkingCircle,
+  UtensilsCrossed,
+  Camera,
+  RefreshCw,
+  DollarSign,
+  ExternalLink,
 } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +36,17 @@ import { useReviews } from "@/hooks/useReviews";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+// Highlight chips data
+const highlightChips = [
+  { icon: Wifi, label: "Free WiFi" },
+  { icon: ParkingCircle, label: "Parking" },
+  { icon: UtensilsCrossed, label: "Restaurant" },
+  { icon: Camera, label: "Photo Spot" },
+  { icon: Clock, label: "24/7 Open" },
+];
 
 export default function PlaceDetail() {
   const { placeId } = useParams<{ placeId: string }>();
@@ -53,6 +71,8 @@ export default function PlaceDetail() {
   const [newRating, setNewRating] = useState(5);
   const [newReviewContent, setNewReviewContent] = useState("");
   const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
   useEffect(() => {
     const fetchPlace = async () => {
@@ -83,6 +103,39 @@ export default function PlaceDetail() {
     fetchPlace();
     fetchReviews();
   }, [placeId, fetchReviews]);
+
+  // Initialize map when place data is loaded
+  useEffect(() => {
+    if (!place || !mapContainerRef.current) return;
+    if (!place.latitude || !place.longitude) return;
+
+    // Clean up existing map
+    if (mapRef.current) {
+      mapRef.current.remove();
+    }
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [place.longitude, place.latitude],
+      zoom: 14,
+      interactive: true,
+    });
+
+    // Add marker
+    const marker = new maplibregl.Marker({ color: '#ef4444' })
+      .setLngLat([place.longitude, place.latitude])
+      .addTo(map);
+
+    // Add navigation controls
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+    };
+  }, [place]);
 
   const handleSubmitReview = async () => {
     const success = await submitReview(newRating, newReviewContent, reviewImages);
@@ -118,6 +171,26 @@ export default function PlaceDetail() {
     }
   };
 
+  const handleOpenDirections = () => {
+    if (place?.latitude && place?.longitude) {
+      window.open(
+        `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`,
+        "_blank"
+      );
+    } else if (place?.address) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`,
+        "_blank"
+      );
+    }
+  };
+
+  const handleOpenWebsite = () => {
+    if (place?.website) {
+      window.open(place.website, "_blank");
+    }
+  };
+
   const userReview = getUserReview();
 
   if (loading) {
@@ -148,11 +221,22 @@ export default function PlaceDetail() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
-        {/* Back Button */}
-        <Button variant="ghost" className="mb-4 gap-2" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-          Quay lại
-        </Button>
+        {/* Back Button & Actions */}
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" className="gap-2" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4" />
+            Quay lại
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => fetchReviews()}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Làm mới
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Images & Info */}
@@ -209,7 +293,7 @@ export default function PlaceDetail() {
                     size="icon"
                     onClick={() =>
                       toggleFavorite({
-                        id: place.place_id,
+                        id: place.place_id || placeId || '',
                         name: place.name,
                         address: place.address,
                         image: images[0],
@@ -221,7 +305,7 @@ export default function PlaceDetail() {
                     <Heart
                       className={cn(
                         "h-5 w-5",
-                        isFavorite(place.place_id) && "fill-primary text-primary"
+                        isFavorite(place.place_id || placeId || '') && "fill-primary text-primary"
                       )}
                     />
                   </Button>
@@ -233,7 +317,7 @@ export default function PlaceDetail() {
 
               {/* Rating */}
               <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-full">
+                <div className="flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full">
                   <Star className="h-5 w-5 fill-current" />
                   <span className="font-bold">
                     {(averageRating || place.rating || 0).toFixed(1)}
@@ -244,76 +328,110 @@ export default function PlaceDetail() {
                 </span>
               </div>
 
-              {/* Address */}
-              <div className="flex items-start gap-3 text-muted-foreground mb-3">
-                <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span>{place.address}</span>
+              {/* Highlights */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-foreground mb-3">Tiện ích</h3>
+                <div className="flex flex-wrap gap-2">
+                  {highlightChips.map((chip) => (
+                    <div
+                      key={chip.label}
+                      className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
+                    >
+                      <chip.icon className="h-4 w-4 text-primary" />
+                      <span className="text-foreground">{chip.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-
-              {/* Opening Hours */}
-              {place.opening_hours && (
-                <div className="flex items-start gap-3 text-muted-foreground mb-3">
-                  <Clock className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-                  <span>
-                    {typeof place.opening_hours === 'string' 
-                      ? place.opening_hours 
-                      : Object.entries(place.opening_hours).map(([day, time]) => `${day}: ${time}`).join(', ')}
-                  </span>
-                </div>
-              )}
-
-              {/* Phone */}
-              {place.phone && (
-                <div className="flex items-center gap-3 text-muted-foreground mb-3">
-                  <Phone className="h-5 w-5 text-green-600 shrink-0" />
-                  <a href={`tel:${place.phone}`} className="text-green-600 hover:underline">
-                    {place.phone}
-                  </a>
-                </div>
-              )}
-
-              {/* Website */}
-              {place.website && (
-                <div className="flex items-center gap-3 text-muted-foreground mb-4">
-                  <Globe className="h-5 w-5 text-blue-600 shrink-0" />
-                  <a
-                    href={place.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Website
-                  </a>
-                </div>
-              )}
 
               {/* Description */}
               {place.description && (
-                <p className="text-muted-foreground leading-relaxed">{place.description}</p>
+                <div className="mb-6">
+                  <h3 className="font-semibold text-foreground mb-2">Giới thiệu</h3>
+                  <p className="text-muted-foreground leading-relaxed">{place.description}</p>
+                </div>
               )}
 
-              {/* Directions Button */}
-              <Button
-                className="w-full mt-6 gap-2"
-                onClick={() => {
-                  if (place.latitude && place.longitude) {
-                    window.open(
-                      `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`,
-                      "_blank"
-                    );
-                  } else {
-                    window.open(
-                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                        place.address
-                      )}`,
-                      "_blank"
-                    );
-                  }
-                }}
-              >
-                <Navigation className="h-5 w-5" />
-                Chỉ đường
-              </Button>
+              {/* Location Section */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-foreground mb-3">Vị trí</h3>
+                
+                {/* Map Preview */}
+                {place.latitude && place.longitude && (
+                  <div 
+                    ref={mapContainerRef} 
+                    className="w-full h-[200px] rounded-xl overflow-hidden mb-4"
+                  />
+                )}
+
+                {/* Address */}
+                <div className="flex items-start gap-3 text-muted-foreground p-4 bg-muted/50 rounded-xl">
+                  <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span>{place.address}</span>
+                </div>
+              </div>
+
+              {/* Price & Opening Hours */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Opening Hours */}
+                {place.opening_hours && (
+                  <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
+                    <Clock className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">Giờ mở cửa</p>
+                      <span className="text-sm text-muted-foreground">
+                        {typeof place.opening_hours === 'string' 
+                          ? place.opening_hours 
+                          : Object.entries(place.opening_hours).map(([day, time]) => (
+                              <div key={day}>{day}: {time}</div>
+                            ))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Phone */}
+                {place.phone && (
+                  <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
+                    <Phone className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">Điện thoại</p>
+                      <a href={`tel:${place.phone}`} className="text-sm text-primary hover:underline">
+                        {place.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Website */}
+              {place.website && (
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl mb-6">
+                  <Globe className="h-5 w-5 text-blue-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground mb-1">Website</p>
+                    <button
+                      onClick={handleOpenWebsite}
+                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                      {place.website}
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button className="gap-2" onClick={handleOpenDirections}>
+                  <Navigation className="h-5 w-5" />
+                  Chỉ đường
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={handleShare}>
+                  <Share2 className="h-5 w-5" />
+                  Chia sẻ
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -492,7 +610,8 @@ export default function PlaceDetail() {
                                 key={img.id}
                                 src={img.image_url}
                                 alt=""
-                                className="h-16 w-16 object-cover rounded-lg shrink-0"
+                                className="h-20 w-20 object-cover rounded-lg shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => window.open(img.image_url, '_blank')}
                               />
                             ))}
                           </div>

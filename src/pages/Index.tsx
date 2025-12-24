@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search, TrendingUp, Sparkles, Loader2 } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Loader2, MapPin, History, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCategories } from "@/hooks/useVietSpotAPI";
@@ -11,7 +12,7 @@ import { transformPlace, fallbackPlaces, categories as defaultCategories, Place 
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import vietSpotAPI from "@/api/vietspot";
-
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function Index() {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -19,9 +20,12 @@ export default function Index() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   
-  const [featuredPlaces, setFeaturedPlaces] = useState<Place[]>([]);
+  const [recommendedPlaces, setRecommendedPlaces] = useState<Place[]>([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState<Place[]>([]);
   const [placesLoading, setPlacesLoading] = useState(true);
+  const [nearbyLoading, setNearbyLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   
   const { data: categoriesResponse } = useCategories();
 
@@ -34,51 +38,104 @@ export default function Index() {
             lat: position.coords.latitude,
             lon: position.coords.longitude
           });
+          setLocationError(null);
         },
         (error) => {
           console.log("Geolocation error:", error.message);
+          setLocationError("Bật vị trí để xem địa điểm gần bạn");
           // Default to Ho Chi Minh City if geolocation fails
           setUserLocation({ lat: 10.8231, lon: 106.6297 });
         }
       );
     } else {
-      // Default to Ho Chi Minh City if geolocation not supported
+      setLocationError("Trình duyệt không hỗ trợ định vị");
       setUserLocation({ lat: 10.8231, lon: 106.6297 });
     }
   }, []);
 
-  // Fetch places when we have user location
+  // Fetch recommended places (sorted by rating)
   useEffect(() => {
-    if (!userLocation) return;
-    
-    const fetchPlaces = async () => {
+    const fetchRecommended = async () => {
       setPlacesLoading(true);
       try {
-        // Match mobile: get places with lat, lon, maxDistance, minRating, sortBy
         const places = await vietSpotAPI.getPlaces({ 
-          limit: 50,
-          lat: userLocation.lat,
-          lon: userLocation.lon,
-          maxDistance: 100, // 100km radius like mobile app
+          limit: 20,
           minRating: 0.1,
           sortBy: 'rating',
         });
         
         if (places.length > 0) {
-          setFeaturedPlaces(places.slice(0, 8).map(transformPlace));
+          setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
         } else {
-          setFeaturedPlaces(fallbackPlaces.slice(0, 8));
+          setRecommendedPlaces(fallbackPlaces.slice(0, 10));
         }
       } catch (error) {
-        console.error("Error fetching places:", error);
-        setFeaturedPlaces(fallbackPlaces.slice(0, 8));
+        console.error("Error fetching recommended places:", error);
+        setRecommendedPlaces(fallbackPlaces.slice(0, 10));
       } finally {
         setPlacesLoading(false);
       }
     };
     
-    fetchPlaces();
+    fetchRecommended();
+  }, []);
+
+  // Fetch nearby places when we have user location
+  useEffect(() => {
+    if (!userLocation) return;
+    
+    const fetchNearby = async () => {
+      setNearbyLoading(true);
+      try {
+        const places = await vietSpotAPI.getPlaces({ 
+          limit: 20,
+          lat: userLocation.lat,
+          lon: userLocation.lon,
+          maxDistance: 50, // 50km radius
+          minRating: 0.1,
+          sortBy: 'distance',
+        });
+        
+        if (places.length > 0) {
+          setNearbyPlaces(places.slice(0, 10).map(transformPlace));
+        } else {
+          // Try without distance filter
+          const fallbackPlacesData = await vietSpotAPI.getPlaces({
+            limit: 10,
+            minRating: 0.1,
+          });
+          setNearbyPlaces(fallbackPlacesData.slice(0, 10).map(transformPlace));
+        }
+      } catch (error) {
+        console.error("Error fetching nearby places:", error);
+        setNearbyPlaces([]);
+      } finally {
+        setNearbyLoading(false);
+      }
+    };
+    
+    fetchNearby();
   }, [userLocation]);
+
+  const handleRefreshLocation = () => {
+    setNearbyLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          });
+          setLocationError(null);
+        },
+        (error) => {
+          console.log("Geolocation error:", error.message);
+          setLocationError("Không thể lấy vị trí");
+          setNearbyLoading(false);
+        }
+      );
+    }
+  };
 
   const categories = categoriesResponse && categoriesResponse.length > 0
     ? categoriesResponse.map((cat, i) => ({
@@ -87,6 +144,61 @@ export default function Index() {
         emoji: defaultCategories[i]?.emoji || "📍",
       }))
     : defaultCategories;
+
+  const PlacesList = ({ 
+    places, 
+    loading, 
+    emptyMessage 
+  }: { 
+    places: Place[]; 
+    loading: boolean; 
+    emptyMessage: string;
+  }) => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    if (places.length === 0) {
+      return (
+        <div className="bg-muted/50 rounded-xl p-8 text-center">
+          <p className="text-muted-foreground">{emptyMessage}</p>
+        </div>
+      );
+    }
+
+    return (
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex gap-4 pb-4">
+          {places.map((place, index) => (
+            <div
+              key={place.id}
+              className="w-[200px] shrink-0 animate-in fade-in slide-in-from-right-4"
+              style={{ animationDelay: `${index * 50}ms` }}
+              onClick={() => navigate(`/place/${place.id}`)}
+            >
+              <PlaceCard
+                {...place}
+                isFavorite={isFavorite(place.id)}
+                onFavoriteToggle={() => toggleFavorite({
+                  id: place.id,
+                  name: place.name,
+                  address: place.location,
+                  image: place.image,
+                  rating: place.rating,
+                  category: place.category,
+                })}
+              />
+            </div>
+          ))}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+    );
+  };
 
   return (
     <Layout>
@@ -139,10 +251,69 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Featured Places */}
+        {/* Recommended For You */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">Đề xuất cho bạn</h3>
+            </div>
+            <button 
+              onClick={() => navigate('/search?sortBy=rating')}
+              className="text-sm text-primary hover:underline font-medium"
+            >
+              {t('home.viewAll')} →
+            </button>
+          </div>
+          <PlacesList 
+            places={recommendedPlaces} 
+            loading={placesLoading} 
+            emptyMessage="🔍 Đang tải địa điểm..."
+          />
+        </div>
+
+        {/* Nearby Places */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">Địa điểm gần bạn</h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefreshLocation}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Làm mới
+            </Button>
+          </div>
+          {locationError && !nearbyLoading && nearbyPlaces.length === 0 ? (
+            <div 
+              className="bg-muted/50 rounded-xl p-8 text-center cursor-pointer hover:bg-muted transition-colors"
+              onClick={handleRefreshLocation}
+            >
+              <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground mb-2">{locationError}</p>
+              <p className="text-sm text-primary font-medium">Nhấn để cấp quyền</p>
+            </div>
+          ) : (
+            <PlacesList 
+              places={nearbyPlaces} 
+              loading={nearbyLoading} 
+              emptyMessage="📍 Không tìm thấy địa điểm gần bạn"
+            />
+          )}
+        </div>
+
+        {/* Featured Places (Grid view) */}
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-foreground">{t('home.featured')}</h3>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">{t('home.featured')}</h3>
+            </div>
             <button 
               onClick={() => navigate('/search')}
               className="text-sm text-primary hover:underline font-medium"
@@ -157,7 +328,7 @@ export default function Index() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-              {featuredPlaces.map((place, index) => (
+              {recommendedPlaces.slice(0, 8).map((place, index) => (
                 <div
                   key={place.id}
                   className="animate-in fade-in slide-in-from-bottom-4"
