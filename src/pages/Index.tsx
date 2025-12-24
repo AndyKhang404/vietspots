@@ -53,21 +53,37 @@ export default function Index() {
     }
   }, []);
 
-  // Fetch recommended places (sorted by rating)
+  // Fetch recommended places - using GPS city and rating > 4
   useEffect(() => {
+    if (!userLocation) return;
+    
     const fetchRecommended = async () => {
       setPlacesLoading(true);
       try {
+        // Use GPS location to get places with rating > 4 in user's area
         const places = await vietSpotAPI.getPlaces({ 
           limit: 20,
-          minRating: 0.1,
+          lat: userLocation.lat,
+          lon: userLocation.lon,
+          maxDistance: 100, // 100km radius to cover the city
+          minRating: 4, // Only places with rating > 4
           sortBy: 'rating',
         });
         
         if (places.length > 0) {
           setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
         } else {
-          setRecommendedPlaces(fallbackPlaces.slice(0, 10));
+          // Fallback: get top rated places without location filter
+          const fallbackData = await vietSpotAPI.getPlaces({
+            limit: 10,
+            minRating: 4,
+            sortBy: 'rating',
+          });
+          if (fallbackData.length > 0) {
+            setRecommendedPlaces(fallbackData.slice(0, 10).map(transformPlace));
+          } else {
+            setRecommendedPlaces(fallbackPlaces.slice(0, 10));
+          }
         }
       } catch (error) {
         console.error("Error fetching recommended places:", error);
@@ -78,7 +94,7 @@ export default function Index() {
     };
     
     fetchRecommended();
-  }, []);
+  }, [userLocation]);
 
   // Fetch nearby places when we have user location
   useEffect(() => {
