@@ -158,12 +158,14 @@ export default function Search() {
           ))}
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{displayedCount}</span> kết quả được tìm thấy
-          </p>
-        </div>
+        {/* Results Count - only show when searching or filtering */}
+        {(debouncedSearch || activeFilter !== "all") && (
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{displayedCount}</span> kết quả được tìm thấy
+            </p>
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading ? (
