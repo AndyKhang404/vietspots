@@ -69,10 +69,17 @@ export default function PlaceCard({
         >
           <Heart className={cn("h-5 w-5 transition-all duration-200", isFavorite && "fill-current scale-110")} />
         </Button>
-        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
-          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-          <span className="text-sm font-semibold">{rating}</span>
-        </div>
+        {rating > 0 ? (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
+            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+            <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+          </div>
+        ) : (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
+            <Star className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Mới</span>
+          </div>
+        )}
       </div>
       <div className="p-4 lg:p-5">
         <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">{name}</h3>
