@@ -101,34 +101,47 @@ export default function Index() {
 
   // Fetch recommended places - prefer city match + rating >= 4
   useEffect(() => {
+    // Wait for either userCity OR fallback after location error
     if (!userLocation) return;
 
     const fetchRecommended = async () => {
       setPlacesLoading(true);
       try {
-        // If we successfully detected a city, ONLY recommend inside that city.
+        let places: any[] = [];
+        
+        // If we successfully detected a city, filter by city
         if (userCity) {
-          const places = await vietSpotAPI.getPlaces({
+          places = await vietSpotAPI.getPlaces({
             limit: 20,
             city: userCity,
             minRating: 4,
             sortBy: "rating",
           });
-
-          console.log("Recommended places fetched:", places.length, "for city:", userCity);
-          setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
-          return;
+          console.log("Recommended places for city:", userCity, "found:", places.length);
         }
-
-        // If city is not available yet, fall back to GPS radius.
-        const places = await vietSpotAPI.getPlaces({
-          limit: 20,
-          lat: userLocation.lat,
-          lon: userLocation.lon,
-          maxDistance: 30,
-          minRating: 4,
-          sortBy: "rating",
-        });
+        
+        // If no city or no results, use GPS location
+        if (!places || places.length === 0) {
+          places = await vietSpotAPI.getPlaces({
+            limit: 20,
+            lat: userLocation.lat,
+            lon: userLocation.lon,
+            maxDistance: 50,
+            minRating: 4,
+            sortBy: "rating",
+          });
+          console.log("Recommended places by GPS found:", places.length);
+        }
+        
+        // Final fallback: get top rated anywhere
+        if (!places || places.length === 0) {
+          places = await vietSpotAPI.getPlaces({
+            limit: 20,
+            minRating: 4,
+            sortBy: "rating",
+          });
+          console.log("Recommended places fallback found:", places.length);
+        }
 
         setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
       } catch (error) {
@@ -206,11 +219,30 @@ export default function Index() {
     }
   };
 
+  // Map emoji based on category name (case-insensitive matching)
+  const getEmojiForCategory = (category: string): string => {
+    const lower = category.toLowerCase();
+    if (lower.includes('bảo tàng') || lower.includes('triển lãm')) return '🏛️';
+    if (lower.includes('di tích') || lower.includes('lịch sử')) return '🏯';
+    if (lower.includes('công viên') || lower.includes('vườn')) return '🌳';
+    if (lower.includes('nhà hàng') || lower.includes('quán ăn')) return '🍽️';
+    if (lower.includes('cafe') || lower.includes('cà phê')) return '☕';
+    if (lower.includes('spa') || lower.includes('massage')) return '💆';
+    if (lower.includes('khách sạn') || lower.includes('resort')) return '🏨';
+    if (lower.includes('biển') || lower.includes('beach')) return '🏖️';
+    if (lower.includes('núi') || lower.includes('mountain')) return '🏔️';
+    if (lower.includes('chợ') || lower.includes('market')) return '🛒';
+    if (lower.includes('bar') || lower.includes('club')) return '🍸';
+    if (lower.includes('chùa') || lower.includes('đền') || lower.includes('temple')) return '🛕';
+    if (lower.includes('siêu thị') || lower.includes('mall')) return '🛍️';
+    return '📍';
+  };
+
   const categories = categoriesResponse && categoriesResponse.length > 0
-    ? categoriesResponse.map((cat, i) => ({
+    ? categoriesResponse.map((cat) => ({
         id: cat,
         label: cat,
-        emoji: defaultCategories[i]?.emoji || "📍",
+        emoji: getEmojiForCategory(cat),
       }))
     : defaultCategories;
 

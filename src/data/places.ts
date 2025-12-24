@@ -14,6 +14,7 @@ export interface Place {
   image: string;
   rating: number;
   ratingCount: number;
+  totalComments: number;
   description: string;
   category: string;
   address?: string;
@@ -41,13 +42,23 @@ export function transformPlace(place: PlaceInfo): Place {
     ? place.opening_hours as Record<string, string>
     : undefined;
   
+  // Clean address: remove ZIP code (5 digits at end after comma/space)
+  const cleanLocation = (addr: string | undefined): string => {
+    if (!addr) return '';
+    // Remove ZIP code pattern (e.g., ", 700000" or " 70000")
+    return addr.replace(/[,\s]+\d{5,6}\s*$/g, '').trim();
+  };
+
+  const rawLocation = place.city || place.district || place.address?.split(',').slice(-2).join(',').trim() || "";
+  
   return {
     id: place.id || place.place_id || "",
     name: place.name,
-    location: place.city || place.district || place.address?.split(',').slice(-2).join(',').trim() || "",
+    location: cleanLocation(rawLocation),
     image: firstImage,
     rating: place.rating || 0,
-    ratingCount: place.rating_count || place.total_comments || 0,
+    ratingCount: place.rating_count || 0,
+    totalComments: place.total_comments || place.rating_count || 0,
     description: place.description || place.category || "",
     category: place.category || "other",
     address: place.address,
@@ -70,6 +81,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
     rating: 4.9,
     ratingCount: 1250,
+    totalComments: 1250,
     description: "Di sản thiên nhiên thế giới với hàng nghìn đảo đá vôi hùng vĩ",
     category: "beach",
   },
@@ -80,6 +92,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=800",
     rating: 4.8,
     ratingCount: 980,
+    totalComments: 980,
     description: "Thương cảng cổ với kiến trúc độc đáo và đèn lồng rực rỡ",
     category: "historical",
   },
@@ -90,6 +103,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1570366583862-f91883984fde?w=800",
     rating: 4.7,
     ratingCount: 756,
+    totalComments: 756,
     description: "Ruộng bậc thang tuyệt đẹp và văn hóa dân tộc phong phú",
     category: "mountain",
   },
@@ -100,6 +114,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1555921015-5532091f6026?w=800",
     rating: 4.6,
     ratingCount: 890,
+    totalComments: 890,
     description: "Thành phố ngàn hoa với khí hậu mát mẻ quanh năm",
     category: "city",
   },
@@ -110,6 +125,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1537956965359-7573183d1f57?w=800",
     rating: 4.8,
     ratingCount: 1100,
+    totalComments: 1100,
     description: "Một trong những bãi biển đẹp nhất hành tinh",
     category: "beach",
   },
@@ -120,6 +136,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800",
     rating: 4.7,
     ratingCount: 820,
+    totalComments: 820,
     description: "Đảo ngọc với bãi cát trắng mịn và hải sản tươi ngon",
     category: "beach",
   },
@@ -130,6 +147,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800",
     rating: 4.5,
     ratingCount: 560,
+    totalComments: 560,
     description: "Di sản văn hóa thế giới UNESCO với lịch sử nghìn năm",
     category: "historical",
   },
@@ -140,6 +158,7 @@ export const fallbackPlaces: Place[] = [
     image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=800",
     rating: 4.6,
     ratingCount: 670,
+    totalComments: 670,
     description: "Kinh đô triều Nguyễn với nhiều lăng tẩm cổ kính",
     category: "historical",
   },

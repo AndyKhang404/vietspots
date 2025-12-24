@@ -47,8 +47,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Remove all color theme classes
     colorThemes.forEach(t => root.classList.remove(`theme-${t.value}`));
     
-    // Add current color theme class
-    root.classList.add(`theme-${colorTheme}`);
+    // Add current color theme class (only if NOT the default 'red')
+    // Red is the base theme defined in :root, so no class needed for it
+    if (colorTheme !== 'red') {
+      root.classList.add(`theme-${colorTheme}`);
+    }
     localStorage.setItem('colorTheme', colorTheme);
   }, [colorTheme]);
 
