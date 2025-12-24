@@ -193,6 +193,7 @@ export default function Search() {
                 >
                   <PlaceCard
                     {...place}
+                    ratingCount={place.ratingCount}
                     isFavorite={isFavorite(place.id)}
                     onFavoriteToggle={() => toggleFavorite({
                       id: place.id,

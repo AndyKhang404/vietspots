@@ -8,6 +8,7 @@ interface PlaceCardProps {
   location: string;
   image: string;
   rating: number;
+  ratingCount?: number;
   description: string;
   category?: string;
   isFavorite?: boolean;
@@ -28,6 +29,7 @@ export default function PlaceCard({
   location,
   image,
   rating,
+  ratingCount,
   description,
   category,
   isFavorite = false,
@@ -74,6 +76,9 @@ export default function PlaceCard({
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
             <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
             <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+            {ratingCount !== undefined && ratingCount > 0 && (
+              <span className="text-xs text-muted-foreground">({ratingCount})</span>
+            )}
           </div>
         ) : (
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">

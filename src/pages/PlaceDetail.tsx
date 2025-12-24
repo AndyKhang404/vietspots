@@ -517,11 +517,11 @@ export default function PlaceDetail() {
                 <div className="flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full">
                   <Star className="h-5 w-5 fill-current" />
                   <span className="font-bold">
-                    {(averageRating || place.rating || 0).toFixed(1)}
+                    {(place.rating || averageRating || 0).toFixed(1)}
                   </span>
                 </div>
                 <span className="text-muted-foreground">
-                  {(place.total_comments ?? totalReviews ?? 0)} đánh giá
+                  {(place.total_comments ?? place.rating_count ?? 0)} đánh giá
                 </span>
               </div>
 
