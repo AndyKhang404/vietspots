@@ -38,6 +38,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [localFavorites, setLocalFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem("vietspots_favorites");
     return saved ? JSON.parse(saved) : [];
@@ -48,6 +49,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setFavorites(localFavorites);
       setWishlistItems([]);
+      setLoading(false);
       return;
     }
 
@@ -74,16 +76,26 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
       setWishlistItems(items);
       setFavorites(items.map((item) => item.place_id));
+      setHasFetched(true);
     } catch (error) {
       console.error("Error fetching wishlist:", error);
+      // On error, still mark as fetched to prevent infinite retries
+      setHasFetched(true);
     } finally {
       setLoading(false);
     }
-  }, [user, localFavorites]);
+  }, [user]); // Remove localFavorites from dependencies to prevent loops
 
+  // Fetch only once when user changes
   useEffect(() => {
-    fetchWishlist();
-  }, [fetchWishlist]);
+    if (user && !hasFetched) {
+      fetchWishlist();
+    } else if (!user) {
+      setFavorites(localFavorites);
+      setWishlistItems([]);
+      setHasFetched(false);
+    }
+  }, [user, hasFetched, fetchWishlist, localFavorites]);
 
   // Save local favorites to localStorage
   useEffect(() => {
@@ -194,9 +206,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
   const isFavorite = (id: string) => favorites.includes(id);
 
-  const refreshWishlist = async () => {
+  const refreshWishlist = useCallback(async () => {
+    setHasFetched(false);
     await fetchWishlist();
-  };
+  }, [fetchWishlist]);
 
   return (
     <FavoritesContext.Provider
