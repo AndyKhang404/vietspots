@@ -14,12 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      itineraries: {
+        Row: {
+          budget: string | null
+          created_at: string
+          days: number
+          destination: string
+          id: string
+          is_public: boolean | null
+          itinerary_data: Json
+          preferences: string[] | null
+          share_token: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget?: string | null
+          created_at?: string
+          days?: number
+          destination: string
+          id?: string
+          is_public?: boolean | null
+          itinerary_data: Json
+          preferences?: string[] | null
+          share_token?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget?: string | null
+          created_at?: string
+          days?: number
+          destination?: string
+          id?: string
+          is_public?: boolean | null
+          itinerary_data?: Json
+          preferences?: string[] | null
+          share_token?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           full_name: string | null
           id: string
+          preferences: string[] | null
+          push_notifications_enabled: boolean | null
           updated_at: string
           user_id: string
         }
@@ -28,6 +75,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          preferences?: string[] | null
+          push_notifications_enabled?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -36,7 +85,131 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          preferences?: string[] | null
+          push_notifications_enabled?: boolean | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      review_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          review_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          review_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_images_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          place_id: string
+          rating: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          place_id: string
+          rating: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          place_id?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      search_history: {
+        Row: {
+          category: string | null
+          city: string | null
+          created_at: string
+          id: string
+          query: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          query: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          query?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wishlists: {
+        Row: {
+          created_at: string
+          id: string
+          place_address: string | null
+          place_category: string | null
+          place_id: string
+          place_image: string | null
+          place_name: string
+          place_rating: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          place_address?: string | null
+          place_category?: string | null
+          place_id: string
+          place_image?: string | null
+          place_name: string
+          place_rating?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          place_address?: string | null
+          place_category?: string | null
+          place_id?: string
+          place_image?: string | null
+          place_name?: string
+          place_rating?: number | null
           user_id?: string
         }
         Relationships: []

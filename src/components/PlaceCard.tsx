@@ -9,8 +9,16 @@ interface PlaceCardProps {
   image: string;
   rating: number;
   description: string;
+  category?: string;
   isFavorite?: boolean;
-  onFavoriteToggle?: (id: string) => void;
+  onFavoriteToggle?: (place: {
+    id: string;
+    name: string;
+    address?: string;
+    image?: string;
+    rating?: number;
+    category?: string;
+  }) => void;
   className?: string;
 }
 
@@ -21,10 +29,23 @@ export default function PlaceCard({
   image,
   rating,
   description,
+  category,
   isFavorite = false,
   onFavoriteToggle,
   className,
 }: PlaceCardProps) {
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onFavoriteToggle?.({
+      id,
+      name,
+      address: location,
+      image,
+      rating,
+      category,
+    });
+  };
+
   return (
     <div className={cn(
       "bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer",
@@ -44,10 +65,7 @@ export default function PlaceCard({
             "absolute top-3 right-3 h-10 w-10 rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:scale-110 shadow-lg",
             isFavorite && "text-primary bg-primary/20"
           )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavoriteToggle?.(id);
-          }}
+          onClick={handleFavoriteClick}
         >
           <Heart className={cn("h-5 w-5 transition-all duration-200", isFavorite && "fill-current scale-110")} />
         </Button>
