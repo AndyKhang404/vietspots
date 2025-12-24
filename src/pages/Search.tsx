@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X, Star, Clock, Navigation, Heart, Save } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X, Star, Clock, Navigation, Heart, Save, Tag } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -126,7 +127,7 @@ export default function Search() {
   }, [searchTerm]);
 
   // Only fetch places when there's a search term or category filter
-  const { data: categoriesResponse } = useCategories();
+  const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
   // Always fetch places - no "all" filter anymore, fetch first category by default
   const effectiveCategory = activeFilter || (categoriesResponse?.[0] || "");
   const shouldFetchPlaces = debouncedSearch.length > 0 || !!effectiveCategory;
@@ -153,12 +154,24 @@ export default function Search() {
     return { id: cat, label: defaultCat?.label || cat };
   });
 
+  // Check if search term matches a category for quick category search
+  const matchedCategoryBySearch = filters.find(
+    (f) => f.label.toLowerCase().includes(searchTerm.toLowerCase()) && searchTerm.length >= 2
+  );
+
   // Set default filter to first category if not set
   useEffect(() => {
     if (!activeFilter && filters.length > 0) {
       setActiveFilter(filters[0].id);
     }
   }, [filters, activeFilter]);
+
+  // Auto-switch category when search matches a category name
+  useEffect(() => {
+    if (matchedCategoryBySearch && matchedCategoryBySearch.id !== activeFilter) {
+      // Show suggestion but don't auto-switch
+    }
+  }, [matchedCategoryBySearch]);
 
   // Transform API data (no mock-data fallback)
   const isSearching = debouncedSearch.length > 0;
@@ -388,23 +401,57 @@ export default function Search() {
           </div>
         </div>
 
+        {/* Category Search Suggestion */}
+        {matchedCategoryBySearch && matchedCategoryBySearch.id !== activeFilter && (
+          <div className="mb-4 animate-in fade-in slide-in-from-top-2">
+            <button
+              onClick={() => {
+                handleFilterChange(matchedCategoryBySearch.id);
+                setSearchTerm("");
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Tag className="h-4 w-4" />
+              <span className="text-sm">
+                Chuyển sang danh mục: <strong>{matchedCategoryBySearch.label}</strong>
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-wrap gap-2 mb-8">
-          {filters.map((filter, index) => (
-            <button
-              key={filter.id}
-              onClick={() => handleFilterChange(filter.id)}
-              className={cn(
-                "px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2",
-                activeFilter === filter.id
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "bg-card border border-border text-foreground hover:bg-secondary"
-              )}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              {filter.label}
-            </button>
-          ))}
+          {categoriesLoading ? (
+            // Skeleton loading for categories
+            <>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton 
+                  key={i} 
+                  className="h-10 rounded-xl" 
+                  style={{ width: `${80 + Math.random() * 60}px` }}
+                />
+              ))}
+            </>
+          ) : (
+            filters.map((filter, index) => (
+              <button
+                key={filter.id}
+                onClick={() => handleFilterChange(filter.id)}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 animate-in fade-in slide-in-from-left-2",
+                  activeFilter === filter.id
+                    ? "bg-primary text-primary-foreground shadow-lg"
+                    : "bg-card border border-border text-foreground hover:bg-secondary",
+                  matchedCategoryBySearch?.id === filter.id && activeFilter !== filter.id
+                    ? "ring-2 ring-primary ring-offset-2"
+                    : ""
+                )}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {filter.label}
+              </button>
+            ))
+          )}
         </div>
 
         {/* Results Count - only show when searching or filtering */}
