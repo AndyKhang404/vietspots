@@ -13,6 +13,8 @@ import Favorites from "./pages/Favorites";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import PlaceDetail from "./pages/PlaceDetail";
+import Itinerary from "./pages/Itinerary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,8 @@ const App = () => (
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/place/:placeId" element={<PlaceDetail />} />
+                <Route path="/itinerary" element={<Itinerary />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
