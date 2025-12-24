@@ -927,13 +927,83 @@ export default function Chatbot() {
           )}
 
           {activeTab === "form" && (
-            <div className="flex-1 p-6">
-              <div className="text-center py-12">
-                <FileText className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-semibold text-foreground mb-2">Điền Form</h3>
-                <p className="text-sm text-muted-foreground">
-                  Tính năng đang được phát triển
-                </p>
+            <div className="flex-1 p-6 overflow-y-auto">
+              <h3 className="font-semibold text-foreground mb-4">Tìm địa điểm theo tiêu chí</h3>
+              <div className="space-y-4">
+                {/* Destination */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Điểm đến</label>
+                  <Input 
+                    placeholder="VD: Đà Nẵng, Hội An..." 
+                    className="w-full"
+                    id="form-destination"
+                  />
+                </div>
+                
+                {/* Category */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Loại hình</label>
+                  <Select defaultValue="all">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Tất cả" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="beach">Biển & Bãi biển</SelectItem>
+                      <SelectItem value="museum">Bảo tàng & Triển lãm</SelectItem>
+                      <SelectItem value="restaurant">Nhà hàng</SelectItem>
+                      <SelectItem value="cafe">Cafe</SelectItem>
+                      <SelectItem value="temple">Chùa & Đền</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Rating */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground flex items-center justify-between">
+                    <span>Rating tối thiểu</span>
+                    <span className="text-primary">4.0 ★</span>
+                  </label>
+                  <Slider
+                    defaultValue={[4]}
+                    min={0}
+                    max={5}
+                    step={0.5}
+                    className="w-full"
+                  />
+                </div>
+                
+                {/* Number of results */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Số lượng kết quả</label>
+                  <Select defaultValue="10">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="10" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 địa điểm</SelectItem>
+                      <SelectItem value="10">10 địa điểm</SelectItem>
+                      <SelectItem value="20">20 địa điểm</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Submit Button */}
+                <Button 
+                  className="w-full mt-4"
+                  onClick={() => {
+                    const destination = (document.getElementById('form-destination') as HTMLInputElement)?.value || '';
+                    if (destination) {
+                      setActiveTab('chat');
+                      setInput(`Tìm địa điểm tại ${destination}`);
+                    } else {
+                      toast.error("Vui lòng nhập điểm đến");
+                    }
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Tìm kiếm
+                </Button>
               </div>
             </div>
           )}

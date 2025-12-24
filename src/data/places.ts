@@ -54,8 +54,39 @@ export function transformPlace(place: PlaceInfo): Place {
       .replace(/\s+/g, ' ') // Normalize spaces
       .trim();
   };
+  
+  // Format location as "Đường, Quận" from address
+  const formatStreetDistrict = (fullAddress: string | undefined, city?: string, district?: string): string => {
+    if (!fullAddress && !district && !city) return '';
+    
+    // If we have district, use it
+    if (district) {
+      // Try to extract street from full address
+      const parts = fullAddress?.split(',').map(p => p.trim()) || [];
+      const street = parts.find(p => 
+        p.toLowerCase().includes('đường') || 
+        p.toLowerCase().includes('phố') ||
+        /^\d+\s/.test(p) // Starts with number (house number)
+      ) || parts[0];
+      
+      if (street && street !== district) {
+        return cleanLocation(`${street}, ${district}`);
+      }
+      return cleanLocation(district);
+    }
+    
+    // Otherwise extract last 2 parts from address
+    const parts = fullAddress?.split(',').map(p => p.trim()).filter(Boolean) || [];
+    if (parts.length >= 2) {
+      // Get street and district (usually 2nd and 3rd from end, before city)
+      const streetPart = parts.slice(0, 2).join(', ');
+      return cleanLocation(streetPart);
+    }
+    
+    return cleanLocation(city || fullAddress || '');
+  };
 
-  const rawLocation = place.city || place.district || place.address?.split(',').slice(-2).join(',').trim() || "";
+  const rawLocation = formatStreetDistrict(place.address, place.city, place.district);
   
   return {
     id: place.id || place.place_id || "",
