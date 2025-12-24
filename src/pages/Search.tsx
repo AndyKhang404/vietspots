@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePlaces, useSearchPlaces, useCategories } from "@/hooks/useVietSpotAPI";
-import { transformPlace, fallbackPlaces, categories as defaultCategories } from "@/data/places";
+import { transformPlace, categories as defaultCategories } from "@/data/places";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -53,19 +53,15 @@ export default function Search() {
     }),
   ];
 
-  // Transform API data or use fallback
+  // Transform API data (no mock-data fallback)
   const isSearching = debouncedSearch.length > 0;
-  const rawPlaces = isSearching
-    ? searchResponse || []
-    : placesResponse || [];
-
-  const places = rawPlaces.length > 0
-    ? rawPlaces.map(transformPlace)
-    : fallbackPlaces;
+  const rawPlaces = isSearching ? searchResponse || [] : placesResponse || [];
+  const places = rawPlaces.map(transformPlace);
 
   // Filter by category on client side if needed
   const filteredPlaces = places.filter((place) => {
-    const matchesSearch = isSearching ? true :
+    const matchesSearch =
+      !isSearching ||
       place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       place.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = activeFilter === "all" || place.category === activeFilter;
@@ -73,6 +69,7 @@ export default function Search() {
   });
 
   const isLoading = isSearching ? searchLoading : placesLoading;
+  const displayedCount = isLoading ? 0 : filteredPlaces.length;
 
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
@@ -153,7 +150,7 @@ export default function Search() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{filteredPlaces.length}</span> kết quả được tìm thấy
+            <span className="font-semibold text-foreground">{displayedCount}</span> kết quả được tìm thấy
           </p>
         </div>
 

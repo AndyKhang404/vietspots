@@ -86,7 +86,7 @@
   }
 
   /* Blue Theme */
-  .theme-blue {
+  :root.theme-blue {
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --accent: 210 80% 55%;
@@ -96,7 +96,7 @@
     --sidebar-ring: 217 91% 60%;
   }
 
-  .dark.theme-blue {
+  :root.dark.theme-blue {
     --primary: 217 85% 65%;
     --accent: 210 75% 60%;
     --ring: 217 85% 65%;
@@ -105,7 +105,7 @@
   }
 
   /* Green Theme */
-  .theme-green {
+  :root.theme-green {
     --primary: 142 76% 36%;
     --primary-foreground: 0 0% 100%;
     --accent: 152 70% 40%;
@@ -115,7 +115,7 @@
     --sidebar-ring: 142 76% 36%;
   }
 
-  .dark.theme-green {
+  :root.dark.theme-green {
     --primary: 142 70% 45%;
     --accent: 152 65% 45%;
     --ring: 142 70% 45%;
@@ -124,7 +124,7 @@
   }
 
   /* Purple Theme */
-  .theme-purple {
+  :root.theme-purple {
     --primary: 271 91% 65%;
     --primary-foreground: 0 0% 100%;
     --accent: 280 85% 60%;
@@ -134,7 +134,7 @@
     --sidebar-ring: 271 91% 65%;
   }
 
-  .dark.theme-purple {
+  :root.dark.theme-purple {
     --primary: 271 85% 70%;
     --accent: 280 80% 65%;
     --ring: 271 85% 70%;
@@ -143,7 +143,7 @@
   }
 
   /* Orange Theme */
-  .theme-orange {
+  :root.theme-orange {
     --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
     --accent: 35 90% 55%;
@@ -153,7 +153,7 @@
     --sidebar-ring: 25 95% 53%;
   }
 
-  .dark.theme-orange {
+  :root.dark.theme-orange {
     --primary: 25 90% 58%;
     --accent: 35 85% 60%;
     --ring: 25 90% 58%;
@@ -162,7 +162,7 @@
   }
 
   /* Teal Theme */
-  .theme-teal {
+  :root.theme-teal {
     --primary: 172 66% 50%;
     --primary-foreground: 0 0% 100%;
     --accent: 180 60% 45%;
@@ -172,7 +172,7 @@
     --sidebar-ring: 172 66% 50%;
   }
 
-  .dark.theme-teal {
+  :root.dark.theme-teal {
     --primary: 172 60% 55%;
     --accent: 180 55% 50%;
     --ring: 172 60% 55%;

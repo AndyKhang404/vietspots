@@ -324,7 +324,7 @@ export default function PlaceDetail() {
                   </span>
                 </div>
                 <span className="text-muted-foreground">
-                  {totalReviews || place.total_comments || 0} đánh giá
+                  {(place.total_comments ?? totalReviews ?? 0)} đánh giá
                 </span>
               </div>
 
@@ -440,7 +440,7 @@ export default function PlaceDetail() {
             <div className="bg-card rounded-2xl p-6 border border-border">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
-                Đánh giá ({totalReviews})
+                Đánh giá ({place.total_comments ?? totalReviews})
               </h2>
 
               {/* Write Review Form */}
