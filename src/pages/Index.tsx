@@ -24,21 +24,21 @@ export default function Index() {
   
   const { data: categoriesResponse } = useCategories();
 
-  // Fetch places - simple approach without city filter since API data doesn't have Vietnamese cities
+  // Fetch places - matching mobile app logic (minRating, sortBy)
   useEffect(() => {
     const fetchPlaces = async () => {
       setPlacesLoading(true);
       try {
-        // Fetch all places and sort by rating
-        const places = await vietSpotAPI.getPlaces({ limit: 50 });
+        // Match mobile: get places with minRating and sortBy rating
+        const places = await vietSpotAPI.getPlaces({ 
+          limit: 50,
+          minRating: 0.1, // Only get places with rating > 0
+          sortBy: 'rating', // Sort by rating descending
+        });
         
-        // Sort by rating (descending), places with null rating go last
-        const sortedPlaces = places
-          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-          .slice(0, 8);
-        
-        if (sortedPlaces.length > 0) {
-          setFeaturedPlaces(sortedPlaces.map(transformPlace));
+        // Take top 8 for featured (already sorted by rating from API)
+        if (places.length > 0) {
+          setFeaturedPlaces(places.slice(0, 8).map(transformPlace));
         } else {
           // Fallback to static data if API returns empty
           setFeaturedPlaces(fallbackPlaces.slice(0, 8));

@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import vietSpotAPI, { PlaceInfo, ChatRequest, ChatResponse } from "@/api/vietspot";
 
-// Places hooks
+// Places hooks - matching mobile app params
 export function usePlaces(params?: {
   skip?: number;
   limit?: number;
   category?: string;
   city?: string;
+  minRating?: number;
+  sortBy?: string;
 }) {
   return useQuery({
     queryKey: ["places", params],

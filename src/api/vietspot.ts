@@ -19,12 +19,13 @@ export interface PlaceInfo {
   rating_count?: number;
   total_comments?: number;
   image_url?: string;
-  images?: { id: string; url: string }[];
+  images?: { id: string; url: string }[] | string[];
   description?: string;
   about?: Record<string, unknown>;
   coordinates?: { lat: number; lon: number };
   created_at?: string;
   updated_at?: string;
+  distance_km?: number;
 }
 
 export interface CommentResponse {
@@ -105,18 +106,39 @@ class VietSpotAPI {
     return response.json();
   }
 
-  // Places endpoints
+  // Places endpoints - matching mobile app params
   async getPlaces(params?: {
     skip?: number;
     limit?: number;
     category?: string;
     city?: string;
+    lat?: number;
+    lon?: number;
+    maxDistance?: number;
+    minRating?: number;
+    sortBy?: string;
+    search?: string;
   }): Promise<PlaceInfo[]> {
+    // If search is provided, use search endpoint
+    if (params?.search && params.search.trim().length > 0) {
+      return this.searchPlaces({
+        q: params.search,
+        category: params.category,
+        city: params.city,
+        limit: params.limit,
+      });
+    }
+
     const searchParams = new URLSearchParams();
     if (params?.skip) searchParams.set("skip", params.skip.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
-    if (params?.category) searchParams.set("category", params.category);
-    if (params?.city) searchParams.set("city", params.city);
+    if (params?.category) searchParams.set("categories", params.category);
+    if (params?.city) searchParams.set("location", params.city);
+    if (params?.lat) searchParams.set("lat", params.lat.toString());
+    if (params?.lon) searchParams.set("lon", params.lon.toString());
+    if (params?.maxDistance) searchParams.set("max_distance", params.maxDistance.toString());
+    if (params?.minRating) searchParams.set("min_rating", params.minRating.toString());
+    if (params?.sortBy) searchParams.set("sort_by", params.sortBy);
 
     const query = searchParams.toString();
     return this.request(`/api/places${query ? `?${query}` : ""}`);
@@ -131,12 +153,16 @@ class VietSpotAPI {
     category?: string;
     city?: string;
     limit?: number;
+    lat?: number;
+    lon?: number;
   }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
-    searchParams.set("keyword", params.q); // API uses "keyword" not "q"
+    searchParams.set("keyword", params.q); // API uses "keyword"
     if (params.category) searchParams.set("category", params.category);
     if (params.city) searchParams.set("city", params.city);
     if (params.limit) searchParams.set("limit", params.limit.toString());
+    if (params.lat) searchParams.set("lat", params.lat.toString());
+    if (params.lon) searchParams.set("lon", params.lon.toString());
 
     return this.request(`/api/places/search?${searchParams.toString()}`);
   }
@@ -146,12 +172,16 @@ class VietSpotAPI {
     longitude: number;
     radius?: number;
     limit?: number;
+    minRating?: number;
+    categories?: string;
   }): Promise<PlaceInfo[]> {
     const searchParams = new URLSearchParams();
-    searchParams.set("latitude", params.latitude.toString());
-    searchParams.set("longitude", params.longitude.toString());
+    searchParams.set("lat", params.latitude.toString());
+    searchParams.set("lon", params.longitude.toString());
     if (params.radius) searchParams.set("radius", params.radius.toString());
     if (params.limit) searchParams.set("limit", params.limit.toString());
+    if (params.minRating) searchParams.set("min_rating", params.minRating.toString());
+    if (params.categories) searchParams.set("categories", params.categories);
 
     return this.request(`/api/places/nearby?${searchParams.toString()}`);
   }
