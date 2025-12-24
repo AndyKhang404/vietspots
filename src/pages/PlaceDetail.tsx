@@ -405,7 +405,7 @@ export default function PlaceDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-10 text-center">
           <h1 className="text-2xl font-bold mb-4">Không tìm thấy địa điểm</h1>
-          <Button onClick={() => navigate(-1)}>Quay lại</Button>
+          <Button onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}>Quay lại</Button>
         </div>
       </Layout>
     );
@@ -420,7 +420,7 @@ export default function PlaceDetail() {
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
         {/* Back Button & Actions */}
         <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" className="gap-2" onClick={() => navigate(-1)}>
+          <Button variant="ghost" className="gap-2" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}>
             <ArrowLeft className="h-4 w-4" />
             Quay lại
           </Button>
