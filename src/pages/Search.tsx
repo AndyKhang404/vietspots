@@ -3,9 +3,16 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2 } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePlaces, useSearchPlaces, useCategories } from "@/hooks/useVietSpotAPI";
 import { transformPlace, categories as defaultCategories } from "@/data/places";
@@ -20,6 +27,8 @@ export default function Search() {
   const [activeFilter, setActiveFilter] = useState(searchParams.get("category") || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  const [minRating, setMinRating] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
   const { toggleFavorite, isFavorite } = useFavorites();
   
   // Sync activeFilter with URL params when component mounts or URL changes
@@ -45,7 +54,7 @@ export default function Search() {
     shouldFetchPlaces ? {
       category: activeFilter !== "all" ? activeFilter : undefined,
       limit: 50,
-      minRating: 0.1,
+      minRating: minRating > 0 ? minRating : 0.1,
       sortBy: 'rating',
     } : { limit: 0 }
   );
@@ -79,7 +88,8 @@ export default function Search() {
       place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       place.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = activeFilter === "all" || place.category === activeFilter;
-    return matchesSearch && matchesFilter;
+    const matchesRating = minRating === 0 || place.rating >= minRating;
+    return matchesSearch && matchesFilter && matchesRating;
   });
 
   const isLoading = isSearching ? searchLoading : placesLoading;
@@ -118,9 +128,66 @@ export default function Search() {
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
-              <SlidersHorizontal className="h-5 w-5" />
-            </Button>
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant={minRating > 0 ? "default" : "outline"} 
+                  size="icon" 
+                  className="h-12 w-12 rounded-xl relative"
+                >
+                  <SlidersHorizontal className="h-5 w-5" />
+                  {minRating > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
+                      1
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Bộ lọc nâng cao</h4>
+                    {minRating > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 px-2 text-xs"
+                        onClick={() => setMinRating(0)}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Xóa bộ lọc
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Rating tối thiểu</Label>
+                      <span className="text-sm font-medium text-primary">
+                        {minRating > 0 ? `${minRating}+ sao` : "Tất cả"}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[minRating]}
+                      onValueChange={(value) => setMinRating(value[0])}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Tất cả</span>
+                      <span>5 sao</span>
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => setFilterOpen(false)}
+                  >
+                    Áp dụng
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <div className="hidden lg:flex border border-border rounded-xl overflow-hidden">
               <Button 
                 variant={viewMode === "grid" ? "secondary" : "ghost"} 
