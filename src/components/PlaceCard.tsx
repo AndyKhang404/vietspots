@@ -89,9 +89,9 @@ export default function PlaceCard({
       </div>
       <div className="p-4 lg:p-5">
         <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">{name}</h3>
-        <div className="flex items-center gap-1.5 text-primary mt-1.5">
-          <MapPin className="h-4 w-4 shrink-0" />
-          <span className="text-sm line-clamp-2">{location}</span>
+        <div className="flex items-start gap-1.5 text-primary mt-1.5">
+          <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+          <span className="text-sm">{location}</span>
         </div>
         <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
           {description}
