@@ -84,6 +84,49 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)}km`;
 }
 
+// Format opening hours from JSON string to readable format
+function formatOpeningHours(hours: string): string {
+  try {
+    // Check if it's a JSON-like string
+    if (hours.startsWith('{') || hours.startsWith("{'")) {
+      // Parse the JSON-like string (Python dict format with single quotes)
+      const cleaned = hours.replace(/'/g, '"');
+      const parsed = JSON.parse(cleaned);
+      
+      // Get today's day name in Vietnamese
+      const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const today = days[new Date().getDay()];
+      
+      // Find today's hours
+      if (parsed[today]) {
+        return `Hôm nay: ${parsed[today]}`;
+      }
+      
+      // Fallback: show first available time
+      const firstKey = Object.keys(parsed)[0];
+      if (firstKey) {
+        return `${firstKey}: ${parsed[firstKey]}`;
+      }
+    }
+    return hours;
+  } catch {
+    // If parsing fails, return original string cleaned up
+    return hours.replace(/[{}']/g, '').replace(/,/g, ', ');
+  }
+}
+
+// Parse markdown bold (**text**) to JSX
+function parseMarkdownBold(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const boldText = part.slice(2, -2);
+      return <strong key={index} className="font-bold">{boldText}</strong>;
+    }
+    return part;
+  });
+}
+
 // Transform API PlaceInfo to PlaceResult format with distance
 function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): PlaceResult {
   let distance: number | undefined;
@@ -649,7 +692,7 @@ export default function Chatbot() {
                           )}
                         >
                           <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
+                            {parseMarkdownBold(message.content)}
                             {message.isStreaming && (
                               <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
                             )}
@@ -735,7 +778,7 @@ export default function Chatbot() {
                         {place.openingHours && (
                           <div className="flex items-center gap-2 text-sm mb-2">
                             <Clock className="h-4 w-4 text-orange-500 shrink-0" />
-                            <span className="text-muted-foreground">{place.openingHours}</span>
+                            <span className="text-muted-foreground">{formatOpeningHours(place.openingHours)}</span>
                           </div>
                         )}
 
