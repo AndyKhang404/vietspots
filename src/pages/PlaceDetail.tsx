@@ -175,7 +175,11 @@ export default function PlaceDetail() {
 
     // Clean up existing map
     if (mapRef.current) {
-      mapRef.current.remove();
+      try {
+        mapRef.current.remove();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
 
     const trackAsiaKey = import.meta.env.VITE_TRACKASIA_PUBLIC_KEY || 'public_key';
@@ -199,7 +203,13 @@ export default function PlaceDetail() {
     mapRef.current = map;
 
     return () => {
-      map.remove();
+      try {
+        if (map && map.remove) {
+          map.remove();
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     };
   }, [place]);
 
