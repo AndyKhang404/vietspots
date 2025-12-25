@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X, Star, Clock, Navigation, Heart, Save, Tag } from "lucide-react";
+import { Search as SearchIcon, SlidersHorizontal, Grid3X3, List, Loader2, X, Star, Clock, Navigation, Heart, Save, Tag, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,45 @@ export default function Search() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [filterName, setFilterName] = useState("");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useFavorites();
+
+  // Get user GPS location
+  const requestUserLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Trình duyệt không hỗ trợ GPS");
+      toast.error("Trình duyệt không hỗ trợ GPS");
+      return;
+    }
+    setLocationLoading(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        });
+        setLocationLoading(false);
+        toast.success("Đã lấy vị trí của bạn!");
+      },
+      (error) => {
+        setLocationLoading(false);
+        let msg = "Không thể lấy vị trí";
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = "Bạn đã từ chối quyền truy cập vị trí";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = "Vị trí không khả dụng";
+        } else if (error.code === error.TIMEOUT) {
+          msg = "Hết thời gian chờ lấy vị trí";
+        }
+        setLocationError(msg);
+        toast.error(msg);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
 
   // Load saved filters from localStorage
   useEffect(() => {
@@ -150,6 +188,9 @@ export default function Search() {
       limit: 50,
       minRating: minRating > 0 ? minRating : 0.1,
       sortBy: 'rating',
+      lat: userLocation?.lat,
+      lon: userLocation?.lon,
+      maxDistance: maxDistance > 0 && userLocation ? maxDistance : undefined,
     } : { limit: 0 }
   );
   
@@ -301,6 +342,39 @@ export default function Search() {
                           {maxDistance > 0 ? `${maxDistance} km` : "Không giới hạn"}
                         </span>
                       </div>
+                      
+                      {/* GPS Location Button */}
+                      {!userLocation ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={requestUserLocation}
+                          disabled={locationLoading}
+                        >
+                          {locationLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Đang lấy vị trí...
+                            </>
+                          ) : (
+                            <>
+                              <MapPin className="h-4 w-4 mr-2" />
+                              Bật GPS để lọc khoảng cách
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 p-2 rounded-lg">
+                          <MapPin className="h-3 w-3" />
+                          <span>Đã lấy vị trí của bạn</span>
+                        </div>
+                      )}
+                      
+                      {locationError && (
+                        <p className="text-xs text-destructive">{locationError}</p>
+                      )}
+                      
                       <Slider
                         value={[maxDistance]}
                         onValueChange={(value) => setMaxDistance(value[0])}
@@ -308,11 +382,15 @@ export default function Search() {
                         max={50}
                         step={1}
                         className="w-full"
+                        disabled={!userLocation}
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Không giới hạn</span>
                         <span>50 km</span>
                       </div>
+                      {!userLocation && maxDistance > 0 && (
+                        <p className="text-xs text-amber-600">Bật GPS để áp dụng lọc khoảng cách</p>
+                      )}
                     </div>
 
                     <Separator />

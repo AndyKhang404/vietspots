@@ -9,6 +9,9 @@ export function usePlaces(params?: {
   city?: string;
   minRating?: number;
   sortBy?: string;
+  lat?: number;
+  lon?: number;
+  maxDistance?: number;
 }) {
   return useQuery({
     queryKey: ["places", params],
