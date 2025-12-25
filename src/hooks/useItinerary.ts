@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
 import vietSpotAPI, { DayItinerary } from "@/api/vietspot";
+import { cleanAddress } from "@/lib/utils";
 
 export interface SavedItinerary {
   id: string;
@@ -95,9 +96,21 @@ export function useItinerary() {
 
       // Check if response has itinerary data
       if (response.itinerary && response.itinerary.length > 0) {
-        setCurrentItinerary(response.itinerary);
+        // Sanitize addresses coming from the chat API (remove plus codes / zip codes)
+        const sanitized = response.itinerary.map((day) => ({
+          ...day,
+          activities: day.activities.map((act) => ({
+            ...act,
+            place: {
+              ...act.place,
+              address: cleanAddress((act.place as any).address),
+            },
+          })),
+        }));
+
+        setCurrentItinerary(sanitized);
         toast.success(t('messages.itinerary_created'));
-        return response.itinerary;
+        return sanitized;
       }
 
       // Try to parse from places if no itinerary
@@ -123,6 +136,13 @@ export function useItinerary() {
               duration: i18n.language && i18n.language.startsWith('vi') ? '2 giờ' : '2h',
               notes: place.description || undefined,
             };
+          });
+
+          // sanitize addresses for generated places
+          activities.forEach((a) => {
+            if (a.place && 'address' in a.place) {
+              (a.place as any).address = cleanAddress((a.place as any).address);
+            }
           });
 
           generatedItinerary.push({

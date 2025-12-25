@@ -226,6 +226,7 @@
     "filters": "Bộ lọc",
     "location": "Vị trí",
     "send_review": "Gửi đánh giá",
+    "view_details": "Xem chi tiết",
     "share": "Chia sẻ",
     "add_image": "Thêm ảnh"
   },
@@ -272,7 +273,9 @@
     "budget_label": "Ngân sách",
     "preferences_label": "Sở thích",
     "generate_button": "Tạo lịch trình AI",
+    "generating": "Đang tạo lịch trình...",
     "section_title": "Lịch trình",
+    "day_label": "Ngày",
     "no_itinerary_title": "Chưa có lịch trình",
     "no_itinerary_desc": "Nhập thông tin chuyến đi và nhấn \"Tạo lịch trình AI\" để bắt đầu"
   },
@@ -324,8 +327,8 @@
     "delete_error": "Không thể xóa cuộc trò chuyện"
   },
   "route": {
-    "used_cached": "Sử dụng tuyến đã lưu ({distance} km)",
-    "route_info": "Khoảng cách: {distance} km • Thời gian: {duration} phút",
+    "used_cached": "Sử dụng tuyến đã lưu ({{distance}} km)",
+    "route_info": "Khoảng cách: {{distance}} km • Thời gian: {{duration}} phút",
     "fallback": "Tuyến tạm thời (dịch vụ định tuyến chậm hoặc không phản hồi)."
   },
   "themes": {

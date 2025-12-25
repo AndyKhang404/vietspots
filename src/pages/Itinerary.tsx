@@ -31,8 +31,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useItinerary, SavedItinerary } from "@/hooks/useItinerary";
 import { DayItinerary } from "@/api/vietspot";
-import { cn } from "@/lib/utils";
+import { cleanAddress } from "@/lib/utils";
 import { toast } from "sonner";
+import RouteOptimizer from "@/components/RouteOptimizer";
 
 const PREFERENCE_OPTIONS = [
   { value: "history" },
@@ -290,15 +291,28 @@ export default function Itinerary() {
                   <div className="space-y-6 pr-4">
                     {currentItinerary.map((day: DayItinerary) => (
                       <div key={day.day} className="space-y-3">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                          <Calendar className="h-5 w-5 text-primary" />
-                          {t('itinerary.day_label')} {day.day}
-                          {day.date && (
-                            <span className="text-muted-foreground font-normal text-sm">
-                              ({day.date})
-                            </span>
-                          )}
-                        </h3>
+                        <div className="flex items-start justify-between">
+                          <h3 className="font-bold text-lg flex items-center gap-2">
+                            <Calendar className="h-5 w-5 text-primary" />
+                            {t('itinerary.day_label')} {day.day}
+                            {day.date && (
+                              <span className="text-muted-foreground font-normal text-sm">
+                                ({day.date})
+                              </span>
+                            )}
+                          </h3>
+
+                          <div>
+                            <RouteOptimizer
+                              activities={day.activities}
+                              onReorder={(newActivities) => {
+                                const updated = [...(currentItinerary || [])];
+                                updated[day.day - 1] = { ...(updated[day.day - 1] || {}), activities: newActivities } as DayItinerary;
+                                setCurrentItinerary(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
 
                         <div className="space-y-3 ml-7 border-l-2 border-primary/20 pl-4">
                           {day.activities.map((activity, i) => (
@@ -315,13 +329,14 @@ export default function Itinerary() {
                               </h4>
                               <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
                                 <MapPin className="h-3.5 w-3.5" />
-                                {activity.place.address}
+                                {cleanAddress((activity.place as any).address) || activity.place.address || activity.place.name || ''}
                               </div>
                               {activity.notes && (
                                 <p className="text-sm text-muted-foreground mt-2">
                                   {activity.notes}
                                 </p>
                               )}
+
                               <Button
                                 variant="link"
                                 size="sm"

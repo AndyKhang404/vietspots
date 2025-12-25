@@ -183,6 +183,7 @@
     "filters": "Filters",
     "location": "Location",
     "send_review": "Send review",
+    "view_details": "View details",
     "apply": "Apply",
     "share": "Share",
     "add_image": "Add image"
@@ -268,6 +269,7 @@
     "budget_label": "Budget",
     "preferences_label": "Preferences",
     "generate_button": "Generate AI Itinerary",
+    "generating": "Generating itinerary...",
     "section_title": "Itinerary",
     "no_itinerary_title": "No itinerary",
     "no_itinerary_desc": "Enter trip info and press \"Generate AI Itinerary\" to start"
@@ -334,8 +336,8 @@
     "delete_error": "Unable to delete conversation"
   },
   "route": {
-    "used_cached": "Using cached route ({distance} km)",
-    "route_info": "Distance: {distance} km • Duration: {duration} min",
+    "used_cached": "Using cached route ({{distance}} km)",
+    "route_info": "Distance: {{distance}} km • Duration: {{duration}} min",
     "fallback": "Temporary route (routing service slow or unresponsive)."
   },
   "themes": {
