@@ -41,6 +41,19 @@ interface SavedFilter {
 
 const SAVED_FILTERS_KEY = "vietspots_saved_filters";
 
+const sanitizeAddress = (addr: string | undefined | null) => {
+  if (!addr) return "";
+  return String(addr)
+    .replace(/\b[A-Z0-9]{3,}\+[A-Z0-9]{2,}\b/gi, "")
+    .replace(/\b\d{5,6}\b/g, "")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*$/g, "")
+    .replace(/^\s*,/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 export default function Search() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -486,13 +499,13 @@ export default function Search() {
                 >
                   <PlaceCard
                     {...place}
-                    location={place.address || place.location}
+                    location={sanitizeAddress(place.address) || place.location}
                     ratingCount={place.ratingCount}
                     isFavorite={isFavorite(place.id)}
                     onFavoriteToggle={() => toggleFavorite({
                       id: place.id,
                       name: place.name,
-                      address: place.address || place.location,
+                      address: sanitizeAddress(place.address) || place.location,
                       image: place.image,
                       rating: place.rating,
                       category: place.category,
