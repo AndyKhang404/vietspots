@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
@@ -30,6 +31,7 @@ import {
   DollarSign,
   ExternalLink,
 } from "lucide-react";
+import { categories as allCategories } from '@/data/places';
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReviews } from "@/hooks/useReviews";
@@ -68,13 +70,16 @@ const amenityIcons: Record<string, typeof Wifi> = {
   "Nhà vệ sinh cho xe lăn": Navigation,
 };
 
+// Slugify helper for amenity translation keys
+const slugify = (s: string) => s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
 // Extract amenities from API response
 const getAmenities = (place: PlaceInfo) => {
   const amenities: { icon: typeof Wifi; label: string }[] = [];
   const about = place.about;
-  
+
   if (!about) return amenities;
-  
+
   // Check amenities section
   if (about.amenities && typeof about.amenities === 'object') {
     Object.entries(about.amenities).forEach(([key, value]) => {
@@ -84,7 +89,7 @@ const getAmenities = (place: PlaceInfo) => {
       }
     });
   }
-  
+
   // Check accessibility section
   if (about.accessibility && typeof about.accessibility === 'object') {
     Object.entries(about.accessibility).forEach(([key, value]) => {
@@ -94,7 +99,7 @@ const getAmenities = (place: PlaceInfo) => {
       }
     });
   }
-  
+
   // Check payments section  
   if (about.payments && typeof about.payments === 'object') {
     Object.entries(about.payments).forEach(([key, value]) => {
@@ -104,11 +109,40 @@ const getAmenities = (place: PlaceInfo) => {
       }
     });
   }
-  
+
   return amenities;
 };
 
+// Try to translate amenity label using i18n keys, fallback to provided label
+function translateAmenity(label: string, t: (k: string, v?: any) => string) {
+  const key = `amenities.${slugify(label)}`;
+  const translated = t(key);
+  // If translation equals key, fallback to original label
+  if (translated === key) return label;
+  return translated;
+}
+
+// Translate Vietnamese day names to English when needed
+function translateDayName(day: string, lang: string) {
+  if (lang === 'en') {
+    const map: Record<string, string> = {
+      'chủ nhật': 'Sunday',
+      'chủ nhật:': 'Sunday',
+      'thứ hai': 'Monday',
+      'thứ ba': 'Tuesday',
+      'thứ tư': 'Wednesday',
+      'thứ năm': 'Thursday',
+      'thứ sáu': 'Friday',
+      'thứ bảy': 'Saturday',
+    };
+    const key = day.toLowerCase().replace(/\s+/g, ' ');
+    return map[key] || day;
+  }
+  return day;
+}
+
 export default function PlaceDetail() {
+  const { t, i18n } = useTranslation();
   const { placeId } = useParams<{ placeId: string }>();
   const navigate = useNavigate();
 
@@ -155,7 +189,7 @@ export default function PlaceDetail() {
         const response = await vietSpotAPI.getPlace(placeId);
         if (response) {
           setPlace(response);
-          const imgs = response.images?.map((img: { url: string } | string) => 
+          const imgs = response.images?.map((img: { url: string } | string) =>
             typeof img === 'string' ? img : img.url
           ) || [];
           if (imgs.length > 0) {
@@ -166,7 +200,7 @@ export default function PlaceDetail() {
         }
       } catch (error) {
         console.error("Error fetching place:", error);
-        toast.error("Không thể tải thông tin địa điểm");
+        toast.error(t('messages.cannot_load_place'));
       } finally {
         setLoading(false);
       }
@@ -192,7 +226,7 @@ export default function PlaceDetail() {
     }
 
     const trackAsiaKey = import.meta.env.VITE_TRACKASIA_PUBLIC_KEY || 'public_key';
-    
+
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: `https://maps.track-asia.com/styles/v1/streets.json?key=${trackAsiaKey}`,
@@ -303,11 +337,11 @@ export default function PlaceDetail() {
           // Show route info
           const distance = (data.routes[0].distance / 1000).toFixed(1);
           const duration = Math.round(data.routes[0].duration / 60);
-          toast.success(`Khoảng cách: ${distance}km • Thời gian: ${duration} phút`);
+          toast.success(t('route.route_info', { distance, duration }));
         }
       } catch (error) {
         console.error('Error fetching route:', error);
-        toast.error('Không thể tải lộ trình. Vui lòng thử lại.');
+        toast.error(t('messages.cannot_load_route'));
       } finally {
         setRouteLoading(false);
       }
@@ -324,7 +358,7 @@ export default function PlaceDetail() {
   const handleShowRouteOnMap = () => {
     const coords = place ? getCoordinates(place) : null;
     if (!coords) {
-      toast.error('Địa điểm không có tọa độ');
+      toast.error(t('messages.no_coordinates'));
       return;
     }
 
@@ -341,13 +375,13 @@ export default function PlaceDetail() {
         },
         (error) => {
           console.error('Geolocation error:', error);
-          toast.error('Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí.');
+          toast.error(t('messages.location_permission_required'));
           setRouteLoading(false);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      toast.error('Trình duyệt không hỗ trợ định vị');
+      toast.error(t('messages.browser_no_geolocation'));
       setRouteLoading(false);
     }
   };
@@ -374,7 +408,7 @@ export default function PlaceDetail() {
       try {
         await navigator.share({
           title: place?.name,
-          text: `Khám phá ${place?.name} trên VietSpots!`,
+          text: t('messages.share_text', { name: place?.name }),
           url,
         });
       } catch (error) {
@@ -382,7 +416,7 @@ export default function PlaceDetail() {
       }
     } else {
       await navigator.clipboard.writeText(url);
-      toast.success("Đã sao chép liên kết!");
+      toast.success(t('messages.link_copied'));
     }
   };
 
@@ -423,14 +457,14 @@ export default function PlaceDetail() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-10 text-center">
-          <h1 className="text-2xl font-bold mb-4">Không tìm thấy địa điểm</h1>
-          <Button onClick={handleBack}>Quay lại</Button>
+          <h1 className="text-2xl font-bold mb-4">{t('messages.not_found_place')}</h1>
+          <Button onClick={handleBack}>{t('common.back')}</Button>
         </div>
       </Layout>
     );
   }
 
-  const images: string[] = (place.images || []).map((img: string | { url: string; id: string }) => 
+  const images: string[] = (place.images || []).map((img: string | { url: string; id: string }) =>
     typeof img === 'string' ? img : img.url
   ).concat(place.image_url && !(place.images?.length) ? [place.image_url] : []);
 
@@ -441,16 +475,16 @@ export default function PlaceDetail() {
         <div className="flex items-center justify-between mb-4">
           <Button variant="ghost" className="gap-2" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4" />
-            Quay lại
+            {t('common.back')}
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="gap-2"
             onClick={() => fetchReviews()}
           >
             <RefreshCw className="h-4 w-4" />
-            Làm mới
+            {t('common.refresh')}
           </Button>
         </div>
 
@@ -499,7 +533,10 @@ export default function PlaceDetail() {
                   </h1>
                   {place.category && (
                     <Badge variant="secondary" className="mb-3">
-                      {place.category}
+                      {(() => {
+                        const c = allCategories.find(cc => cc.id === place.category || cc.labelKey === place.category);
+                        return c ? t(c.labelKey) : place.category;
+                      })()}
                     </Badge>
                   )}
                 </div>
@@ -540,7 +577,7 @@ export default function PlaceDetail() {
                   </span>
                 </div>
                 <span className="text-muted-foreground">
-                  {(place.total_comments ?? place.rating_count ?? 0)} đánh giá
+                  {`${(place.total_comments ?? place.rating_count ?? 0)} ${t('place.reviews')}`}
                 </span>
               </div>
 
@@ -550,7 +587,7 @@ export default function PlaceDetail() {
                 if (amenities.length === 0) return null;
                 return (
                   <div className="mb-6">
-                    <h3 className="font-semibold text-foreground mb-3">Tiện ích</h3>
+                    <h3 className="font-semibold text-foreground mb-3">{t('place.amenities')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {amenities.map((chip) => (
                         <div
@@ -558,7 +595,7 @@ export default function PlaceDetail() {
                           className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
                         >
                           <chip.icon className="h-4 w-4 text-primary" />
-                          <span className="text-foreground">{chip.label}</span>
+                          <span className="text-foreground">{translateAmenity(chip.label, t)}</span>
                         </div>
                       ))}
                     </div>
@@ -569,19 +606,19 @@ export default function PlaceDetail() {
               {/* Description */}
               {place.description && (
                 <div className="mb-6">
-                  <h3 className="font-semibold text-foreground mb-2">Giới thiệu</h3>
+                  <h3 className="font-semibold text-foreground mb-2">{t('place.about')}</h3>
                   <p className="text-muted-foreground leading-relaxed">{place.description}</p>
                 </div>
               )}
 
               {/* Location Section */}
               <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Vị trí</h3>
-                
+                <h3 className="font-semibold text-foreground mb-3">{t('place.location')}</h3>
+
                 {/* Map Preview */}
                 {getCoordinates(place) && (
-                  <div 
-                    ref={mapContainerRef} 
+                  <div
+                    ref={mapContainerRef}
                     className="w-full h-[200px] rounded-xl overflow-hidden mb-4"
                   />
                 )}
@@ -600,13 +637,13 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
                     <Clock className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-foreground mb-1">Giờ mở cửa</p>
+                      <p className="font-medium text-foreground mb-1">{t('place.opening_hours')}</p>
                       <span className="text-sm text-muted-foreground">
-                        {typeof place.opening_hours === 'string' 
-                          ? place.opening_hours 
+                        {typeof place.opening_hours === 'string'
+                          ? place.opening_hours
                           : Object.entries(place.opening_hours).map(([day, time]) => (
-                              <div key={day}>{day}: {time}</div>
-                            ))}
+                            <div key={day}>{translateDayName(day, i18n.language)}: {time}</div>
+                          ))}
                       </span>
                     </div>
                   </div>
@@ -617,7 +654,7 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
                     <Phone className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-foreground mb-1">Điện thoại</p>
+                      <p className="font-medium text-foreground mb-1">{t('place.phone')}</p>
                       <a href={`tel:${place.phone}`} className="text-sm text-primary hover:underline">
                         {place.phone}
                       </a>
@@ -631,7 +668,7 @@ export default function PlaceDetail() {
                 <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl mb-6">
                   <Globe className="h-5 w-5 text-blue-600 shrink-0" />
                   <div className="flex-1">
-                    <p className="font-medium text-foreground mb-1">Website</p>
+                    <p className="font-medium text-foreground mb-1">{t('place.website')}</p>
                     <button
                       onClick={handleOpenWebsite}
                       className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -645,8 +682,8 @@ export default function PlaceDetail() {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  className="gap-2" 
+                <Button
+                  className="gap-2"
                   onClick={handleShowRouteOnMap}
                   disabled={routeLoading}
                 >
@@ -655,11 +692,11 @@ export default function PlaceDetail() {
                   ) : (
                     <Navigation className="h-5 w-5" />
                   )}
-                  {showRoute ? 'Đang hiển thị' : 'Chỉ đường'}
+                  {showRoute ? t('messages.showing') : t('messages.directions')}
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={handleShare}>
                   <Share2 className="h-5 w-5" />
-                  Chia sẻ
+                  {t('actions.share')}
                 </Button>
               </div>
             </div>
@@ -670,13 +707,13 @@ export default function PlaceDetail() {
             <div className="bg-card rounded-2xl p-6 border border-border">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
-                Đánh giá ({place.total_comments ?? totalReviews})
+                {`${t('place.reviews')} (${place.total_comments ?? totalReviews})`}
               </h2>
 
               {/* Write Review Form */}
               {user && !userReview ? (
                 <div className="mb-6 p-4 bg-muted/50 rounded-xl">
-                  <h3 className="font-semibold mb-3">Viết đánh giá của bạn</h3>
+                  <h3 className="font-semibold mb-3">{t('review.write')}</h3>
 
                   {/* Star Rating */}
                   <div className="flex items-center gap-1 mb-3">
@@ -702,7 +739,7 @@ export default function PlaceDetail() {
                   <Textarea
                     value={newReviewContent}
                     onChange={(e) => setNewReviewContent(e.target.value)}
-                    placeholder="Chia sẻ trải nghiệm của bạn..."
+                    placeholder={t('review.placeholder')}
                     className="mb-3"
                     rows={3}
                   />
@@ -720,13 +757,13 @@ export default function PlaceDetail() {
                       <Button variant="outline" size="sm" className="gap-2" asChild>
                         <span>
                           <ImageIcon className="h-4 w-4" />
-                          Thêm ảnh
+                          {t('actions.add_image')}
                         </span>
                       </Button>
                     </label>
                     {reviewImages.length > 0 && (
                       <span className="text-sm text-muted-foreground">
-                        {reviewImages.length} ảnh đã chọn
+                        {t('place.selected_images', { count: reviewImages.length })}
                       </span>
                     )}
                   </div>
@@ -765,16 +802,16 @@ export default function PlaceDetail() {
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    Gửi đánh giá
+                    {t('actions.send_review')}
                   </Button>
                 </div>
               ) : !user ? (
                 <div className="mb-6 p-4 bg-muted/50 rounded-xl text-center">
                   <p className="text-muted-foreground mb-3">
-                    Đăng nhập để viết đánh giá
+                    {t('messages.login_to_review')}
                   </p>
                   <Button onClick={() => navigate("/auth")} variant="outline">
-                    Đăng nhập
+                    {t('auth.login')}
                   </Button>
                 </div>
               ) : null}
@@ -847,14 +884,14 @@ export default function PlaceDetail() {
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(review.created_at).toLocaleDateString("vi-VN")}
+                          {new Date(review.created_at).toLocaleDateString(i18n.language)}
                         </p>
                       </div>
                     ))
                   ) : (
                     <div className="text-center py-8">
                       <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground">Chưa có đánh giá nào</p>
+                      <p className="text-muted-foreground">{t('review.no_reviews')}</p>
                     </div>
                   )}
                 </div>

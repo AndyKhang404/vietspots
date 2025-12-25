@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
@@ -34,24 +35,25 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const PREFERENCE_OPTIONS = [
-  { value: "history", label: "Lịch sử" },
-  { value: "nature", label: "Thiên nhiên" },
-  { value: "food", label: "Ẩm thực" },
-  { value: "shopping", label: "Mua sắm" },
-  { value: "culture", label: "Văn hóa" },
-  { value: "adventure", label: "Phiêu lưu" },
-  { value: "relax", label: "Nghỉ dưỡng" },
-  { value: "photography", label: "Chụp ảnh" },
+  { value: "history" },
+  { value: "nature" },
+  { value: "food" },
+  { value: "shopping" },
+  { value: "culture" },
+  { value: "adventure" },
+  { value: "relax" },
+  { value: "photography" },
 ];
 
 const BUDGET_OPTIONS = [
-  { value: "low", label: "Tiết kiệm" },
-  { value: "medium", label: "Trung bình" },
-  { value: "high", label: "Cao cấp" },
+  { value: "low" },
+  { value: "medium" },
+  { value: "high" },
 ];
 
 export default function Itinerary() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const {
     itineraries,
@@ -81,7 +83,7 @@ export default function Itinerary() {
 
   const handleGenerate = async () => {
     if (!destination.trim()) {
-      toast.error("Vui lòng nhập điểm đến");
+      toast.error(t('itinerary_page.enter_destination'));
       return;
     }
 
@@ -97,7 +99,7 @@ export default function Itinerary() {
     if (!currentItinerary) return;
 
     if (!title.trim()) {
-      toast.error("Vui lòng nhập tên lịch trình");
+      toast.error(t('itinerary_page.enter_title'));
       return;
     }
 
@@ -116,9 +118,9 @@ export default function Itinerary() {
     const url = getShareUrl(itinerary);
     if (url) {
       await navigator.clipboard.writeText(url);
-      toast.success("Đã sao chép liên kết chia sẻ!");
+      toast.success(t('messages.link_copied'));
     } else {
-      toast.error("Lịch trình này chưa được công khai");
+      toast.error(t('itinerary_page.not_public'));
     }
   };
 
@@ -138,12 +140,8 @@ export default function Itinerary() {
               <Calendar className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                Lập Lịch Trình
-              </h1>
-              <p className="text-muted-foreground">
-                Tạo lịch trình du lịch tự động với AI
-              </p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('itinerary_page.title')}</h1>
+              <p className="text-muted-foreground">{t('itinerary_page.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -156,7 +154,7 @@ export default function Itinerary() {
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Tạo mới
+            {t('actions.new')}
           </Button>
           <Button
             variant={activeTab === "saved" ? "default" : "outline"}
@@ -164,7 +162,7 @@ export default function Itinerary() {
             className="gap-2"
           >
             <List className="h-4 w-4" />
-            Đã lưu ({itineraries.length})
+            {t('itinerary.saved', { count: itineraries.length })}
           </Button>
         </div>
 
@@ -172,15 +170,15 @@ export default function Itinerary() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left - Form */}
             <div className="bg-card rounded-2xl p-6 border border-border">
-              <h2 className="text-xl font-bold mb-6">Thông tin chuyến đi</h2>
+              <h2 className="text-xl font-bold mb-6">{t('itinerary.form_title')}</h2>
 
               <div className="space-y-4">
                 {/* Destination */}
                 <div>
-                  <Label htmlFor="destination">Điểm đến</Label>
+                  <Label htmlFor="destination">{t('itinerary.destination')}</Label>
                   <Input
                     id="destination"
-                    placeholder="Ví dụ: Đà Nẵng, Hội An..."
+                    placeholder={t('itinerary.destination_placeholder')}
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     className="mt-1.5"
@@ -189,7 +187,7 @@ export default function Itinerary() {
 
                 {/* Days */}
                 <div>
-                  <Label htmlFor="days">Số ngày</Label>
+                  <Label htmlFor="days">{t('itinerary.days_label')}</Label>
                   <Select
                     value={days.toString()}
                     onValueChange={(v) => setDays(parseInt(v))}
@@ -200,7 +198,7 @@ export default function Itinerary() {
                     <SelectContent>
                       {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                         <SelectItem key={d} value={d.toString()}>
-                          {d} ngày
+                          {d} {t('itinerary.day_unit')}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -209,7 +207,7 @@ export default function Itinerary() {
 
                 {/* Budget */}
                 <div>
-                  <Label>Ngân sách</Label>
+                  <Label>{t('itinerary.budget_label')}</Label>
                   <div className="flex gap-2 mt-1.5">
                     {BUDGET_OPTIONS.map((opt) => (
                       <Button
@@ -218,7 +216,7 @@ export default function Itinerary() {
                         size="sm"
                         onClick={() => setBudget(opt.value)}
                       >
-                        {opt.label}
+                        {t(`budget.${opt.value}`)}
                       </Button>
                     ))}
                   </div>
@@ -226,7 +224,7 @@ export default function Itinerary() {
 
                 {/* Preferences */}
                 <div>
-                  <Label>Sở thích</Label>
+                  <Label>{t('itinerary.preferences_label')}</Label>
                   <div className="flex flex-wrap gap-2 mt-1.5">
                     {PREFERENCE_OPTIONS.map((pref) => (
                       <Badge
@@ -239,7 +237,7 @@ export default function Itinerary() {
                         className="cursor-pointer"
                         onClick={() => togglePreference(pref.value)}
                       >
-                        {pref.label}
+                        {t(`preferences.${pref.value}`)}
                       </Badge>
                     ))}
                   </div>
@@ -255,12 +253,12 @@ export default function Itinerary() {
                   {generating ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      Đang tạo lịch trình...
+                      {t('itinerary.generating')}
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-5 w-5" />
-                      Tạo lịch trình AI
+                      {t('itinerary.generate_button')}
                     </>
                   )}
                 </Button>
@@ -270,18 +268,18 @@ export default function Itinerary() {
             {/* Right - Result */}
             <div className="bg-card rounded-2xl p-6 border border-border">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Lịch trình</h2>
+                <h2 className="text-xl font-bold">{t('itinerary.section_title')}</h2>
                 {currentItinerary && user && (
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="Tên lịch trình..."
+                      placeholder={t('itinerary_page.enter_title')}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="w-40"
                     />
                     <Button onClick={handleSave} size="sm" className="gap-1.5">
                       <Save className="h-4 w-4" />
-                      Lưu
+                      {t('common.save')}
                     </Button>
                   </div>
                 )}
@@ -294,7 +292,7 @@ export default function Itinerary() {
                       <div key={day.day} className="space-y-3">
                         <h3 className="font-bold text-lg flex items-center gap-2">
                           <Calendar className="h-5 w-5 text-primary" />
-                          Ngày {day.day}
+                          {t('itinerary.day_label')} {day.day}
                           {day.date && (
                             <span className="text-muted-foreground font-normal text-sm">
                               ({day.date})
@@ -333,7 +331,7 @@ export default function Itinerary() {
                                 }
                               >
                                 <Navigation className="h-3.5 w-3.5" />
-                                Xem chi tiết
+                                {t('actions.view_details')}
                               </Button>
                             </div>
                           ))}
@@ -345,13 +343,8 @@ export default function Itinerary() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-[400px] text-center">
                   <Calendar className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                    Chưa có lịch trình
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-xs">
-                    Nhập thông tin chuyến đi và nhấn "Tạo lịch trình AI" để bắt
-                    đầu
-                  </p>
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">{t('itinerary.no_itinerary_title')}</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs">{t('itinerary.no_itinerary_desc')}</p>
                 </div>
               )}
             </div>
@@ -428,16 +421,15 @@ export default function Itinerary() {
                     <div className="flex flex-wrap gap-1 mb-4">
                       {itinerary.preferences.slice(0, 3).map((pref) => (
                         <Badge key={pref} variant="secondary" className="text-xs">
-                          {PREFERENCE_OPTIONS.find((p) => p.value === pref)?.label ||
-                            pref}
+                          {t(`preferences.${pref}`)}
                         </Badge>
                       ))}
                     </div>
                   )}
 
                   <p className="text-xs text-muted-foreground">
-                    Tạo ngày{" "}
-                    {new Date(itinerary.created_at).toLocaleDateString("vi-VN")}
+                    {t('itinerary.created_on')}{' '}
+                    {new Date(itinerary.created_at).toLocaleDateString(i18n.language)}
                   </p>
                 </div>
               ))
@@ -445,14 +437,14 @@ export default function Itinerary() {
               <div className="col-span-full text-center py-12">
                 <Calendar className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                  Chưa có lịch trình nào
+                  {t('itinerary.no_itinerary_title')}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Tạo lịch trình đầu tiên của bạn
+                  {t('itinerary.no_itinerary_desc')}
                 </p>
                 <Button onClick={() => setActiveTab("create")}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Tạo lịch trình
+                  {t('itinerary.generate_button')}
                 </Button>
               </div>
             )}

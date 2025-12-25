@@ -17,7 +17,8 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { icon: Home, label: t('nav.home'), path: "/" },
     { icon: Search, label: t('nav.search'), path: "/search" },
-    { icon: Calendar, label: "Lịch trình", path: "/itinerary" },
+    { icon: Calendar, label: t('nav.itinerary'), path: "/itinerary" },
+    { icon: Bell, label: t('nav.notifications'), path: "/notifications" },
     { icon: Heart, label: t('nav.favorites'), path: "/favorites" },
     { icon: Settings, label: t('nav.settings'), path: "/settings" },
   ];
@@ -66,7 +67,7 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User Profile */}
         <div className="p-4 border-t border-border">
-          <Link 
+          <Link
             to={user ? "/settings" : "/auth"}
             className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary transition-colors"
           >

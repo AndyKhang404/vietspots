@@ -17,7 +17,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { user, signIn, signUp } = useAuth();
   const { toast } = useToast();
-  
+
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -33,30 +33,30 @@ export default function Auth() {
 
   const validate = () => {
     const newErrors: { email?: string; password?: string; fullName?: string } = {};
-    
+
     if (!emailSchema.safeParse(email).success) {
-      newErrors.email = 'Email không hợp lệ';
+      newErrors.email = t('auth.invalidEmail');
     }
-    
+
     if (!passwordSchema.safeParse(password).success) {
-      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+      newErrors.password = t('auth.password_too_short');
     }
-    
+
     if (!isLogin && !fullName.trim()) {
-      newErrors.fullName = 'Vui lòng nhập họ tên';
+      newErrors.fullName = t('auth.enter_full_name');
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validate()) return;
-    
+
     setLoading(true);
-    
+
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);

@@ -76,8 +76,9 @@ export default function Search() {
   // Get user GPS location
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
-      setLocationError("Trình duyệt không hỗ trợ GPS");
-      toast.error("Trình duyệt không hỗ trợ GPS");
+      const msg = t('messages.browser_no_geolocation');
+      setLocationError(msg);
+      toast.error(msg);
       return;
     }
     setLocationLoading(true);
@@ -89,20 +90,20 @@ export default function Search() {
           lon: position.coords.longitude,
         });
         setLocationLoading(false);
-        toast.success("Đã lấy vị trí của bạn!");
+        toast.success(t('messages.got_your_location'));
       },
       (error) => {
         setLocationLoading(false);
-        let msg = "Không thể lấy vị trí";
+        let msg = t('messages.cannot_get_location');
         if (error.code === error.PERMISSION_DENIED) {
-          msg = "Bạn đã từ chối quyền truy cập vị trí";
+          msg = t('messages.position_permission_denied');
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = "Vị trí không khả dụng";
+          msg = t('messages.position_unavailable');
         } else if (error.code === error.TIMEOUT) {
-          msg = "Hết thời gian chờ lấy vị trí";
+          msg = t('messages.position_timeout');
         }
         setLocationError(msg);
-        toast.error(msg);
+        toast.error(msg as string);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
@@ -124,7 +125,7 @@ export default function Search() {
 
   const handleSaveFilter = () => {
     if (!filterName.trim()) {
-      toast.error("Vui lòng nhập tên bộ lọc");
+      toast.error(t('messages.please_enter_filter_name'));
       return;
     }
     const newFilter: SavedFilter = {
@@ -138,21 +139,21 @@ export default function Search() {
     setSavedFilters(updated);
     localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(updated));
     setFilterName("");
-    toast.success("Đã lưu bộ lọc!");
+    toast.success(t('messages.filter_saved'));
   };
 
   const handleLoadFilter = (filter: SavedFilter) => {
     setMinRating(filter.minRating);
     setMaxDistance(filter.maxDistance);
     setOpenNow(filter.openNow);
-    toast.success(`Đã áp dụng bộ lọc "${filter.name}"`);
+    toast.success(t('messages.filter_applied', { name: filter.name }));
   };
 
   const handleDeleteFilter = (id: string) => {
     const updated = savedFilters.filter((f) => f.id !== id);
     setSavedFilters(updated);
     localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(updated));
-    toast.success("Đã xóa bộ lọc");
+    toast.success(t('messages.filter_deleted'));
   };
 
   const handleClearFilters = () => {
@@ -160,7 +161,7 @@ export default function Search() {
     setMaxDistance(0);
     setOpenNow(false);
   };
-  
+
   // Sync activeFilter with URL params when component mounts or URL changes
   useEffect(() => {
     const categoryFromUrl = searchParams.get("category");
@@ -193,7 +194,7 @@ export default function Search() {
       maxDistance: maxDistance > 0 && userLocation ? maxDistance : undefined,
     } : { limit: 0 }
   );
-  
+
   // Only search when user types something
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
@@ -205,7 +206,8 @@ export default function Search() {
   const apiCategories = categoriesResponse || [];
   const filters = apiCategories.map((cat) => {
     const defaultCat = defaultCategories.find((c) => c.id === cat);
-    return { id: cat, label: defaultCat?.label || cat };
+    const label = defaultCat?.labelKey ? t(defaultCat.labelKey) : cat;
+    return { id: cat, label };
   });
 
   // Check if search term matches a category for quick category search
@@ -259,7 +261,7 @@ export default function Search() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t('search.title')}</h1>
-          <p className="text-muted-foreground">Tìm địa điểm du lịch yêu thích của bạn</p>
+          <p className="text-muted-foreground">{t('search.subtitle')}</p>
         </div>
 
         {/* Search Bar & Controls */}
@@ -277,9 +279,9 @@ export default function Search() {
           <div className="flex gap-2">
             <Popover open={filterOpen} onOpenChange={setFilterOpen}>
               <PopoverTrigger asChild>
-                <Button 
-                  variant={activeFiltersCount > 0 ? "default" : "outline"} 
-                  size="icon" 
+                <Button
+                  variant={activeFiltersCount > 0 ? "default" : "outline"}
+                  size="icon"
                   className="h-12 w-12 rounded-xl relative"
                 >
                   <SlidersHorizontal className="h-5 w-5" />
@@ -294,16 +296,16 @@ export default function Search() {
                 <ScrollArea className="h-[65vh] max-h-[500px]">
                   <div className="space-y-4 p-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-semibold">Bộ lọc nâng cao</h4>
+                      <h4 className="font-semibold">{t('search.advanced_filters')}</h4>
                       {activeFiltersCount > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-8 px-2 text-xs"
                           onClick={handleClearFilters}
                         >
                           <X className="h-3 w-3 mr-1" />
-                          Xóa tất cả
+                          {t('search.clear_all')}
                         </Button>
                       )}
                     </div>
@@ -312,9 +314,9 @@ export default function Search() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Star className="h-4 w-4 text-yellow-500" />
-                        <Label>Rating tối thiểu</Label>
+                        <Label>{t('search.min_rating')}</Label>
                         <span className="ml-auto text-sm font-medium text-primary">
-                          {minRating > 0 ? `${minRating}+ sao` : "Tất cả"}
+                          {minRating > 0 ? `${minRating}+` : t('search.all')}
                         </span>
                       </div>
                       <Slider
@@ -326,8 +328,8 @@ export default function Search() {
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Tất cả</span>
-                        <span>5 sao</span>
+                        <span>{t('search.all')}</span>
+                        <span>5 {t('search.stars')}</span>
                       </div>
                     </div>
 
@@ -337,12 +339,12 @@ export default function Search() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Navigation className="h-4 w-4 text-primary" />
-                        <Label>Khoảng cách tối đa</Label>
+                        <Label>{t('search.max_distance')}</Label>
                         <span className="ml-auto text-sm font-medium text-primary">
-                          {maxDistance > 0 ? `${maxDistance} km` : "Không giới hạn"}
+                          {maxDistance > 0 ? `${maxDistance} km` : t('search.unlimited')}
                         </span>
                       </div>
-                      
+
                       {/* GPS Location Button */}
                       {!userLocation ? (
                         <Button
@@ -355,26 +357,26 @@ export default function Search() {
                           {locationLoading ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Đang lấy vị trí...
+                              {t('messages.getting_your_location')}
                             </>
                           ) : (
                             <>
                               <MapPin className="h-4 w-4 mr-2" />
-                              Bật GPS để lọc khoảng cách
+                              {t('search.enable_gps_filter')}
                             </>
                           )}
                         </Button>
                       ) : (
                         <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 p-2 rounded-lg">
                           <MapPin className="h-3 w-3" />
-                          <span>Đã lấy vị trí của bạn</span>
+                          <span>{t('messages.got_your_location')}</span>
                         </div>
                       )}
-                      
+
                       {locationError && (
                         <p className="text-xs text-destructive">{locationError}</p>
                       )}
-                      
+
                       <Slider
                         value={[maxDistance]}
                         onValueChange={(value) => setMaxDistance(value[0])}
@@ -385,11 +387,11 @@ export default function Search() {
                         disabled={!userLocation}
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Không giới hạn</span>
+                        <span>{t('search.unlimited')}</span>
                         <span>50 km</span>
                       </div>
                       {!userLocation && maxDistance > 0 && (
-                        <p className="text-xs text-amber-600">Bật GPS để áp dụng lọc khoảng cách</p>
+                        <p className="text-xs text-amber-600">{t('search.enable_gps_to_apply_distance_filter')}</p>
                       )}
                     </div>
 
@@ -399,7 +401,7 @@ export default function Search() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-green-500" />
-                        <Label>Đang mở cửa</Label>
+                        <Label>{t('messages.open_now')}</Label>
                       </div>
                       <Switch
                         checked={openNow}
@@ -411,16 +413,16 @@ export default function Search() {
 
                     {/* Save Filter */}
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Lưu bộ lọc yêu thích</Label>
+                      <Label className="text-xs text-muted-foreground">{t('search.save_filters_label')}</Label>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Tên bộ lọc..."
+                          placeholder={t('search.filter_name_placeholder')}
                           value={filterName}
                           onChange={(e) => setFilterName(e.target.value)}
                           className="h-9 text-sm"
                         />
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={handleSaveFilter}
                           disabled={!filterName.trim() || activeFiltersCount === 0}
@@ -433,7 +435,7 @@ export default function Search() {
                     {/* Saved Filters */}
                     {savedFilters.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Bộ lọc đã lưu</Label>
+                        <Label className="text-xs text-muted-foreground">{t('search.saved_filters')}</Label>
                         <div className="space-y-1">
                           {savedFilters.map((filter) => (
                             <div
@@ -461,27 +463,27 @@ export default function Search() {
                       </div>
                     )}
 
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       onClick={() => setFilterOpen(false)}
                     >
-                      Áp dụng
+                      {t('actions.apply')}
                     </Button>
                   </div>
                 </ScrollArea>
               </PopoverContent>
             </Popover>
             <div className="hidden lg:flex border border-border rounded-xl overflow-hidden">
-              <Button 
-                variant={viewMode === "grid" ? "secondary" : "ghost"} 
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
                 className="rounded-none h-12 w-12"
                 onClick={() => setViewMode("grid")}
               >
                 <Grid3X3 className="h-5 w-5" />
               </Button>
-              <Button 
-                variant={viewMode === "list" ? "secondary" : "ghost"} 
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
                 className="rounded-none h-12 w-12"
                 onClick={() => setViewMode("list")}
@@ -504,7 +506,7 @@ export default function Search() {
             >
               <Tag className="h-4 w-4" />
               <span className="text-sm">
-                Chuyển sang danh mục: <strong>{matchedCategoryBySearch.label}</strong>
+                {t('search.switch_to_category', { label: matchedCategoryBySearch.label })}
               </span>
             </button>
           </div>
@@ -516,9 +518,9 @@ export default function Search() {
             // Skeleton loading for categories
             <>
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton 
-                  key={i} 
-                  className="h-10 rounded-xl" 
+                <Skeleton
+                  key={i}
+                  className="h-10 rounded-xl"
                   style={{ width: `${80 + Math.random() * 60}px` }}
                 />
               ))}
@@ -549,7 +551,7 @@ export default function Search() {
         {(debouncedSearch || activeFilter !== "all") && (
           <div className="mb-6">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{displayedCount}</span> kết quả được tìm thấy
+              <span className="font-semibold text-foreground">{displayedCount}</span> {t('search.results_found')}
             </p>
           </div>
         )}
@@ -564,8 +566,8 @@ export default function Search() {
             {/* Places Grid */}
             <div className={cn(
               "grid gap-4 lg:gap-6",
-              viewMode === "grid" 
-                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+              viewMode === "grid"
+                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                 : "grid-cols-1 lg:grid-cols-2"
             )}>
               {filteredPlaces.map((place, index) => (
@@ -600,7 +602,7 @@ export default function Search() {
                   <SearchIcon className="h-10 w-10 text-muted-foreground/50" />
                 </div>
                 <h3 className="font-semibold text-foreground mb-2">{t('search.noResults')}</h3>
-                <p className="text-sm text-muted-foreground">Thử tìm kiếm với từ khóa khác</p>
+                <p className="text-sm text-muted-foreground">{t('search.try_different_keywords')}</p>
               </div>
             )}
           </>

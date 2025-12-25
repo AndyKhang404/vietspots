@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from 'react-i18next';
 
 export interface WishlistItem {
   id: string;
@@ -35,6 +36,7 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(undefin
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -119,10 +121,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       // Guest mode - use localStorage
       if (isCurrentlyFavorite) {
         setLocalFavorites((prev) => prev.filter((id) => id !== place.id));
-        toast.success("Đã xóa khỏi danh sách yêu thích");
+        toast.success(t('messages.removed_favorite'));
       } else {
         setLocalFavorites((prev) => [...prev, place.id]);
-        toast.success("Đã thêm vào danh sách yêu thích");
+        toast.success(t('messages.saved_favorite'));
       }
       return;
     }
@@ -140,7 +142,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
         setFavorites((prev) => prev.filter((id) => id !== place.id));
         setWishlistItems((prev) => prev.filter((item) => item.place_id !== place.id));
-        toast.success("Đã xóa khỏi danh sách yêu thích");
+        toast.success(t('messages.removed_favorite'));
       } else {
         const { data, error } = await supabase
           .from("wishlists")
@@ -171,18 +173,18 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
         setFavorites((prev) => [...prev, place.id]);
         setWishlistItems((prev) => [newItem, ...prev]);
-        toast.success("Đã thêm vào danh sách yêu thích");
+        toast.success(t('messages.saved_favorite'));
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('messages.error_occurred_apology'));
     }
   };
 
   const removeFavorite = async (placeId: string) => {
     if (!user) {
       setLocalFavorites((prev) => prev.filter((id) => id !== placeId));
-      toast.success("Đã xóa khỏi danh sách yêu thích");
+      toast.success(t('messages.removed_favorite'));
       return;
     }
 
@@ -197,10 +199,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
       setFavorites((prev) => prev.filter((id) => id !== placeId));
       setWishlistItems((prev) => prev.filter((item) => item.place_id !== placeId));
-      toast.success("Đã xóa khỏi danh sách yêu thích");
+      toast.success(t('messages.removed_favorite'));
     } catch (error) {
       console.error("Error removing favorite:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('messages.error_occurred_apology'));
     }
   };
 

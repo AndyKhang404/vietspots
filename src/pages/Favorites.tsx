@@ -31,11 +31,11 @@ export default function Favorites() {
             </div>
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('favorites.title')}</h1>
-              <p className="text-muted-foreground">Những địa điểm bạn đã lưu</p>
+              <p className="text-muted-foreground">{t('favorites.description')}</p>
             </div>
           </div>
           <span className="text-sm text-muted-foreground bg-secondary px-4 py-2 rounded-full">
-            {wishlistItems.length} địa điểm
+            {t('messages.places_loaded', { count: wishlistItems.length })}
           </span>
         </div>
 
@@ -43,10 +43,10 @@ export default function Favorites() {
         {!user && (
           <div className="bg-muted/50 rounded-xl p-6 mb-6 text-center">
             <p className="text-muted-foreground mb-3">
-              Đăng nhập để đồng bộ danh sách yêu thích trên mọi thiết bị
+              {t('messages.login_to_sync_favorites')}
             </p>
             <Button onClick={() => navigate("/auth")} variant="outline">
-              Đăng nhập
+              {t('auth.login')}
             </Button>
           </div>
         )}
@@ -123,7 +123,7 @@ export default function Favorites() {
               {t('favorites.empty')}
             </h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Nhấn vào biểu tượng ❤️ để lưu những địa điểm bạn muốn ghé thăm
+              {t('ui.press_heart_to_save')}
             </p>
           </div>
         )}

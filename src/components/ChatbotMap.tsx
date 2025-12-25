@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin, Navigation, User, Loader2, X } from "lucide-react";
@@ -33,10 +34,10 @@ interface ChatbotMapProps {
 // Fallback to OpenFreeMap
 const FALLBACK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
-export default function ChatbotMap({ 
-  places, 
-  selectedPlaceId, 
-  onPlaceSelect, 
+export default function ChatbotMap({
+  places,
+  selectedPlaceId,
+  onPlaceSelect,
   userLocation,
   routeToPlaceId,
   onRouteRequest,
@@ -45,9 +46,10 @@ export default function ChatbotMap({
   const mapRef = useRef<any>(null);
   const selectedPlace = places.find(p => p.id === selectedPlaceId);
   const routePlace = places.find(p => p.id === routeToPlaceId);
-  
+
   const [routeData, setRouteData] = useState<RouteInfo | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const { t } = useTranslation();
 
   // Fetch route when routeToPlaceId changes
   useEffect(() => {
@@ -58,22 +60,45 @@ export default function ChatbotMap({
 
     const fetchRoute = async () => {
       setIsLoadingRoute(true);
+
+      const cacheKey = `route:${userLocation.latitude},${userLocation.longitude}:${routePlace.latitude},${routePlace.longitude}`;
       try {
-        const response = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${routePlace.longitude},${routePlace.latitude}?overview=full&geometries=geojson`
-        );
+        // Try session cache first
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setRouteData(parsed);
+          toast.success(t('route.used_cached', { distance: parsed.distance.toFixed(1) }));
+          return;
+        }
+
+        const controller = new AbortController();
+        const timeout = 8000; // 8s timeout
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${routePlace.longitude},${routePlace.latitude}?overview=full&geometries=geojson`;
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Routing service returned ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.routes && data.routes[0]) {
           const route = data.routes[0];
-          setRouteData({
-            distance: route.distance / 1000, // Convert to km
-            duration: Math.round(route.duration / 60), // Convert to minutes
+          const payload = {
+            distance: route.distance / 1000,
+            duration: Math.round(route.duration / 60),
             geometry: route.geometry,
-          });
-          
-          toast.success(`Khoảng cách: ${(route.distance / 1000).toFixed(1)}km • Thời gian: ${Math.round(route.duration / 60)} phút`);
-          
+          };
+          setRouteData(payload);
+          // cache for this session to avoid repeated requests
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(payload)); } catch { }
+
+          toast.success(t('route.route_info', { distance: (route.distance / 1000).toFixed(1), duration: Math.round(route.duration / 60) }));
+
           // Fit map to show route
           if (mapRef.current) {
             const coordinates = route.geometry.coordinates;
@@ -97,10 +122,37 @@ export default function ChatbotMap({
               { padding: 60, duration: 1000 }
             );
           }
+        } else {
+          throw new Error('No route found');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching route:', error);
-        toast.error('Không thể tải lộ trình. Vui lòng thử lại.');
+        // If aborted or routing service down, fallback to straight-line geometry
+        if (error.name === 'AbortError' || /NetworkError|Failed to fetch/.test(String(error))) {
+          const fallbackGeometry = {
+            type: 'LineString',
+            coordinates: [
+              [userLocation.longitude, userLocation.latitude],
+              [routePlace.longitude, routePlace.latitude]
+            ]
+          } as GeoJSON.LineString;
+
+          const approxDistanceKm = Math.sqrt(
+            Math.pow(userLocation.latitude - routePlace.latitude, 2) +
+            Math.pow(userLocation.longitude - routePlace.longitude, 2)
+          ) * 111; // rough deg->km
+
+          const payload = {
+            distance: approxDistanceKm,
+            duration: Math.round((approxDistanceKm / 40) * 60), // assume 40km/h
+            geometry: fallbackGeometry,
+          };
+          setRouteData(payload);
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(payload)); } catch { }
+          toast.error(t('route.fallback'));
+        } else {
+          toast.error(t('messages.cannot_load_route'));
+        }
       } finally {
         setIsLoadingRoute(false);
       }
@@ -162,7 +214,7 @@ export default function ChatbotMap({
 
   const handleShowRoute = (place: PlaceMarker) => {
     if (!userLocation) {
-      toast.error('Vui lòng bật định vị để xem chỉ đường');
+      toast.error(t('messages.enable_location'));
       return;
     }
     onRouteRequest?.(place.id);
@@ -187,7 +239,7 @@ export default function ChatbotMap({
         attributionControl={false}
       >
         <NavigationControl position="top-right" />
-        
+
         {/* Route Line */}
         {routeData && (
           <Source
@@ -214,7 +266,7 @@ export default function ChatbotMap({
             />
           </Source>
         )}
-        
+
         {/* User Location Marker */}
         {userLocation && (
           <Marker
@@ -243,18 +295,16 @@ export default function ChatbotMap({
               onPlaceSelect(place.id);
             }}
           >
-            <div 
-              className={`cursor-pointer transition-transform hover:scale-110 ${
-                selectedPlaceId === place.id || routeToPlaceId === place.id ? "scale-125" : ""
-              }`}
+            <div
+              className={`cursor-pointer transition-transform hover:scale-110 ${selectedPlaceId === place.id || routeToPlaceId === place.id ? "scale-125" : ""
+                }`}
             >
-              <div className={`p-2 rounded-full shadow-lg ${
-                routeToPlaceId === place.id
-                  ? "bg-green-500 text-white"
-                  : selectedPlaceId === place.id 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-card text-primary"
-              }`}>
+              <div className={`p-2 rounded-full shadow-lg ${routeToPlaceId === place.id
+                ? "bg-green-500 text-white"
+                : selectedPlaceId === place.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-primary"
+                }`}>
                 <MapPin className="h-5 w-5" />
               </div>
             </div>
@@ -294,7 +344,7 @@ export default function ChatbotMap({
                 ) : (
                   <Navigation className="h-3 w-3" />
                 )}
-                Chỉ đường
+                {t('messages.directions')}
               </button>
             </div>
           </Popup>
@@ -316,7 +366,7 @@ export default function ChatbotMap({
                 </span>
                 <span className="flex items-center gap-1">
                   <Navigation className="h-4 w-4 text-primary" />
-                  {routeData.duration} phút
+                  {routeData.duration} {t('common.minutes')}
                 </span>
               </div>
             </div>
@@ -337,7 +387,7 @@ export default function ChatbotMap({
         <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
           <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-lg shadow-lg">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="text-sm">Đang tải lộ trình...</span>
+            <span className="text-sm">{t('messages.loading_route')}</span>
           </div>
         </div>
       )}

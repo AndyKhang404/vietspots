@@ -39,13 +39,13 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const { theme, colorTheme, toggleTheme, setColorTheme } = useTheme();
   const { toast } = useToast();
-  
+
   const [languageOpen, setLanguageOpen] = useState(false);
   const [colorThemeOpen, setColorThemeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
-  
+
   // Profile form state
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || "");
   const [phone, setPhone] = useState(user?.user_metadata?.phone || "");
@@ -53,7 +53,7 @@ export default function Settings() {
   const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  
+
   // Security form state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -70,32 +70,32 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { 
+        data: {
           full_name: fullName,
           phone: phone,
           bio: bio,
           avatar_url: avatarUrl
         }
       });
-      
+
       if (error) throw error;
-      
-      toast({ title: "Đã cập nhật thông tin cá nhân" });
+
+      toast({ title: t('settings.profile_updated') });
       setProfileOpen(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast({ title: "Có lỗi xảy ra", variant: "destructive" });
+      toast({ title: t('messages.error_occurred_apology'), variant: "destructive" });
     }
   };
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
-      toast({ title: "Mật khẩu xác nhận không khớp", variant: "destructive" });
+      toast({ title: t('settings.password_mismatch'), variant: "destructive" });
       return;
     }
-    
+
     if (newPassword.length < 6) {
-      toast({ title: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" });
+      toast({ title: t('settings.password_too_short'), variant: "destructive" });
       return;
     }
 
@@ -103,17 +103,17 @@ export default function Settings() {
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
-      
+
       if (error) throw error;
-      
-      toast({ title: "Đã đổi mật khẩu thành công" });
+
+      toast({ title: t('settings.password_changed') });
       setSecurityOpen(false);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
       console.error("Error changing password:", error);
-      toast({ title: "Có lỗi xảy ra", variant: "destructive" });
+      toast({ title: t('messages.error_occurred_apology'), variant: "destructive" });
     }
   };
 
@@ -122,29 +122,30 @@ export default function Settings() {
   };
 
   const getCurrentColorThemeName = () => {
-    return colorThemes.find(t => t.value === colorTheme)?.label || 'Đỏ/Hồng';
+    const key = colorThemes.find(ct => ct.value === colorTheme)?.labelKey;
+    return key ? t(key) : t('settings.default_color_theme');
   };
 
   const settingsGroups = [
     {
       title: t('settings.account'),
       items: [
-        { 
-          icon: User, 
-          label: t('settings.personalInfo'), 
-          hasArrow: true, 
+        {
+          icon: User,
+          label: t('settings.personalInfo'),
+          hasArrow: true,
           onClick: () => user ? setProfileOpen(true) : navigate('/auth')
         },
-        { 
-          icon: Bell, 
-          label: t('settings.notifications'), 
-          hasArrow: true, 
+        {
+          icon: Bell,
+          label: t('settings.notifications'),
+          hasArrow: true,
           onClick: () => setNotificationsOpen(true)
         },
-        { 
-          icon: Shield, 
-          label: "Bảo mật", 
-          hasArrow: true, 
+        {
+          icon: Shield,
+          label: t('settings.security'),
+          hasArrow: true,
           onClick: () => user ? setSecurityOpen(true) : navigate('/auth')
         },
       ],
@@ -152,25 +153,25 @@ export default function Settings() {
     {
       title: t('settings.appearance'),
       items: [
-        { 
-          icon: Moon, 
-          label: t('settings.darkMode'), 
+        {
+          icon: Moon,
+          label: t('settings.darkMode'),
           hasSwitch: true,
           checked: theme === 'dark',
           onToggle: toggleTheme
         },
-        { 
-          icon: Globe, 
-          label: t('settings.language'), 
-          value: getCurrentLanguageName(), 
+        {
+          icon: Globe,
+          label: t('settings.language'),
+          value: getCurrentLanguageName(),
           hasArrow: true,
           onClick: () => setLanguageOpen(true)
         },
-        { 
-          icon: Palette, 
-          label: "Chủ đề màu", 
-          value: getCurrentColorThemeName(), 
-          hasArrow: true, 
+        {
+          icon: Palette,
+          label: t('settings.color_theme'),
+          value: getCurrentColorThemeName(),
+          hasArrow: true,
           onClick: () => setColorThemeOpen(true)
         },
       ],
@@ -178,7 +179,7 @@ export default function Settings() {
     {
       title: t('settings.support'),
       items: [
-        { icon: HelpCircle, label: t('settings.helpCenter'), hasArrow: true, onClick: () => {} },
+        { icon: HelpCircle, label: t('settings.helpCenter'), hasArrow: true, onClick: () => { } },
       ],
     },
   ];
@@ -193,14 +194,14 @@ export default function Settings() {
           </div>
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('settings.title')}</h1>
-            <p className="text-muted-foreground">Quản lý tài khoản và tùy chọn</p>
+            <p className="text-muted-foreground">{t('settings.description')}</p>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Profile Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Profile Card (left column on lg+) */}
           <div className="lg:col-span-1">
-            <div className="bg-card rounded-2xl border border-border p-6 sticky top-24">
+            <div className="bg-card rounded-2xl border border-border p-6">
               <div className="text-center">
                 <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <User className="h-12 w-12 text-primary" />
@@ -211,10 +212,10 @@ export default function Settings() {
                 <p className="text-muted-foreground mt-1">
                   {user?.email || t('auth.noAccount')}
                 </p>
-                
+
                 {/* Login/Logout Button */}
                 {user ? (
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                   >
@@ -222,7 +223,7 @@ export default function Settings() {
                     <span className="font-medium">{t('settings.logout')}</span>
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => navigate('/auth')}
                     className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
@@ -233,11 +234,10 @@ export default function Settings() {
               </div>
             </div>
           </div>
-
-          {/* Settings Groups */}
+          {/* Settings Groups (right column on lg+) */}
           <div className="lg:col-span-2 space-y-6">
             {settingsGroups.map((group, groupIndex) => (
-              <div 
+              <div
                 key={group.title}
                 className="animate-in fade-in slide-in-from-right-4"
                 style={{ animationDelay: `${groupIndex * 100}ms` }}
@@ -250,11 +250,10 @@ export default function Settings() {
                     <button
                       key={item.label}
                       onClick={item.onClick}
-                      className={`w-full flex items-center justify-between p-4 lg:p-5 hover:bg-secondary/50 transition-colors ${
-                        index !== group.items.length - 1
-                          ? "border-b border-border"
-                          : ""
-                      }`}
+                      className={`w-full flex items-center justify-between p-4 lg:p-5 hover:bg-secondary/50 transition-colors ${index !== group.items.length - 1
+                        ? "border-b border-border"
+                        : ""
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center">
@@ -273,8 +272,8 @@ export default function Settings() {
                         </div>
                       )}
                       {item.hasSwitch && (
-                        <Switch 
-                          checked={item.checked} 
+                        <Switch
+                          checked={item.checked}
                           onCheckedChange={item.onToggle}
                           onClick={(e) => e.stopPropagation()}
                         />
@@ -300,7 +299,7 @@ export default function Settings() {
       <Dialog open={colorThemeOpen} onOpenChange={setColorThemeOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Chọn chủ đề màu</DialogTitle>
+            <DialogTitle>{t('settings.choose_color_theme')}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-4">
             {colorThemes.map((themeOption) => (
@@ -310,17 +309,16 @@ export default function Settings() {
                   setColorTheme(themeOption.value);
                   setColorThemeOpen(false);
                 }}
-                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                  colorTheme === themeOption.value
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
+                className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${colorTheme === themeOption.value
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
+                  }`}
               >
-                <div 
-                  className="w-8 h-8 rounded-full" 
+                <div
+                  className="w-8 h-8 rounded-full"
                   style={{ backgroundColor: themeOption.primary }}
                 />
-                <span className="font-medium text-foreground">{themeOption.label}</span>
+                <span className="font-medium text-foreground">{t(themeOption.labelKey)}</span>
                 {colorTheme === themeOption.value && (
                   <Check className="h-5 w-5 text-primary ml-auto" />
                 )}
@@ -334,7 +332,7 @@ export default function Settings() {
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Thông tin cá nhân</DialogTitle>
+            <DialogTitle>{t('settings.profile_info')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             {/* Avatar preview */}
@@ -347,73 +345,73 @@ export default function Settings() {
                 )}
               </div>
               <div className="w-full">
-                <Label htmlFor="avatarUrl">URL ảnh đại diện</Label>
-                <Input 
-                  id="avatarUrl" 
-                  value={avatarUrl} 
+                <Label htmlFor="avatarUrl">{t('settings.avatar_url')}</Label>
+                <Input
+                  id="avatarUrl"
+                  value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
                   placeholder="https://..."
-                  className="mt-1.5" 
+                  className="mt-1.5"
                 />
               </div>
             </div>
-            
+
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={user?.email || ""} disabled className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="fullName">Họ và tên</Label>
-              <Input 
-                id="fullName" 
-                value={fullName} 
+              <Label htmlFor="fullName">{t('settings.full_name')}</Label>
+              <Input
+                id="fullName"
+                value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Nhập họ và tên của bạn"
-                className="mt-1.5" 
+                placeholder={t('settings.enter_full_name')}
+                className="mt-1.5"
               />
             </div>
             <div>
-              <Label htmlFor="phone">Số điện thoại</Label>
-              <Input 
-                id="phone" 
-                value={phone} 
+              <Label htmlFor="phone">{t('settings.phone')}</Label>
+              <Input
+                id="phone"
+                value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="0123 456 789"
-                className="mt-1.5" 
+                className="mt-1.5"
               />
             </div>
             <div>
-              <Label htmlFor="bio">Giới thiệu bản thân</Label>
-              <Input 
-                id="bio" 
-                value={bio} 
+              <Label htmlFor="bio">{t('settings.bio')}</Label>
+              <Input
+                id="bio"
+                value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Tôi yêu thích du lịch..."
-                className="mt-1.5" 
+                placeholder={t('settings.bio_placeholder')}
+                className="mt-1.5"
               />
             </div>
-            
+
             {/* Account info */}
             <div className="pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground mb-2">Thông tin tài khoản</p>
+              <p className="text-sm text-muted-foreground mb-2">{t('settings.account_info')}</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ngày tạo tài khoản:</span>
+                  <span className="text-muted-foreground">{t('settings.account_created')}</span>
                   <span className="text-foreground">
                     {user?.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Đăng nhập gần nhất:</span>
+                  <span className="text-muted-foreground">{t('settings.last_login')}</span>
                   <span className="text-foreground">
                     {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('vi-VN') : 'N/A'}
                   </span>
                 </div>
               </div>
             </div>
-            
+
             <Button onClick={handleSaveProfile} className="w-full">
-              Lưu thay đổi
+              {t('settings.save_changes')}
             </Button>
           </div>
         </DialogContent>
@@ -423,26 +421,26 @@ export default function Settings() {
       <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Cài đặt thông báo</DialogTitle>
+            <DialogTitle>{t('settings.notification_settings')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
               <div>
-                <p className="font-medium text-foreground">Thông báo đẩy</p>
-                <p className="text-sm text-muted-foreground">Nhận thông báo trên thiết bị</p>
+                <p className="font-medium text-foreground">{t('settings.push_notifications')}</p>
+                <p className="text-sm text-muted-foreground">{t('settings.push_notifications_desc')}</p>
               </div>
-              <Switch 
-                checked={pushNotifications} 
+              <Switch
+                checked={pushNotifications}
                 onCheckedChange={setPushNotifications}
               />
             </div>
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
               <div>
-                <p className="font-medium text-foreground">Thông báo email</p>
-                <p className="text-sm text-muted-foreground">Nhận cập nhật qua email</p>
+                <p className="font-medium text-foreground">{t('settings.email_notifications')}</p>
+                <p className="text-sm text-muted-foreground">{t('settings.email_notifications_desc')}</p>
               </div>
-              <Switch 
-                checked={emailNotifications} 
+              <Switch
+                checked={emailNotifications}
                 onCheckedChange={setEmailNotifications}
               />
             </div>
@@ -454,37 +452,37 @@ export default function Settings() {
       <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Đổi mật khẩu</DialogTitle>
+            <DialogTitle>{t('settings.change_password')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label htmlFor="newPassword">Mật khẩu mới</Label>
-              <Input 
-                id="newPassword" 
+              <Label htmlFor="newPassword">{t('settings.new_password')}</Label>
+              <Input
+                id="newPassword"
                 type="password"
-                value={newPassword} 
+                value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1.5" 
+                className="mt-1.5"
               />
             </div>
             <div>
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
-              <Input 
-                id="confirmPassword" 
+              <Label htmlFor="confirmPassword">{t('settings.confirm_password')}</Label>
+              <Input
+                id="confirmPassword"
                 type="password"
-                value={confirmPassword} 
+                value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1.5" 
+                className="mt-1.5"
               />
             </div>
             <Button onClick={handleChangePassword} className="w-full">
-              Đổi mật khẩu
+              {t('settings.change_password_button')}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Chatbot />
-    </Layout>
+    </Layout >
   );
 }

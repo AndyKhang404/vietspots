@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Json } from '@/integrations/supabase/types';
 
 interface Message {
@@ -40,17 +41,13 @@ interface Conversation {
 }
 
 const CHAT_STORAGE_KEY = "vietspots_chat_history";
-const DEFAULT_MESSAGE: Message = {
-  id: "1",
-  role: "assistant",
-  content: "Xin chào! 👋 Tôi là VietSpots Bot - trợ lý du lịch của bạn. Hãy cho tôi biết bạn muốn khám phá Việt Nam như thế nào nhé! 🎒",
-};
 
 export function useChatConversations() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([DEFAULT_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [migrated, setMigrated] = useState(false);
@@ -58,7 +55,7 @@ export function useChatConversations() {
   // Fetch conversations from Supabase
   const fetchConversations = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('chat_conversations')
@@ -90,14 +87,14 @@ export function useChatConversations() {
       if (saved) {
         try {
           const localMessages = JSON.parse(saved) as Message[];
-          
+
           // Only migrate if there are more messages than the default
           if (localMessages.length > 1) {
             // Create title from first user message
             const firstUserMessage = localMessages.find(m => m.role === 'user');
-            const title = firstUserMessage 
+            const title = firstUserMessage
               ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
-              : 'Cuộc trò chuyện đã lưu';
+              : t('chat.default_saved_title') || 'Saved conversation';
 
             const { data, error } = await supabase
               .from('chat_conversations')
@@ -111,11 +108,11 @@ export function useChatConversations() {
               .single();
 
             if (!error && data) {
-              toast.success('Đã chuyển lịch sử chat sang tài khoản của bạn');
+              toast.success(t('chat_messages.migrated_success'));
               // Clear localStorage after successful migration
               localStorage.removeItem(CHAT_STORAGE_KEY);
               sessionStorage.removeItem('vietspot_session_id');
-              
+
               // Load the migrated conversation
               setCurrentConversationId(data.id);
               setMessages(localMessages);
@@ -134,6 +131,13 @@ export function useChatConversations() {
     migrateLocalStorage();
   }, [user, migrated]);
 
+  // Ensure there is a default assistant message (localized)
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
+    }
+  }, [t]);
+
   // Fetch conversations when user changes
   useEffect(() => {
     if (user) {
@@ -141,19 +145,19 @@ export function useChatConversations() {
     } else {
       setConversations([]);
       setCurrentConversationId(null);
-      setMessages([DEFAULT_MESSAGE]);
+      setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
       setPlaceResults([]);
     }
-  }, [user, fetchConversations]);
+  }, [user, fetchConversations, t]);
 
   // Save current conversation to Supabase
   const saveConversation = useCallback(async () => {
     if (!user || messages.length <= 1) return;
 
     const firstUserMessage = messages.find(m => m.role === 'user');
-    const title = firstUserMessage 
+    const title = firstUserMessage
       ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
-      : 'Cuộc trò chuyện mới';
+      : t('chat.default_new_title') || 'New conversation';
 
     try {
       if (currentConversationId) {
@@ -220,7 +224,7 @@ export function useChatConversations() {
 
     // Reset to new conversation
     setCurrentConversationId(null);
-    setMessages([DEFAULT_MESSAGE]);
+    setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
     setPlaceResults([]);
     sessionStorage.removeItem('vietspot_session_id');
 
@@ -229,7 +233,7 @@ export function useChatConversations() {
       fetchConversations();
     }
 
-    toast.success('Đã tạo cuộc trò chuyện mới');
+    toast.success(t('chat_messages.created_new'));
   }, [user, messages, saveConversation, fetchConversations]);
 
   // Delete a conversation
@@ -250,10 +254,10 @@ export function useChatConversations() {
       }
 
       fetchConversations();
-      toast.success('Đã xóa cuộc trò chuyện');
+      toast.success(t('chat_messages.deleted'));
     } catch (error) {
       console.error('Error deleting conversation:', error);
-      toast.error('Không thể xóa cuộc trò chuyện');
+      toast.error(t('chat_messages.delete_error'));
     }
   }, [user, currentConversationId, startNewConversation, fetchConversations]);
 

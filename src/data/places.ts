@@ -17,6 +17,7 @@ export interface Place {
   totalComments: number;
   description: string;
   category: string;
+  categorySlug?: string;
   address?: string;
   phone?: string;
   website?: string;
@@ -34,14 +35,16 @@ export function transformPlace(place: PlaceInfo): Place {
     if (typeof img === 'string') return img;
     return (img as { url: string }).url;
   }).filter(url => url && url.length > 0) || [];
-  
+
   const firstImage = images[0] || place.image_url || "https://images.unsplash.com/photo-1528127269322-539801943592?w=800";
-  
+
   // Parse opening hours if it's an object
   const openingHours = typeof place.opening_hours === 'object' && place.opening_hours !== null
     ? place.opening_hours as Record<string, string>
     : undefined;
-  
+
+  const slugify = (s: string | undefined) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
   // Clean address: remove ZIP code (5-6 digits anywhere) and Plus Codes (like RM23+86R)
   const cleanLocation = (addr: string | undefined): string => {
     if (!addr) return '';
@@ -56,23 +59,23 @@ export function transformPlace(place: PlaceInfo): Place {
       .replace(/\s+/g, ' ') // Normalize spaces
       .trim();
   };
-  
+
   // Format location as "Số + Tên đường, Quận" from address
   // Example: "86 Phan Sào Nam, Phường 11, Tân Bình, TP.HCM" -> "86 Phan Sào Nam, Tân Bình"
   const formatStreetDistrict = (fullAddress: string | undefined, city?: string, district?: string): string => {
     if (!fullAddress && !district && !city) return '';
-    
+
     // Clean ZIP and Plus Code first
     const cleanAddr = cleanLocation(fullAddress);
-    
+
     // Split by comma and clean each part
     const parts = cleanAddr?.split(',').map(p => p.trim()).filter(Boolean) || [];
-    
+
     if (parts.length === 0) return cleanLocation(city || '');
-    
+
     // First part is usually street with number (e.g., "86 Phan Sào Nam")
     const streetPart = parts[0];
-    
+
     // Find district (Quận/District name like "Tân Bình", "Bình Chánh", "Quận 1", etc.)
     // Skip "Phường", "Xã" parts and city names, look for district/huyện
     let districtPart = '';
@@ -86,21 +89,21 @@ export function transformPlace(place: PlaceInfo): Place {
       districtPart = parts[i];
       break;
     }
-    
+
     // If we have district from API, prefer it
     if (district && !districtPart) {
       districtPart = district;
     }
-    
+
     if (streetPart && districtPart) {
       return `${streetPart}, ${districtPart}`;
     }
-    
+
     return streetPart || districtPart || cleanLocation(city || '');
   };
 
   const rawLocation = formatStreetDistrict(place.address, place.city, place.district);
-  
+
   return {
     id: place.id || place.place_id || "",
     name: place.name,
@@ -109,8 +112,9 @@ export function transformPlace(place: PlaceInfo): Place {
     rating: place.rating || 0,
     ratingCount: place.rating_count || 0,
     totalComments: place.total_comments || place.rating_count || 0,
-    description: place.description || place.category || "",
+    description: place.description || "",
     category: place.category || "other",
+    categorySlug: slugify(place.category),
     address: place.address,
     phone: place.phone,
     website: place.website,
@@ -132,7 +136,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.9,
     ratingCount: 1250,
     totalComments: 1250,
-    description: "Di sản thiên nhiên thế giới với hàng nghìn đảo đá vôi hùng vĩ",
+    description: "A UNESCO World Heritage site with thousands of stunning limestone islands",
     category: "beach",
   },
   {
@@ -143,7 +147,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.8,
     ratingCount: 980,
     totalComments: 980,
-    description: "Thương cảng cổ với kiến trúc độc đáo và đèn lồng rực rỡ",
+    description: "An ancient trading port known for unique architecture and colorful lanterns",
     category: "historical",
   },
   {
@@ -154,7 +158,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.7,
     ratingCount: 756,
     totalComments: 756,
-    description: "Ruộng bậc thang tuyệt đẹp và văn hóa dân tộc phong phú",
+    description: "Famous for terraced rice fields and rich ethnic cultures",
     category: "mountain",
   },
   {
@@ -165,7 +169,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.6,
     ratingCount: 890,
     totalComments: 890,
-    description: "Thành phố ngàn hoa với khí hậu mát mẻ quanh năm",
+    description: "The city of a thousand flowers with a cool climate year-round",
     category: "city",
   },
   {
@@ -176,7 +180,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.8,
     ratingCount: 1100,
     totalComments: 1100,
-    description: "Một trong những bãi biển đẹp nhất hành tinh",
+    description: "One of the world's most beautiful beaches",
     category: "beach",
   },
   {
@@ -187,7 +191,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.7,
     ratingCount: 820,
     totalComments: 820,
-    description: "Đảo ngọc với bãi cát trắng mịn và hải sản tươi ngon",
+    description: "An island paradise with white sandy beaches and fresh seafood",
     category: "beach",
   },
   {
@@ -198,7 +202,7 @@ export const fallbackPlaces: Place[] = [
     rating: 4.5,
     ratingCount: 560,
     totalComments: 560,
-    description: "Di sản văn hóa thế giới UNESCO với lịch sử nghìn năm",
+    description: "A UNESCO cultural heritage site with a thousand years of history",
     category: "historical",
   },
   {
@@ -209,19 +213,19 @@ export const fallbackPlaces: Place[] = [
     rating: 4.6,
     ratingCount: 670,
     totalComments: 670,
-    description: "Kinh đô triều Nguyễn với nhiều lăng tẩm cổ kính",
+    description: "The former imperial capital with ancient tombs and palaces",
     category: "historical",
   },
 ];
 
 export const categories = [
-  { id: "beach", label: "Biển đảo", emoji: "🏖️" },
-  { id: "mountain", label: "Núi rừng", emoji: "🏔️" },
-  { id: "city", label: "Thành phố", emoji: "🏙️" },
-  { id: "historical", label: "Lịch sử", emoji: "🏛️" },
-  { id: "food", label: "Ẩm thực", emoji: "🍜" },
-  { id: "cafe", label: "Cafe", emoji: "☕" },
-  { id: "restaurant", label: "Nhà hàng", emoji: "🍽️" },
+  { id: "beach", labelKey: "categories.beach", emoji: "🏖️" },
+  { id: "mountain", labelKey: "categories.mountain", emoji: "🏔️" },
+  { id: "city", labelKey: "categories.city", emoji: "🏙️" },
+  { id: "historical", labelKey: "categories.historical", emoji: "🏛️" },
+  { id: "food", labelKey: "categories.food", emoji: "🍜" },
+  { id: "cafe", labelKey: "categories.cafe", emoji: "☕" },
+  { id: "restaurant", labelKey: "categories.restaurant", emoji: "🍽️" },
 ];
 
 // Keep for backward compatibility

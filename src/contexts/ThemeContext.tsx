@@ -13,13 +13,13 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const colorThemes: { value: ColorTheme; label: string; primary: string }[] = [
-  { value: 'red', label: 'Đỏ/Hồng', primary: 'hsl(0, 72%, 51%)' },
-  { value: 'blue', label: 'Xanh dương', primary: 'hsl(217, 91%, 60%)' },
-  { value: 'green', label: 'Xanh lá', primary: 'hsl(142, 76%, 36%)' },
-  { value: 'purple', label: 'Tím', primary: 'hsl(271, 91%, 65%)' },
-  { value: 'orange', label: 'Cam', primary: 'hsl(25, 95%, 53%)' },
-  { value: 'teal', label: 'Xanh ngọc', primary: 'hsl(172, 66%, 50%)' },
+export const colorThemes: { value: ColorTheme; labelKey: string; primary: string }[] = [
+  { value: 'red', labelKey: 'themes.red', primary: 'hsl(0, 72%, 51%)' },
+  { value: 'blue', labelKey: 'themes.blue', primary: 'hsl(217, 91%, 60%)' },
+  { value: 'green', labelKey: 'themes.green', primary: 'hsl(142, 76%, 36%)' },
+  { value: 'purple', labelKey: 'themes.purple', primary: 'hsl(271, 91%, 65%)' },
+  { value: 'orange', labelKey: 'themes.orange', primary: 'hsl(25, 95%, 53%)' },
+  { value: 'teal', labelKey: 'themes.teal', primary: 'hsl(172, 66%, 50%)' },
 ];
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -43,10 +43,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     // Remove all color theme classes
     colorThemes.forEach(t => root.classList.remove(`theme-${t.value}`));
-    
+
     // Add current color theme class (only if NOT the default 'red')
     // Red is the base theme defined in :root, so no class needed for it
     if (colorTheme !== 'red') {

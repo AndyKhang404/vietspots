@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from 'react-i18next';
 import vietSpotAPI from "@/api/vietspot";
 
 export interface Review {
@@ -25,6 +26,7 @@ export interface ReviewImage {
 }
 
 export function useReviews(placeId?: string) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,7 +120,7 @@ export function useReviews(placeId?: string) {
   // Submit a new review
   const submitReview = async (rating: number, content: string, imageFiles?: File[]) => {
     if (!user || !placeId) {
-      toast.error("Vui lòng đăng nhập để đánh giá");
+      toast.error(t('review.login_required'));
       return false;
     }
 
@@ -162,16 +164,16 @@ export function useReviews(placeId?: string) {
         }
       }
 
-      toast.success("Đánh giá của bạn đã được gửi!");
+      toast.success(t('review.submitted'));
       await fetchReviews();
       return true;
     } catch (error: unknown) {
       const err = error as { code?: string };
       console.error("Error submitting review:", error);
       if (err?.code === "23505") {
-        toast.error("Bạn đã đánh giá địa điểm này rồi");
+        toast.error(t('review.already_submitted'));
       } else {
-        toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+        toast.error(t('review.submit_error'));
       }
       return false;
     } finally {
@@ -192,12 +194,12 @@ export function useReviews(placeId?: string) {
 
       if (error) throw error;
 
-      toast.success("Đánh giá đã được cập nhật!");
+      toast.success(t('review.update_success'));
       await fetchReviews();
       return true;
     } catch (error) {
       console.error("Error updating review:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('review.submit_error'));
       return false;
     }
   };
@@ -215,12 +217,12 @@ export function useReviews(placeId?: string) {
 
       if (error) throw error;
 
-      toast.success("Đánh giá đã được xóa!");
+      toast.success(t('review.delete_success'));
       await fetchReviews();
       return true;
     } catch (error) {
       console.error("Error deleting review:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('review.submit_error'));
       return false;
     }
   };

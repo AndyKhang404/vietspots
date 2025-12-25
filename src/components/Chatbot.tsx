@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { 
-  Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star, 
-  ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark, 
+import {
+  Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star,
+  ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark,
   Map as MapIcon, Clock, MapPinned, Filter, LocateFixed, Percent,
   Plus, History, Trash2
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatConversations } from "@/hooks/useChatConversations";
-import { fallbackPlaces, transformPlace } from "@/data/places";
+import { fallbackPlaces, transformPlace, categories } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import ChatbotMap from "./ChatbotMap";
 import {
@@ -71,11 +71,11 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371; // Radius of Earth in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -88,23 +88,27 @@ function formatDistance(km: number): string {
 }
 
 // Format opening hours from JSON string to readable format
-function formatOpeningHours(hours: string): string {
+function formatOpeningHours(hours: string, lang?: string, t?: any): string {
   try {
     // Check if it's a JSON-like string
     if (hours.startsWith('{') || hours.startsWith("{'")) {
       // Parse the JSON-like string (Python dict format with single quotes)
       const cleaned = hours.replace(/'/g, '"');
       const parsed = JSON.parse(cleaned);
-      
-      // Get today's day name in Vietnamese
-      const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-      const today = days[new Date().getDay()];
-      
-      // Find today's hours
-      if (parsed[today]) {
-        return `Hôm nay: ${parsed[today]}`;
+
+      // Prefer both English and Vietnamese day names when checking keys
+      const enDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const viDays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const idx = new Date().getDay();
+      const candidates = [enDays[idx], viDays[idx]];
+
+      for (const name of candidates) {
+        if (parsed[name]) {
+          const todayLabel = t ? (t('place.opening_today') || (lang && lang.startsWith('vi') ? 'Hôm nay' : 'Today')) : (lang && lang.startsWith('vi') ? 'Hôm nay' : 'Today');
+          return `${todayLabel}: ${parsed[name]}`;
+        }
       }
-      
+
       // Fallback: show first available time
       const firstKey = Object.keys(parsed)[0];
       if (firstKey) {
@@ -135,22 +139,22 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
   let distance: number | undefined;
   if (userLocation && place.latitude && place.longitude) {
     distance = calculateDistance(
-      userLocation.latitude, 
-      userLocation.longitude, 
-      place.latitude, 
+      userLocation.latitude,
+      userLocation.longitude,
+      place.latitude,
       place.longitude
     );
   }
-  
+
   return {
     id: place.place_id || place.id,
     name: place.name,
-    address: place.address || `${place.city || ""}, Việt Nam`,
+    address: place.address || `${place.city || ""}, Vietnam`,
     phone: place.phone,
     website: place.website,
     rating: place.rating || 0,
-    gps: (place.latitude && place.longitude) 
-      ? `${place.latitude}, ${place.longitude}` 
+    gps: (place.latitude && place.longitude)
+      ? `${place.latitude}, ${place.longitude}`
       : (place.coordinates ? `${place.coordinates.lat}, ${place.coordinates.lon}` : undefined),
     images: place.images?.map((img: { url: string } | string) => typeof img === 'string' ? img : img.url) || (place.image_url ? [place.image_url] : []),
     latitude: place.latitude || place.coordinates?.lat,
@@ -165,14 +169,9 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
 }
 
 const CHAT_STORAGE_KEY = "vietspots_chat_history";
-const DEFAULT_MESSAGE: Message = {
-  id: "1",
-  role: "assistant",
-  content: "Xin chào! 👋 Tôi là VietSpots Bot - trợ lý du lịch của bạn. Hãy cho tôi biết bạn muốn khám phá Việt Nam như thế nào nhé! 🎒",
-};
 
 export default function Chatbot() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const { user } = useAuth();
   const {
@@ -185,7 +184,7 @@ export default function Chatbot() {
     loadConversation,
     deleteConversation,
   } = useChatConversations();
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved" | "history">("chat");
   const [input, setInput] = useState("");
@@ -200,7 +199,7 @@ export default function Chatbot() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
+
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -222,18 +221,18 @@ export default function Chatbot() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
-          toast.success("Đã lấy vị trí của bạn!");
+          toast.success(t('messages.got_your_location'));
           setIsGettingLocation(false);
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast.error("Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí.");
+          toast.error(t('messages.location_permission_required'));
           setIsGettingLocation(false);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
-      toast.error("Trình duyệt không hỗ trợ định vị.");
+      toast.error(t('messages.browser_no_geolocation'));
       setIsGettingLocation(false);
     }
   }, []);
@@ -394,7 +393,7 @@ export default function Chatbot() {
         }
 
         const data = await fallbackResponse.json();
-        
+
         if (data.session_id) {
           sessionStorage.setItem("vietspot_session_id", data.session_id);
         }
@@ -431,12 +430,12 @@ export default function Chatbot() {
       }
     } catch (error) {
       console.error("Chat error:", error);
-      toast.error("Không thể kết nối. Vui lòng thử lại.");
-      
+      toast.error(t('messages.cannot_connect'));
+
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.", isStreaming: false }
+            ? { ...msg, content: t('messages.error_occurred_apology'), isStreaming: false }
             : msg
         )
       );
@@ -448,10 +447,10 @@ export default function Chatbot() {
   const savedPlaces = fallbackPlaces.filter((p) => favorites.includes(p.id));
 
   const tabs = [
-    { id: "chat" as const, label: "Chatbot", icon: MessageSquare },
-    { id: "history" as const, label: "Lịch sử", icon: History },
-    { id: "form" as const, label: "Điền Form", icon: FileText },
-    { id: "saved" as const, label: "Đã lưu", icon: Bookmark },
+    { id: "chat" as const, label: t('chat.tab_chat'), icon: MessageSquare },
+    { id: "history" as const, label: t('chat.tab_history'), icon: History },
+    { id: "form" as const, label: t('chat.tab_form'), icon: FileText },
+    { id: "saved" as const, label: t('chat.tab_saved'), icon: Bookmark },
   ];
 
   // Filter place results
@@ -492,9 +491,9 @@ export default function Chatbot() {
             <div className="flex items-center justify-between p-3 border-b border-border">
               <div className="flex items-center gap-2">
                 <MapIcon className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm">Bản đồ</span>
+                <span className="font-medium text-sm">{t('ui.map')}</span>
                 <Badge variant="secondary" className="text-xs">
-                  {mapMarkers.length} địa điểm
+                  {mapMarkers.length} {t('place.places_label')}
                 </Badge>
               </div>
               <Button
@@ -530,10 +529,10 @@ export default function Chatbot() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen 
-            ? showMap && mapMarkers.length > 0 
-              ? "right-[750px] lg:right-[850px]" 
-              : "right-[400px] lg:right-[450px]" 
+          isOpen
+            ? showMap && mapMarkers.length > 0
+              ? "right-[750px] lg:right-[850px]"
+              : "right-[400px] lg:right-[450px]"
             : "right-0"
         )}
       >
@@ -593,9 +592,9 @@ export default function Chatbot() {
                   onClick={startNewConversation}
                 >
                   <Plus className="h-4 w-4" />
-                  Mới
+                  {t('actions.new')}
                 </Button>
-                
+
                 {/* Location Button */}
                 <Button
                   variant={userLocation ? "default" : "outline"}
@@ -609,7 +608,7 @@ export default function Chatbot() {
                   ) : (
                     <LocateFixed className="h-4 w-4" />
                   )}
-                  {userLocation ? "Đã định vị" : "Vị trí"}
+                  {userLocation ? t('ui.locating') : t('actions.location')}
                 </Button>
 
                 {/* Filters Popover */}
@@ -617,7 +616,7 @@ export default function Chatbot() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Filter className="h-4 w-4" />
-                      Bộ lọc
+                      {t('actions.filters')}
                       {(categoryFilter !== "all" || minRating > 0 || maxDistance < 50) && (
                         <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
                           !
@@ -627,19 +626,19 @@ export default function Chatbot() {
                   </PopoverTrigger>
                   <PopoverContent className="w-72" align="start">
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-sm">Bộ lọc nâng cao</h4>
-                      
+                      <h4 className="font-semibold text-sm">{t('search.advanced_filters')}</h4>
+
                       {/* Category Filter */}
                       <div className="space-y-2">
-                        <label className="text-sm text-muted-foreground">Danh mục</label>
+                        <label className="text-sm text-muted-foreground">{t('chatbot.form.category')}</label>
                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Tất cả" />
+                            <SelectValue placeholder={t('search.all')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">Tất cả</SelectItem>
+                            <SelectItem value="all">{t('search.all')}</SelectItem>
                             {availableCategories.map(cat => (
-                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              <SelectItem key={cat} value={cat}>{t(`categories.${cat}`)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -648,7 +647,7 @@ export default function Chatbot() {
                       {/* Min Rating */}
                       <div className="space-y-2">
                         <label className="text-sm text-muted-foreground flex items-center justify-between">
-                          <span>Rating tối thiểu</span>
+                          <span>{t('search.min_rating')}</span>
                           <span className="font-medium">{minRating} ★</span>
                         </label>
                         <Slider
@@ -665,7 +664,7 @@ export default function Chatbot() {
                       {userLocation && (
                         <div className="space-y-2">
                           <label className="text-sm text-muted-foreground flex items-center justify-between">
-                            <span>Khoảng cách tối đa</span>
+                            <span>{t('search.max_distance')}</span>
                             <span className="font-medium">{maxDistance}km</span>
                           </label>
                           <Slider
@@ -690,7 +689,7 @@ export default function Chatbot() {
                           setMaxDistance(50);
                         }}
                       >
-                        Đặt lại bộ lọc
+                        {t('search.clear_all')}
                       </Button>
                     </div>
                   </PopoverContent>
@@ -699,7 +698,7 @@ export default function Chatbot() {
                 {/* Active filter badges */}
                 {categoryFilter !== "all" && (
                   <Badge variant="outline" className="text-xs">
-                    {categoryFilter}
+                    {t(`categories.${categoryFilter}`)}
                   </Badge>
                 )}
                 {minRating > 0 && (
@@ -745,7 +744,7 @@ export default function Chatbot() {
                       <div className="flex justify-start">
                         <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          <span className="text-sm text-muted-foreground">VietSpots AI đang suy nghĩ...</span>
+                          <span className="text-sm text-muted-foreground">{t('ui.ai_thinking')}</span>
                         </div>
                       </div>
                     )}
@@ -756,8 +755,8 @@ export default function Chatbot() {
                         key={place.id}
                         className={cn(
                           "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
-                          selectedPlaceId === place.id 
-                            ? "border-primary ring-2 ring-primary/20" 
+                          selectedPlaceId === place.id
+                            ? "border-primary ring-2 ring-primary/20"
                             : "border-border"
                         )}
                         style={{ animationDelay: `${index * 100}ms` }}
@@ -803,7 +802,7 @@ export default function Chatbot() {
                           {place.totalComments !== undefined && place.totalComments > 0 && (
                             <Badge variant="outline" className="text-xs gap-1">
                               <MessageSquare className="h-3 w-3" />
-                              {place.totalComments} đánh giá
+                              {place.totalComments} {t('place.reviews')}
                             </Badge>
                           )}
                         </div>
@@ -818,7 +817,7 @@ export default function Chatbot() {
                         {place.openingHours && (
                           <div className="flex items-center gap-2 text-sm mb-2">
                             <Clock className="h-4 w-4 text-orange-500 shrink-0" />
-                            <span className="text-muted-foreground">{formatOpeningHours(place.openingHours)}</span>
+                            <span className="text-muted-foreground">{formatOpeningHours(place.openingHours, i18n.language, t)}</span>
                           </div>
                         )}
 
@@ -837,15 +836,15 @@ export default function Chatbot() {
                           <div className="flex items-center gap-2 text-sm mb-3">
                             <Globe className="h-4 w-4 text-blue-600 shrink-0" />
                             <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              Website
+                              {t('place.website')}
                             </a>
                           </div>
                         )}
 
                         {/* Action Buttons */}
                         <div className="flex gap-2 mb-3">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="gap-2 bg-primary hover:bg-primary/90"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -857,7 +856,7 @@ export default function Chatbot() {
                                   if (!showMap) setShowMap(true);
                                 } else {
                                   // Get location first, then show route
-                                  toast.info('Đang lấy vị trí của bạn...');
+                                  toast.info(t('messages.getting_your_location'));
                                   if (navigator.geolocation) {
                                     navigator.geolocation.getCurrentPosition(
                                       (position) => {
@@ -885,7 +884,7 @@ export default function Chatbot() {
                             }}
                           >
                             <Navigation className="h-4 w-4" />
-                            Chỉ đường
+                            {t('ui.directions')}
                           </Button>
                           <Button
                             size="sm"
@@ -901,11 +900,11 @@ export default function Chatbot() {
                                 rating: place.rating,
                                 category: place.category,
                               });
-                              toast.success(isFavorite(place.id) ? "Đã xóa khỏi danh sách yêu thích" : "Đã lưu vào danh sách yêu thích");
+                              toast.success(isFavorite(place.id) ? t('messages.removed_favorite') : t('messages.saved_favorite'));
                             }}
                           >
                             <Bookmark className={cn("h-4 w-4", isFavorite(place.id) && "fill-current")} />
-                            {isFavorite(place.id) ? "Đã lưu" : "Lưu"}
+                            {isFavorite(place.id) ? t('ui.saved') : t('ui.save')}
                           </Button>
                         </div>
 
@@ -984,12 +983,12 @@ export default function Chatbot() {
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Nhập tin nhắn..."
+                    placeholder={t('chatbot.placeholder')}
                     className="flex-1 rounded-full"
                     disabled={isLoading}
                   />
                   <Button type="submit" className="rounded-full px-6" disabled={isLoading}>
-                    Gửi
+                    {t('chatbot.send')}
                   </Button>
                 </form>
               </div>
@@ -998,43 +997,38 @@ export default function Chatbot() {
 
           {activeTab === "form" && (
             <div className="flex-1 p-6 overflow-y-auto">
-              <h3 className="font-semibold text-foreground mb-4">Tìm địa điểm theo tiêu chí</h3>
+              <h3 className="font-semibold text-foreground mb-4">{t('chatbot.form_title')}</h3>
               <div className="space-y-4">
                 {/* Destination */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Điểm đến</label>
-                  <Input 
-                    placeholder="VD: Đà Nẵng, Hội An..." 
+                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.destination')}</label>
+                  <Input
+                    placeholder={t('itinerary.destination_placeholder')}
                     className="w-full"
                     id="form-destination"
                   />
                 </div>
-                
+
                 {/* Category */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Loại hình</label>
+                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.category')}</label>
                   <Select value={formCategory} onValueChange={setFormCategory}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Tất cả" />
+                      <SelectValue placeholder={t('search.all')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="Biển & Bãi biển">Biển & Bãi biển</SelectItem>
-                      <SelectItem value="Bảo tàng & Triển lãm">Bảo tàng & Triển lãm</SelectItem>
-                      <SelectItem value="Nhà Hàng & Ẩm Thực">Nhà hàng & Ẩm thực</SelectItem>
-                      <SelectItem value="Cafe">Cafe</SelectItem>
-                      <SelectItem value="Di Tích Lịch Sử">Chùa & Đền</SelectItem>
-                      <SelectItem value="Giải Trí & Vui Chơi">Giải trí & Vui chơi</SelectItem>
-                      <SelectItem value="Núi & Thiên Nhiên">Núi & Thiên nhiên</SelectItem>
-                      <SelectItem value="Điểm Ngắm Cảnh">Điểm ngắm cảnh</SelectItem>
+                      <SelectItem value="all">{t('search.all')}</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{t(c.labelKey)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Rating */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground flex items-center justify-between">
-                    <span>Rating tối thiểu</span>
+                    <span>{t('search.min_rating')}</span>
                     <span className="text-primary">{formRating.toFixed(1)} ★</span>
                   </label>
                   <Slider
@@ -1046,38 +1040,40 @@ export default function Chatbot() {
                     className="w-full"
                   />
                 </div>
-                
+
                 {/* Number of results */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Số lượng kết quả</label>
+                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.results_count')}</label>
                   <Select value={formLimit} onValueChange={setFormLimit}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="10" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5">5 địa điểm</SelectItem>
-                      <SelectItem value="10">10 địa điểm</SelectItem>
-                      <SelectItem value="20">20 địa điểm</SelectItem>
+                      <SelectItem value="5">5 {t('place.places_label', { count: 5 })}</SelectItem>
+                      <SelectItem value="10">10 {t('place.places_label', { count: 10 })}</SelectItem>
+                      <SelectItem value="20">20 {t('place.places_label', { count: 20 })}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Submit Button */}
-                <Button 
+                <Button
                   className="w-full mt-4"
                   onClick={() => {
                     const destination = (document.getElementById('form-destination') as HTMLInputElement)?.value || '';
                     if (destination) {
-                      // Build message with all form parameters
-                      let message = `Tìm ${formLimit} địa điểm`;
+                      // Build message with all form parameters using i18n pieces
+                      let message = t('chatbot.form.search_message', { limit: formLimit });
                       if (formCategory !== "all") {
-                        message += ` loại ${formCategory}`;
+                        const cat = categories.find(c => c.id === formCategory);
+                        const catLabel = cat ? t(cat.labelKey) : formCategory;
+                        message += ` ${t('chatbot.form.of_type')} ${catLabel}`;
                       }
-                      message += ` tại ${destination}`;
+                      message += ` ${t('chatbot.form.at_location', { destination })}`;
                       if (formRating > 0) {
-                        message += `, rating tối thiểu ${formRating} sao`;
+                        message += `, ${t('chatbot.form.min_rating', { rating: formRating })}`;
                       }
-                      
+
                       setActiveTab('chat');
                       setInput(message);
                       // Auto-send after switching tab
@@ -1088,12 +1084,12 @@ export default function Chatbot() {
                         }
                       }, 100);
                     } else {
-                      toast.error("Vui lòng nhập điểm đến");
+                      toast.error(t('itinerary.enter_destination'));
                     }
                   }}
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  Tìm kiếm
+                  {t('actions.apply')}
                 </Button>
               </div>
             </div>
@@ -1105,9 +1101,9 @@ export default function Chatbot() {
                 {!user ? (
                   <div className="text-center py-12">
                     <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">Đăng nhập để xem lịch sử</h3>
+                    <h3 className="font-semibold text-foreground mb-2">{t('ui.login_to_view_history')}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Lịch sử chat sẽ được lưu khi bạn đăng nhập
+                      {t('chat.history_saved_on_login')}
                     </p>
                   </div>
                 ) : conversations.length > 0 ? (
@@ -1153,9 +1149,9 @@ export default function Chatbot() {
                 ) : (
                   <div className="text-center py-12">
                     <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">Chưa có lịch sử chat</h3>
+                    <h3 className="font-semibold text-foreground mb-2">{t('chat.no_history')}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Bắt đầu cuộc trò chuyện mới để lưu lịch sử
+                      {t('ui.start_new_conversation_to_save_history')}
                     </p>
                   </div>
                 )}
@@ -1196,9 +1192,9 @@ export default function Chatbot() {
                 ) : (
                   <div className="text-center py-12">
                     <Bookmark className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">Chưa có địa điểm đã lưu</h3>
+                    <h3 className="font-semibold text-foreground mb-2">{t('ui.no_saved_places')}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Nhấn ❤️ để lưu địa điểm yêu thích
+                      {t('ui.press_heart_to_save')}
                     </p>
                   </div>
                 )}
@@ -1210,7 +1206,7 @@ export default function Chatbot() {
 
       {/* Overlay for mobile */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 z-30 lg:hidden"
           onClick={() => setIsOpen(false)}
         />

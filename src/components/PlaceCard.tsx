@@ -1,6 +1,7 @@
 import { Heart, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
 
 interface PlaceCardProps {
   id: string;
@@ -11,6 +12,7 @@ interface PlaceCardProps {
   ratingCount?: number;
   description: string;
   category?: string;
+  categorySlug?: string;
   isFavorite?: boolean;
   onFavoriteToggle?: (place: {
     id: string;
@@ -32,10 +34,12 @@ export default function PlaceCard({
   ratingCount,
   description,
   category,
+  categorySlug,
   isFavorite = false,
   onFavoriteToggle,
   className,
 }: PlaceCardProps) {
+  const { t } = useTranslation();
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onFavoriteToggle?.({
@@ -83,7 +87,7 @@ export default function PlaceCard({
         ) : (
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg">
             <Star className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Mới</span>
+            <span className="text-sm text-muted-foreground">{t('place.new')}</span>
           </div>
         )}
       </div>
@@ -93,6 +97,11 @@ export default function PlaceCard({
           <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
           <span className="text-sm break-words">{location}</span>
         </div>
+        {category || categorySlug ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {t(`categories.${categorySlug || category}`, { defaultValue: category || '' })}
+          </div>
+        ) : null}
         <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
           {description}
         </p>

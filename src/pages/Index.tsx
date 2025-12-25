@@ -19,15 +19,15 @@ export default function Index() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  
+
   const [recommendedPlaces, setRecommendedPlaces] = useState<Place[]>([]);
   const [nearbyPlaces, setNearbyPlaces] = useState<Place[]>([]);
   const [placesLoading, setPlacesLoading] = useState(true);
   const [nearbyLoading, setNearbyLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  
+
   const { data: categoriesResponse } = useCategories();
 
   // Reverse geocode to get city name from coordinates
@@ -76,26 +76,26 @@ export default function Index() {
             };
             setUserLocation(coords);
             setLocationError(null);
-            
+
             // Get city name from coordinates
             const city = await getCityFromCoords(coords.lat, coords.lon);
             setUserCity(city);
           },
           (error) => {
             console.log("Geolocation error:", error.message);
-            setLocationError("Bật vị trí để xem địa điểm gần bạn");
+            setLocationError(t('messages.enable_location_nearby'));
             // Default to Ho Chi Minh City if geolocation fails
             setUserLocation({ lat: 10.8231, lon: 106.6297 });
             setUserCity("Hồ Chí Minh");
           }
         );
       } else {
-        setLocationError("Trình duyệt không hỗ trợ định vị");
+        setLocationError(t('messages.browser_no_geolocation'));
         setUserLocation({ lat: 10.8231, lon: 106.6297 });
         setUserCity("Hồ Chí Minh");
       }
     };
-    
+
     getLocation();
   }, []);
 
@@ -108,7 +108,7 @@ export default function Index() {
       setPlacesLoading(true);
       try {
         let places: any[] = [];
-        
+
         // If we successfully detected a city, filter by city
         if (userCity) {
           places = await vietSpotAPI.getPlaces({
@@ -119,7 +119,7 @@ export default function Index() {
           });
           console.log("Recommended places for city:", userCity, "found:", places.length);
         }
-        
+
         // If no city or no results, use GPS location
         if (!places || places.length === 0) {
           places = await vietSpotAPI.getPlaces({
@@ -132,7 +132,7 @@ export default function Index() {
           });
           console.log("Recommended places by GPS found:", places.length);
         }
-        
+
         // Final fallback: get top rated anywhere
         if (!places || places.length === 0) {
           places = await vietSpotAPI.getPlaces({
@@ -158,11 +158,11 @@ export default function Index() {
   // Fetch nearby places when we have user location
   useEffect(() => {
     if (!userLocation) return;
-    
+
     const fetchNearby = async () => {
       setNearbyLoading(true);
       try {
-        const places = await vietSpotAPI.getPlaces({ 
+        const places = await vietSpotAPI.getPlaces({
           limit: 20,
           lat: userLocation.lat,
           lon: userLocation.lon,
@@ -170,7 +170,7 @@ export default function Index() {
           minRating: 0.1,
           sortBy: 'distance',
         });
-        
+
         if (places.length > 0) {
           setNearbyPlaces(places.slice(0, 10).map(transformPlace));
         } else {
@@ -188,7 +188,7 @@ export default function Index() {
         setNearbyLoading(false);
       }
     };
-    
+
     fetchNearby();
   }, [userLocation]);
 
@@ -204,14 +204,14 @@ export default function Index() {
           };
           setUserLocation(coords);
           setLocationError(null);
-          
+
           // Update city from new coordinates
           const city = await getCityFromCoords(coords.lat, coords.lon);
           setUserCity(city);
         },
         (error) => {
           console.log("Geolocation error:", error.message);
-          setLocationError("Không thể lấy vị trí");
+          setLocationError(t('messages.cannot_get_location'));
           setNearbyLoading(false);
           setPlacesLoading(false);
         }
@@ -240,19 +240,19 @@ export default function Index() {
 
   const categories = categoriesResponse && categoriesResponse.length > 0
     ? categoriesResponse.map((cat) => ({
-        id: cat,
-        label: cat,
-        emoji: getEmojiForCategory(cat),
-      }))
+      id: cat,
+      label: cat,
+      emoji: getEmojiForCategory(cat),
+    }))
     : defaultCategories;
 
-  const PlacesList = ({ 
-    places, 
-    loading, 
-    emptyMessage 
-  }: { 
-    places: Place[]; 
-    loading: boolean; 
+  const PlacesList = ({
+    places,
+    loading,
+    emptyMessage
+  }: {
+    places: Place[];
+    loading: boolean;
     emptyMessage: string;
   }) => {
     if (loading) {
@@ -316,7 +316,7 @@ export default function Index() {
               </span>
             </div>
             <h2 className="text-3xl lg:text-5xl font-bold mb-4">
-              Khám phá Việt Nam 🇻🇳
+              {t('app.tagline')} 🇻🇳
             </h2>
             <p className="text-lg opacity-90 mb-6 max-w-lg">
               {t('home.explore')}
@@ -337,19 +337,19 @@ export default function Index() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">Đề xuất cho bạn</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t('home.recommended')}</h3>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/search?sortBy=rating')}
               className="text-sm text-primary hover:underline font-medium"
             >
               {t('home.viewAll')} →
             </button>
           </div>
-          <PlacesList 
-            places={recommendedPlaces} 
-            loading={placesLoading} 
-            emptyMessage="🔍 Đang tải địa điểm..."
+          <PlacesList
+            places={recommendedPlaces}
+            loading={placesLoading}
+            emptyMessage={t('messages.loading_places')}
           />
         </div>
 
@@ -358,32 +358,32 @@ export default function Index() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">Địa điểm gần bạn</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t('home.nearby')}</h3>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleRefreshLocation}
               className="gap-2"
             >
               <RefreshCw className="h-4 w-4" />
-              Làm mới
+              {t('common.refresh')}
             </Button>
           </div>
           {locationError && !nearbyLoading && nearbyPlaces.length === 0 ? (
-            <div 
+            <div
               className="bg-muted/50 rounded-xl p-8 text-center cursor-pointer hover:bg-muted transition-colors"
               onClick={handleRefreshLocation}
             >
               <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground mb-2">{locationError}</p>
-              <p className="text-sm text-primary font-medium">Nhấn để cấp quyền</p>
+              <p className="text-sm text-primary font-medium">{t('messages.press_to_grant_permission')}</p>
             </div>
           ) : (
-            <PlacesList 
-              places={nearbyPlaces} 
-              loading={nearbyLoading} 
-              emptyMessage="📍 Không tìm thấy địa điểm gần bạn"
+            <PlacesList
+              places={nearbyPlaces}
+              loading={nearbyLoading}
+              emptyMessage={t('messages.no_nearby_places')}
             />
           )}
         </div>
@@ -395,7 +395,7 @@ export default function Index() {
               <TrendingUp className="h-5 w-5 text-primary" />
               <h3 className="text-lg font-semibold text-foreground">{t('home.featured')}</h3>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/search')}
               className="text-sm text-primary hover:underline font-medium"
             >

@@ -6,6 +6,7 @@
   "nav": {
     "home": "Trang chủ",
     "search": "Tìm kiếm",
+    "itinerary": "Lịch trình",
     "favorites": "Yêu thích",
     "notifications": "Thông báo",
     "settings": "Cài đặt"
@@ -14,23 +15,66 @@
     "welcome": "Xin chào",
     "explore": "Khám phá những địa điểm tuyệt vời",
     "featured": "Địa điểm nổi bật",
-    "viewAll": "Xem tất cả"
+    "viewAll": "Xem tất cả",
+    "recommended": "Đề xuất cho bạn",
+    "nearby": "Địa điểm gần bạn"
   },
   "search": {
     "title": "Tìm kiếm",
     "placeholder": "Tìm địa điểm, món ăn...",
-    "noResults": "Không tìm thấy kết quả"
+    "noResults": "Không tìm thấy kết quả",
+    "subtitle": "Tìm địa điểm du lịch yêu thích của bạn",
+    "advanced_filters": "Bộ lọc nâng cao",
+    "clear_all": "Xóa tất cả",
+    "min_rating": "Rating tối thiểu",
+    "all": "Tất cả",
+    "stars": "sao",
+    "enable_gps_filter": "Bật GPS để lọc khoảng cách",
+    "unlimited": "Không giới hạn",
+    "enable_gps_to_apply_distance_filter": "Bật GPS để áp dụng lọc khoảng cách",
+    "save_filters_label": "Lưu bộ lọc yêu thích",
+    "filter_name_placeholder": "Tên bộ lọc...",
+    "saved_filters": "Bộ lọc đã lưu",
+    "results_found": "kết quả được tìm thấy",
+    "try_different_keywords": "Thử tìm kiếm với từ khóa khác",
+    "max_distance": "Khoảng cách tối đa"
   },
   "favorites": {
     "title": "Yêu thích của bạn",
-    "empty": "Chưa có địa điểm yêu thích nào"
+    "empty": "Chưa có địa điểm yêu thích nào",
+    "description": "Địa điểm bạn đã lưu"
   },
   "notifications": {
     "title": "Thông báo",
-    "empty": "Không có thông báo mới"
+    "empty": "Không có thông báo mới",
+    "subtitle": "Cập nhật mới nhất cho bạn",
+    "mark_all_read": "Đánh dấu là đã đọc",
+    "items": {
+      "promo": {
+        "title": "Ưu đãi đặc biệt!",
+        "message": "Giảm 30% tour Phú Quốc trong tháng này",
+        "time": "2 giờ trước"
+      },
+      "place": {
+        "title": "Địa điểm mới",
+        "message": "Khám phá Mù Cang Chải - ruộng bậc thang mùa này",
+        "time": "1 ngày trước"
+      },
+      "review": {
+        "title": "Đánh giá mới",
+        "message": "Vịnh Hạ Long nhận hơn 50 đánh giá mới",
+        "time": "2 ngày trước"
+      },
+      "promo2": {
+        "title": "Flash sale!",
+        "message": "Giảm tới 50% vé nội địa — chỉ trong hôm nay",
+        "time": "3 ngày trước"
+      }
+    }
   },
   "settings": {
     "title": "Cài đặt",
+    "description": "Quản lý tài khoản và cài đặt của bạn",
     "account": "Tài khoản",
     "personalInfo": "Thông tin cá nhân",
     "notifications": "Cài đặt thông báo",
@@ -41,7 +85,35 @@
     "helpCenter": "Trung tâm trợ giúp",
     "logout": "Đăng xuất",
     "login": "Đăng nhập",
-    "version": "Phiên bản"
+    "version": "Phiên bản",
+    "profile_updated": "Cập nhật hồ sơ thành công",
+    "password_mismatch": "Xác nhận mật khẩu không khớp",
+    "password_too_short": "Mật khẩu phải có ít nhất 6 ký tự",
+    "password_changed": "Đổi mật khẩu thành công",
+    "security": "Bảo mật",
+    "color_theme": "Chủ đề màu",
+    "choose_color_theme": "Chọn chủ đề màu",
+    "profile_info": "Thông tin hồ sơ",
+    "avatar_url": "URL ảnh đại diện",
+    "full_name": "Họ và tên",
+    "enter_full_name": "Nhập họ và tên của bạn",
+    "phone": "Số điện thoại",
+    "bio": "Giới thiệu",
+    "bio_placeholder": "Tôi thích đi du lịch...",
+    "account_info": "Thông tin tài khoản",
+    "account_created": "Tài khoản tạo lúc:",
+    "last_login": "Đăng nhập gần nhất:",
+    "save_changes": "Lưu thay đổi",
+    "default_color_theme": "Đỏ/Hồng",
+    "notification_settings": "Cài đặt thông báo",
+    "push_notifications": "Thông báo đẩy",
+    "push_notifications_desc": "Nhận thông báo trên thiết bị của bạn",
+    "email_notifications": "Thông báo qua email",
+    "email_notifications_desc": "Nhận cập nhật qua email",
+    "change_password": "Đổi mật khẩu",
+    "new_password": "Mật khẩu mới",
+    "confirm_password": "Xác nhận mật khẩu",
+    "change_password_button": "Đổi mật khẩu"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -58,24 +130,225 @@
     "signupError": "Đăng ký thất bại",
     "invalidCredentials": "Email hoặc mật khẩu không đúng",
     "emailExists": "Email đã tồn tại",
-    "guest": "Khách"
+    "guest": "Khách",
+    "invalidEmail": "Email không hợp lệ",
+    "password_too_short": "Mật khẩu phải có ít nhất 6 ký tự",
+    "enter_full_name": "Vui lòng nhập họ tên"
   },
   "chatbot": {
     "title": "VietSpots Bot",
     "placeholder": "Hỏi tôi về địa điểm...",
-    "greeting": "Xin chào! Tôi có thể giúp bạn tìm địa điểm du lịch, món ăn ngon ở Việt Nam."
+    "greeting": "Xin chào! Tôi có thể giúp bạn tìm địa điểm du lịch, món ăn ngon ở Việt Nam.",
+    "send": "Gửi",
+    "form_title": "Tìm địa điểm theo tiêu chí",
+    "form": {
+      "destination": "Điểm đến",
+      "results_count": "Số lượng kết quả",
+      "search_message": "Tìm {{limit}} địa điểm",
+      "of_type": "loại",
+      "at_location": "tại {{destination}}",
+      "min_rating": "rating tối thiểu {{rating}}"
+    }
+  },
+  "ui": {
+    "press_heart_to_save": "Nhấn ❤️ để lưu địa điểm yêu thích",
+    "start_new_conversation_to_save_history": "Bắt đầu cuộc trò chuyện mới để lưu lịch sử",
+    "no_saved_places": "Chưa có địa điểm đã lưu",
+    "login_to_view_history": "Đăng nhập để xem lịch sử",
+    "ai_thinking": "VietSpots AI đang xử lý...",
+    "saved": "Đã lưu",
+    "save": "Lưu",
+    "directions": "Chỉ đường",
+    "locating": "Đang xác định",
+    "map": "Bản đồ"
+  },
+  "messages": {
+    "loading_route": "Đang tải lộ trình...",
+    "press_to_grant_permission": "Nhấn để cấp quyền",
+    "places_loaded": "{{count}} địa điểm",
+    "open_now": "Đang mở cửa",
+    "getting_your_location": "Đang lấy vị trí của bạn...",
+    "got_your_location": "Đã lấy vị trí của bạn",
+    "link_copied": "Đã sao chép liên kết vào clipboard",
+    "cannot_get_location": "Không thể lấy vị trí",
+    "filter_saved": "Đã lưu bộ lọc!",
+    "getting_location": "Đang lấy vị trí...",
+    "saved_filter": "Bộ lọc đã lưu",
+    "cannot_load_place": "Không thể tải thông tin địa điểm",
+    "cannot_load_route": "Không thể tải tuyến đường. Vui lòng thử lại.",
+    "no_coordinates": "Địa điểm không có toạ độ",
+    "location_permission_required": "Không thể lấy vị trí. Vui lòng cho phép truy cập vị trí.",
+    "browser_no_geolocation": "Trình duyệt không hỗ trợ định vị",
+    "not_found_place": "Không tìm thấy địa điểm",
+    "route": "Tuyến đường",
+    "showing": "Hiển thị",
+    "directions": "Chỉ đường",
+    "login_to_review": "Vui lòng đăng nhập để viết đánh giá",
+    "saved_itineraries": "Đã lưu ({{count}})",
+    "creating_itinerary": "Đang tạo lịch trình...",
+    "itinerary_saved": "Lịch trình đã được lưu!",
+    "cannot_create_itinerary": "Không thể tạo lịch trình. Vui lòng thử yêu cầu khác.",
+    "itinerary_created": "Lịch trình đã được tạo!",
+    "itinerary_created_from_suggestions": "Lịch trình được tạo từ các gợi ý!",
+    "login_to_save_itinerary": "Vui lòng đăng nhập để lưu lịch trình",
+    "saved_favorite": "Đã lưu vào yêu thích",
+    "removed_favorite": "Đã xóa khỏi yêu thích",
+    "cannot_connect": "Không thể kết nối. Vui lòng thử lại.",
+    "error_occurred_apology": "Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại sau.",
+    "enable_location": "Vui lòng bật vị trí để xem chỉ đường",
+    "enable_location_nearby": "Bật vị trí để xem địa điểm gần bạn",
+    "no_nearby_places": "Không tìm thấy địa điểm gần bạn",
+    "loading_places": "🔍 Đang tải địa điểm...",
+    "position_permission_denied": "Bạn đã từ chối quyền truy cập vị trí",
+    "position_unavailable": "Vị trí không khả dụng",
+    "position_timeout": "Yêu cầu vị trí hết thời gian",
+    "please_enter_filter_name": "Vui lòng nhập tên bộ lọc",
+    "filter_applied": "Đã áp dụng bộ lọc \"{name}\"",
+    "filter_deleted": "Đã xóa bộ lọc",
+    "share_text": "Khám phá {{name}} trên VietSpots!"
+  },
+  "amenities": {
+    "nha_ve_sinh": "Nhà vệ sinh",
+    "phu_hop_cho_tre_em": "Phù hợp cho trẻ em",
+    "nha_ve_sinh_cho_xe_lan": "Nhà vệ sinh cho xe lăn",
+    "free_wifi": "WiFi miễn phí",
+    "wifi": "WiFi",
+    "parking": "Bãi đỗ xe",
+    "restaurant": "Nhà hàng",
+    "photo_spot": "Điểm chụp ảnh",
+    "mo_cua_24_7": "Mở cửa 24/7",
+    "the_tin_dung": "Chấp nhận thẻ tín dụng"
+  },
+  "actions": {
+    "apply": "Áp dụng",
+    "new": "Mới",
+    "filter": "Lọc",
+    "filters": "Bộ lọc",
+    "location": "Vị trí",
+    "send_review": "Gửi đánh giá",
+    "share": "Chia sẻ",
+    "add_image": "Thêm ảnh"
+  },
+  "preferences": {
+    "history": "Lịch sử",
+    "nature": "Thiên nhiên",
+    "food": "Món ăn",
+    "shopping": "Mua sắm",
+    "culture": "Văn hoá",
+    "adventure": "Phiêu lưu",
+    "relax": "Thư giãn",
+    "photography": "Nhiếp ảnh"
+  },
+  "budget": {
+    "low": "Thấp",
+    "medium": "Trung bình",
+    "high": "Cao"
   },
   "common": {
     "loading": "Đang tải...",
     "error": "Có lỗi xảy ra",
+    "minutes": "phút",
     "retry": "Thử lại",
     "save": "Lưu",
     "cancel": "Hủy",
     "confirm": "Xác nhận",
-    "user": "Người dùng"
+    "user": "Người dùng",
+    "back": "Quay lại",
+    "refresh": "Làm mới"
   },
   "languages": {
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "itinerary": {
+    "updated": "Lịch trình đã được cập nhật!",
+    "deleted": "Lịch trình đã bị xóa!",
+    "saved": "Đã lưu",
+    "form_title": "Thông tin chuyến đi",
+    "destination": "Điểm đến",
+    "destination_placeholder": "VD: Đà Nẵng, Hội An...",
+    "days_label": "Số ngày",
+    "day_unit": "ngày",
+    "budget_label": "Ngân sách",
+    "preferences_label": "Sở thích",
+    "generate_button": "Tạo lịch trình AI",
+    "section_title": "Lịch trình",
+    "no_itinerary_title": "Chưa có lịch trình",
+    "no_itinerary_desc": "Nhập thông tin chuyến đi và nhấn \"Tạo lịch trình AI\" để bắt đầu"
+  },
+  "itinerary_page": {
+    "title": "Tạo lịch trình",
+    "subtitle": "Tự động tạo lịch trình du lịch bằng AI",
+    "enter_destination": "Vui lòng nhập điểm đến",
+    "enter_title": "Vui lòng nhập tiêu đề lịch trình",
+    "not_public": "Lịch trình này không công khai"
+  },
+  "place": {
+    "selected_images": "{{count}} hình đã chọn",
+    "new": "Mới",
+    "about": "Giới thiệu",
+    "reviews": "Đánh giá",
+    "places_label": "địa điểm",
+    "amenities": "Tiện ích",
+    "opening_today": "Hôm nay",
+    "location": "Vị trí",
+    "opening_hours": "Giờ mở cửa",
+    "phone": "Điện thoại",
+    "website": "Website"
+  },
+  "review": {
+    "login_required": "Vui lòng đăng nhập để viết đánh giá",
+    "submitted": "Đánh giá của bạn đã được gửi!",
+    "already_submitted": "Bạn đã đánh giá địa điểm này",
+    "write": "Viết đánh giá của bạn",
+    "placeholder": "Chia sẻ trải nghiệm của bạn...",
+    "no_reviews": "Chưa có đánh giá nào",
+    "update_success": "Cập nhật đánh giá thành công!",
+    "delete_success": "Đã xóa đánh giá!",
+    "submit_error": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
+  "chat": {
+    "tab_chat": "Chatbot",
+    "tab_history": "Lịch sử",
+    "tab_form": "Form",
+    "tab_saved": "Đã lưu",
+    "default_saved_title": "Cuộc trò chuyện đã lưu",
+    "default_new_title": "Cuộc trò chuyện mới",
+    "history_saved_on_login": "Lịch sử chat sẽ được lưu khi bạn đăng nhập",
+    "no_history": "Chưa có lịch sử chat"
+  },
+  "chat_messages": {
+    "migrated_success": "Lịch sử chat đã được chuyển sang tài khoản của bạn",
+    "created_new": "Đã tạo cuộc trò chuyện mới",
+    "deleted": "Đã xóa cuộc trò chuyện",
+    "delete_error": "Không thể xóa cuộc trò chuyện"
+  },
+  "route": {
+    "used_cached": "Sử dụng tuyến đã lưu ({distance} km)",
+    "route_info": "Khoảng cách: {distance} km • Thời gian: {duration} phút",
+    "fallback": "Tuyến tạm thời (dịch vụ định tuyến chậm hoặc không phản hồi)."
+  },
+  "themes": {
+    "red": "Đỏ/Hồng",
+    "blue": "Xanh dương",
+    "green": "Xanh lá",
+    "purple": "Tím",
+    "orange": "Cam",
+    "teal": "Xanh ngọc"
+  },
+  "categories": {
+    "beach": "Biển đảo",
+    "mountain": "Núi rừng",
+    "city": "Thành phố",
+    "historical": "Lịch sử",
+    "food": "Ẩm thực",
+    "cafe": "Cafe",
+    "restaurant": "Nhà hàng",
+    "bao_tang_trien_lam": "Bảo tàng & Triển lãm",
+    "bao_tang": "Bảo tàng",
+    "trien_lam": "Triển lãm",
+    "nha_hang": "Nhà hàng",
+    "quan_an": "Quán ăn",
+    "bao_tang_va_trien_lam": "Bảo tàng & Triển lãm"
   }
 }

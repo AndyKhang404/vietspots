@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from 'react-i18next';
 import vietSpotAPI, { DayItinerary } from "@/api/vietspot";
 
 export interface SavedItinerary {
@@ -20,6 +21,7 @@ export interface SavedItinerary {
 }
 
 export function useItinerary() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [itineraries, setItineraries] = useState<SavedItinerary[]>([]);
   const [currentItinerary, setCurrentItinerary] = useState<DayItinerary[] | null>(null);
@@ -67,14 +69,18 @@ export function useItinerary() {
     setGenerating(true);
     try {
       // Build a natural language prompt for the chatbot
-      const prefsText = params.preferences?.length 
-        ? ` với sở thích: ${params.preferences.join(", ")}`
+      const prefsText = params.preferences?.length
+        ? (i18n.language && i18n.language.startsWith('vi') ? ` với sở thích: ${params.preferences.join(", ")}` : ` with preferences: ${params.preferences.join(", ")}`)
         : "";
-      const budgetText = params.budget 
-        ? ` ngân sách ${params.budget === "low" ? "tiết kiệm" : params.budget === "high" ? "cao cấp" : "trung bình"}`
+      const budgetText = params.budget
+        ? (i18n.language && i18n.language.startsWith('vi')
+          ? ` ngân sách ${params.budget === "low" ? "tiết kiệm" : params.budget === "high" ? "cao cấp" : "trung bình"}`
+          : ` with ${params.budget === "low" ? "low" : params.budget === "high" ? "high-end" : "medium"} budget`)
         : "";
-      
-      const message = `Hãy lập lịch trình du lịch ${params.days} ngày ở ${params.destination}${budgetText}${prefsText}. Trả về chi tiết từng ngày với thời gian và địa điểm cụ thể.`;
+
+      const message = (i18n.language && i18n.language.startsWith('vi'))
+        ? `Hãy lập lịch trình du lịch ${params.days} ngày ở ${params.destination}${budgetText}${prefsText}. Trả về chi tiết từng ngày với thời gian và địa điểm cụ thể.`
+        : `Please create a ${params.days}-day itinerary in ${params.destination}${budgetText}${prefsText}. Return a detailed day-by-day plan with times and places.`;
 
       // Call the chat API
       const response = await vietSpotAPI.chat({
@@ -90,7 +96,7 @@ export function useItinerary() {
       // Check if response has itinerary data
       if (response.itinerary && response.itinerary.length > 0) {
         setCurrentItinerary(response.itinerary);
-        toast.success("Lịch trình đã được tạo!");
+        toast.success(t('messages.itinerary_created'));
         return response.itinerary;
       }
 
@@ -99,13 +105,13 @@ export function useItinerary() {
         // Create a simple itinerary from returned places
         const generatedItinerary: DayItinerary[] = [];
         const placesPerDay = Math.ceil(response.places.length / params.days);
-        
+
         for (let day = 1; day <= params.days; day++) {
           const dayPlaces = response.places.slice(
             (day - 1) * placesPerDay,
             day * placesPerDay
           );
-          
+
           const activities = dayPlaces.map((place, idx) => {
             const hour = 8 + idx * 2; // Start at 8AM, 2 hours per activity
             return {
@@ -114,7 +120,7 @@ export function useItinerary() {
                 ...place,
                 place_id: place.place_id || place.id,
               },
-              duration: "2 giờ",
+              duration: i18n.language && i18n.language.startsWith('vi') ? '2 giờ' : '2h',
               notes: place.description || undefined,
             };
           });
@@ -127,18 +133,18 @@ export function useItinerary() {
 
         if (generatedItinerary.length > 0) {
           setCurrentItinerary(generatedItinerary);
-          toast.success("Lịch trình đã được tạo từ các địa điểm gợi ý!");
+          toast.success(t('messages.itinerary_created_from_suggestions'));
           return generatedItinerary;
         }
       }
 
       // No itinerary or places returned
       console.log("Chat response:", response);
-      toast.error("Không thể tạo lịch trình. Vui lòng thử lại với yêu cầu khác.");
+      toast.error(t('messages.cannot_create_itinerary'));
       return null;
     } catch (error) {
       console.error("Error generating itinerary:", error);
-      toast.error("Không thể tạo lịch trình. Vui lòng thử lại.");
+      toast.error(t('messages.cannot_create_itinerary'));
       return null;
     } finally {
       setGenerating(false);
@@ -156,7 +162,7 @@ export function useItinerary() {
     is_public?: boolean;
   }) => {
     if (!user) {
-      toast.error("Vui lòng đăng nhập để lưu lịch trình");
+      toast.error(t('messages.login_to_save_itinerary'));
       return null;
     }
 
@@ -185,12 +191,12 @@ export function useItinerary() {
 
       if (error) throw error;
 
-      toast.success("Lịch trình đã được lưu!");
+      toast.success(t('messages.itinerary_saved'));
       await fetchItineraries();
       return data;
     } catch (error) {
       console.error("Error saving itinerary:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('messages.cannot_create_itinerary'));
       return null;
     }
   };
@@ -222,12 +228,12 @@ export function useItinerary() {
 
       if (error) throw error;
 
-      toast.success("Lịch trình đã được cập nhật!");
+      toast.success(t('itinerary.updated'));
       await fetchItineraries();
       return true;
     } catch (error) {
       console.error("Error updating itinerary:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('messages.error_occurred_apology'));
       return false;
     }
   };
@@ -245,12 +251,12 @@ export function useItinerary() {
 
       if (error) throw error;
 
-      toast.success("Lịch trình đã được xóa!");
+      toast.success(t('itinerary.deleted'));
       await fetchItineraries();
       return true;
     } catch (error) {
       console.error("Error deleting itinerary:", error);
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      toast.error(t('messages.error_occurred_apology'));
       return false;
     }
   };
@@ -269,10 +275,10 @@ export function useItinerary() {
 
       return data
         ? {
-            ...data,
-            preferences: data.preferences || [],
-            itinerary_data: data.itinerary_data as unknown as DayItinerary[],
-          }
+          ...data,
+          preferences: data.preferences || [],
+          itinerary_data: data.itinerary_data as unknown as DayItinerary[],
+        }
         : null;
     } catch (error) {
       console.error("Error fetching public itinerary:", error);
