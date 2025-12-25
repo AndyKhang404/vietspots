@@ -128,38 +128,14 @@ export default function Search() {
 
   // Only fetch places when there's a search term or category filter
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
-  // Use hardcoded categories if API returns limited results
-  const allCategories = [
-    "Biển & Bãi Biển",
-    "Bảo Tàng & Triển Lãm", 
-    "Di Tích Lịch Sử",
-    "Điểm Ngắm Cảnh",
-    "Giải Trí & Vui Chơi",
-    "Công Viên & Thiên Nhiên",
-    "Chùa & Đền",
-    "Nhà Thờ & Thánh Đường",
-    "Mua Sắm",
-    "Ẩm Thực",
-    "Cafe",
-    "Nhà Hàng",
-    "Spa & Làm Đẹp",
-    "Thể Thao & Gym",
-    "Khách Sạn & Lưu Trú",
-  ];
-  
-  // Use API categories if available and has more than 2, otherwise use hardcoded
-  const categoryList = (categoriesResponse && categoriesResponse.length > 2) 
-    ? categoriesResponse 
-    : allCategories;
-  
   // Always fetch places - no "all" filter anymore, fetch first category by default
-  const effectiveCategory = activeFilter || categoryList[0] || "";
-  const shouldFetchPlaces = !!effectiveCategory;
+  const effectiveCategory = activeFilter || (categoriesResponse?.[0] || "");
+  const shouldFetchPlaces = debouncedSearch.length > 0 || !!effectiveCategory;
   const { data: placesResponse, isLoading: placesLoading } = usePlaces(
     shouldFetchPlaces ? {
       category: effectiveCategory || undefined,
-      limit: 200, // Increased limit to get more places
-      minRating: minRating > 0 ? minRating : 0,
+      limit: 50,
+      minRating: minRating > 0 ? minRating : 0.1,
       sortBy: 'rating',
     } : { limit: 0 }
   );
@@ -168,11 +144,12 @@ export default function Search() {
   const { data: searchResponse, isLoading: searchLoading } = useSearchPlaces({
     q: debouncedSearch,
     category: effectiveCategory || undefined,
-    limit: 200,
+    limit: 50,
   });
 
-  // Build filters from categories
-  const filters = categoryList.map((cat) => {
+  // Build filters from API categories only (no "Tất cả")
+  const apiCategories = categoriesResponse || [];
+  const filters = apiCategories.map((cat) => {
     const defaultCat = defaultCategories.find((c) => c.id === cat);
     return { id: cat, label: defaultCat?.label || cat };
   });
