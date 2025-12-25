@@ -290,9 +290,9 @@ export default function Search() {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <ScrollArea className="max-h-[70vh]">
-                  <div className="space-y-4 p-1">
+              <PopoverContent className="w-80 p-0" align="end">
+                <ScrollArea className="h-[65vh] max-h-[500px]">
+                  <div className="space-y-4 p-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">Bộ lọc nâng cao</h4>
                       {activeFiltersCount > 0 && (
