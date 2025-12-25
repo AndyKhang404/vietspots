@@ -486,12 +486,13 @@ export default function Search() {
                 >
                   <PlaceCard
                     {...place}
+                    location={place.address || place.location}
                     ratingCount={place.ratingCount}
                     isFavorite={isFavorite(place.id)}
                     onFavoriteToggle={() => toggleFavorite({
                       id: place.id,
                       name: place.name,
-                      address: place.location,
+                      address: place.address || place.location,
                       image: place.image,
                       rating: place.rating,
                       category: place.category,
