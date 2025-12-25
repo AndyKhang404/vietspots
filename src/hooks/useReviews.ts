@@ -79,8 +79,13 @@ export function useReviews(placeId?: string) {
           image_url: img.image_url,
           created_at: img.created_at,
         })),
-        user_name: profileMap.get(r.user_id)?.name || "Người dùng",
-        user_avatar: profileMap.get(r.user_id)?.avatar || undefined,
+        user_name:
+          profileMap.get(r.user_id)?.name ||
+          (user && r.user_id === user.id
+            ? (user.user_metadata as any)?.full_name || user.email
+            : "Người dùng"),
+        user_avatar:
+          profileMap.get(r.user_id)?.avatar || (user && r.user_id === user.id ? (user.user_metadata as any)?.avatar_url : undefined) || undefined,
       }));
 
       // Format API comments to Review shape

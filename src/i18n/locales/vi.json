@@ -143,6 +143,7 @@
     "form_title": "Tìm địa điểm theo tiêu chí",
     "form": {
       "destination": "Điểm đến",
+      "category": "Loại",
       "results_count": "Số lượng kết quả",
       "search_message": "Tìm {{limit}} địa điểm",
       "of_type": "loại",
@@ -277,7 +278,8 @@
     "section_title": "Lịch trình",
     "day_label": "Ngày",
     "no_itinerary_title": "Chưa có lịch trình",
-    "no_itinerary_desc": "Nhập thông tin chuyến đi và nhấn \"Tạo lịch trình AI\" để bắt đầu"
+    "no_itinerary_desc": "Nhập thông tin chuyến đi và nhấn \"Tạo lịch trình AI\" để bắt đầu",
+    "enter_destination": "Vui lòng nhập điểm đến"
   },
   "itinerary_page": {
     "title": "Tạo lịch trình",

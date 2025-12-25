@@ -158,6 +158,7 @@
     "form_title": "Find places by criteria",
     "form": {
       "destination": "Destination",
+      "category": "Category",
       "results_count": "Number of results",
       "search_message": "Search {{limit}} places",
       "of_type": "of type",

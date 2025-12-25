@@ -6,6 +6,7 @@ import {
   Plus, History, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { categories as allCategories } from "@/data/places";
 import { Slider } from "@/components/ui/slider";
 import {
   Popover,
@@ -184,6 +186,12 @@ export default function Chatbot() {
     loadConversation,
     deleteConversation,
   } = useChatConversations();
+  const navigate = useNavigate();
+
+  // Track which assistant message ID produced the current `placeResults` so we can
+  // render the chat messages before that assistant message, then the place cards,
+  // then the remaining messages (so new user messages appear after the place cards).
+  const [lastPlaceMessageId, setLastPlaceMessageId] = useState<string | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "form" | "saved" | "history">("chat");
@@ -202,12 +210,12 @@ export default function Chatbot() {
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
   const [maxDistance, setMaxDistance] = useState<number>(50);
 
   // Form state
-  const [formCategory, setFormCategory] = useState<string>("all");
+  const [formCategory, setFormCategory] = useState<string[]>([]);
   const [formRating, setFormRating] = useState<number>(4);
   const [formLimit, setFormLimit] = useState<string>("10");
 
@@ -374,6 +382,10 @@ export default function Chatbot() {
 
         if (placesData.length > 0) {
           setPlaceResults(placesData.map(p => transformToPlaceResult(p, userLocation || undefined)));
+          setLastPlaceMessageId(assistantMessageId);
+        } else {
+          // clear previous place anchor when no places returned
+          setLastPlaceMessageId(null);
         }
       } else {
         // Fallback to regular endpoint
@@ -426,6 +438,9 @@ export default function Chatbot() {
 
         if (data.places && data.places.length > 0) {
           setPlaceResults(data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined)));
+          setLastPlaceMessageId(assistantMessageId);
+        } else {
+          setLastPlaceMessageId(null);
         }
       }
     } catch (error) {
@@ -444,7 +459,20 @@ export default function Chatbot() {
     }
   };
 
-  const savedPlaces = fallbackPlaces.filter((p) => favorites.includes(p.id));
+  // Normalize API results to the same shape as `fallbackPlaces` so saved tab can render consistently
+  const normalizedResults = placeResults.map((p) => ({
+    id: p.id,
+    name: p.name,
+    location: p.address || p.name,
+    image: (p.images && p.images.length > 0) ? p.images[0] : "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
+    rating: p.rating || 0,
+  }));
+
+  const knownPlaces = [...normalizedResults, ...fallbackPlaces];
+
+  const savedPlaces = favorites
+    .map((id) => knownPlaces.find((p) => p.id === id))
+    .filter(Boolean) as any[];
 
   const tabs = [
     { id: "chat" as const, label: t('chat.tab_chat'), icon: MessageSquare },
@@ -453,9 +481,9 @@ export default function Chatbot() {
     { id: "saved" as const, label: t('chat.tab_saved'), icon: Bookmark },
   ];
 
-  // Filter place results
+  // Filter place results (support multiple category selections)
   const filteredPlaceResults = placeResults.filter(place => {
-    if (categoryFilter !== "all" && place.category !== categoryFilter) return false;
+    if (categoryFilter.length > 0 && !categoryFilter.includes(place.category || '')) return false;
     if (place.rating < minRating) return false;
     if (place.distance && place.distance > maxDistance) return false;
     return true;
@@ -473,8 +501,13 @@ export default function Chatbot() {
       rating: p.rating
     }));
 
-  // Get unique categories from results
-  const availableCategories = [...new Set(placeResults.map(p => p.category).filter(Boolean))] as string[];
+  // Get unique categories: union of global list and current results
+  const availableCategories = Array.from(
+    new Set([
+      ...allCategories.map((c) => c.id),
+      ...placeResults.map((p) => p.category).filter(Boolean),
+    ])
+  ) as string[];
 
   return (
     <>
@@ -617,7 +650,7 @@ export default function Chatbot() {
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Filter className="h-4 w-4" />
                       {t('actions.filters')}
-                      {(categoryFilter !== "all" || minRating > 0 || maxDistance < 50) && (
+                      {(categoryFilter.length > 0 || minRating > 0 || maxDistance < 50) && (
                         <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
                           !
                         </Badge>
@@ -628,20 +661,29 @@ export default function Chatbot() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-sm">{t('search.advanced_filters')}</h4>
 
-                      {/* Category Filter */}
+                      {/* Category Filter - multi-select checkboxes */}
                       <div className="space-y-2">
                         <label className="text-sm text-muted-foreground">{t('chatbot.form.category')}</label>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={t('search.all')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">{t('search.all')}</SelectItem>
-                            {availableCategories.map(cat => (
-                              <SelectItem key={cat} value={cat}>{t(`categories.${cat}`)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto p-1">
+                          {availableCategories.map((cat) => {
+                            const checked = categoryFilter.includes(cat);
+                            return (
+                              <label key={cat} className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={checked}
+                                  onChange={() => {
+                                    setCategoryFilter((prev) =>
+                                      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+                                    );
+                                  }}
+                                />
+                                <span>{t(`categories.${cat}`, { defaultValue: cat })}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* Min Rating */}
@@ -684,7 +726,7 @@ export default function Chatbot() {
                         size="sm"
                         className="w-full"
                         onClick={() => {
-                          setCategoryFilter("all");
+                          setCategoryFilter([]);
                           setMinRating(0);
                           setMaxDistance(50);
                         }}
@@ -696,10 +738,14 @@ export default function Chatbot() {
                 </Popover>
 
                 {/* Active filter badges */}
-                {categoryFilter !== "all" && (
-                  <Badge variant="outline" className="text-xs">
-                    {t(`categories.${categoryFilter}`)}
-                  </Badge>
+                {categoryFilter.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {categoryFilter.map((cf) => (
+                      <Badge key={cf} variant="outline" className="text-xs">
+                        {t(`categories.${cf}`, { defaultValue: cf })}
+                      </Badge>
+                    ))}
+                  </div>
                 )}
                 {minRating > 0 && (
                   <Badge variant="outline" className="text-xs">
@@ -713,32 +759,174 @@ export default function Chatbot() {
                 <ScrollArea className="h-full min-h-0" ref={scrollRef}>
                   <div className="p-4 space-y-4">
                     {/* Chat Messages */}
-                    {messages.map((message, index) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
-                          message.role === "user" ? "justify-end" : "justify-start"
-                        )}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground rounded-br-md"
-                              : "bg-secondary text-secondary-foreground rounded-bl-md"
-                          )}
-                        >
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {parseMarkdownBold(message.content)}
-                            {message.isStreaming && (
-                              <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                    {(() => {
+                      // If we have a `lastPlaceMessageId`, split messages so that
+                      // messages up to (and including) that assistant message are
+                      // shown first, then place cards, then remaining messages.
+                      const splitIndex = lastPlaceMessageId
+                        ? messages.findIndex((m) => m.id === lastPlaceMessageId)
+                        : -1;
+
+                      const before = splitIndex >= 0 ? messages.slice(0, splitIndex + 1) : messages;
+                      const after = splitIndex >= 0 ? messages.slice(splitIndex + 1) : [];
+
+                      return (
+                        <>
+                          {before.map((message, index) => (
+                            <div
+                              key={message.id}
+                              className={cn(
+                                "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                                message.role === "user" ? "justify-end" : "justify-start"
+                              )}
+                              style={{ animationDelay: `${index * 50}ms` }}
+                            >
+                              <div
+                                className={cn(
+                                  "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
+                                  message.role === "user"
+                                    ? "bg-primary text-primary-foreground rounded-br-md"
+                                    : "bg-secondary text-secondary-foreground rounded-bl-md"
+                                )}
+                              >
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                  {parseMarkdownBold(message.content)}
+                                  {message.isStreaming && (
+                                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Place Result Cards go between before/after messages */}
+                          {filteredPlaceResults.map((place, index) => (
+                            <div
+                              key={place.id}
+                              className={cn(
+                                "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
+                                selectedPlaceId === place.id
+                                  ? "border-primary ring-2 ring-primary/20"
+                                  : "border-border"
+                              )}
+                              style={{ animationDelay: `${index * 100}ms` }}
+                              onClick={() => {
+                                setSelectedPlaceId(place.id);
+                                if (!showMap) setShowMap(true);
+                              }}
+                            >
+                              {/* Place Header */}
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <h3 className="font-bold text-primary leading-tight">{place.name}</h3>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {place.matchingScore && (
+                                    <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                      <Percent className="h-3 w-3" />
+                                      {place.matchingScore}%
+                                    </span>
+                                  )}
+                                  <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    {place.rating}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Category & Distance Row */}
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                {place.category && (
+                                  <Badge variant="secondary" className="text-xs">{place.category}</Badge>
+                                )}
+                                {place.distance !== undefined && (
+                                  <Badge variant="outline" className="text-xs gap-1">
+                                    <MapPinned className="h-3 w-3" />
+                                    {formatDistance(place.distance)}
+                                  </Badge>
+                                )}
+                                {place.totalComments !== undefined && place.totalComments > 0 && (
+                                  <Badge variant="outline" className="text-xs">{place.totalComments} {t('place.reviews')}</Badge>
+                                )}
+                              </div>
+
+                              {/* Address */}
+                              <div className="flex items-start gap-2 text-sm mb-2">
+                                <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                                <span className="text-muted-foreground">{place.address}</span>
+                              </div>
+
+                              {/* Opening Hours */}
+                              {place.openingHours && (
+                                <div className="flex items-center gap-2 text-sm mb-2">
+                                  <Clock className="h-4 w-4 text-orange-500 shrink-0" />
+                                  <span>{formatOpeningHours(place.openingHours, i18n.language, t)}</span>
+                                </div>
+                              )}
+
+                              {/* Phone */}
+                              {place.phone && (
+                                <div className="flex items-center gap-2 text-sm mb-2">
+                                  <Phone className="h-4 w-4 text-green-600 shrink-0" />
+                                  <a href={`tel:${place.phone}`} className="text-sm text-primary underline">{place.phone}</a>
+                                </div>
+                              )}
+
+                              {/* Website */}
+                              {place.website && (
+                                <div className="flex items-center gap-2 text-sm mb-3">
+                                  <Globe className="h-4 w-4 text-blue-600 shrink-0" />
+                                  <a href={place.website} target="_blank" rel="noreferrer" className="text-sm text-primary underline">{t('place.website')}</a>
+                                </div>
+                              )}
+
+                              {/* Images */}
+                              {place.images && place.images.length > 0 && (
+                                <div className="flex gap-2 mt-2 overflow-x-auto">
+                                  {place.images.map((img, i) => {
+                                    const src = typeof img === 'string' ? img : (img as any).url || '';
+                                    return (
+                                      <img
+                                        key={i}
+                                        src={src}
+                                        alt=""
+                                        className="h-20 w-20 object-cover rounded-lg shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                        onClick={() => window.open(src, '_blank')}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          {after.map((message, idx) => (
+                            <div
+                              key={message.id}
+                              className={cn(
+                                "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                                message.role === "user" ? "justify-end" : "justify-start"
+                              )}
+                              style={{ animationDelay: `${idx * 50}ms` }}
+                            >
+                              <div
+                                className={cn(
+                                  "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
+                                  message.role === "user"
+                                    ? "bg-primary text-primary-foreground rounded-br-md"
+                                    : "bg-secondary text-secondary-foreground rounded-bl-md"
+                                )}
+                              >
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                  {parseMarkdownBold(message.content)}
+                                  {message.isStreaming && (
+                                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
 
                     {isLoading && messages[messages.length - 1]?.role === "user" && (
                       <div className="flex justify-start">
@@ -1012,17 +1200,35 @@ export default function Chatbot() {
                 {/* Category */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t('chatbot.form.category')}</label>
-                  <Select value={formCategory} onValueChange={setFormCategory}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('search.all')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('search.all')}</SelectItem>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{t(c.labelKey)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto p-1">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={formCategory.length === 0}
+                        onChange={() => setFormCategory([])}
+                      />
+                      <span>{t('search.all')}</span>
+                    </label>
+                    {categories.map((c) => {
+                      const checked = formCategory.includes(c.id);
+                      return (
+                        <label key={c.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={checked}
+                            onChange={() => {
+                              setFormCategory((prev) =>
+                                prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                              );
+                            }}
+                          />
+                          <span>{t(c.labelKey)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Rating */}
@@ -1064,10 +1270,12 @@ export default function Chatbot() {
                     if (destination) {
                       // Build message with all form parameters using i18n pieces
                       let message = t('chatbot.form.search_message', { limit: formLimit });
-                      if (formCategory !== "all") {
-                        const cat = categories.find(c => c.id === formCategory);
-                        const catLabel = cat ? t(cat.labelKey) : formCategory;
-                        message += ` ${t('chatbot.form.of_type')} ${catLabel}`;
+                      if (formCategory.length > 0) {
+                        const labels = formCategory.map(id => {
+                          const cat = categories.find(c => c.id === id);
+                          return cat ? t(cat.labelKey) : id;
+                        }).join(', ');
+                        message += ` ${t('chatbot.form.of_type')} ${labels}`;
                       }
                       message += ` ${t('chatbot.form.at_location', { destination })}`;
                       if (formRating > 0) {
@@ -1166,7 +1374,9 @@ export default function Chatbot() {
                   savedPlaces.map((place, index) => (
                     <div
                       key={place.id}
-                      className="border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
+                      role={place.id ? 'button' : undefined}
+                      onClick={() => place.id && navigate(`/place/${place.id}`)}
+                      className="cursor-pointer border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between gap-3 mb-3">

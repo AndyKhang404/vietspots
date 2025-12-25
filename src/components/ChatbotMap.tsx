@@ -31,6 +31,11 @@ interface ChatbotMapProps {
   onRouteClear?: () => void;
 }
 
+// Track-Asia style (preferred when API key is available), otherwise fallback to OpenFreeMap
+const TRACKASIA_KEY = import.meta.env.VITE_TRACKASIA_PUBLIC_KEY || '';
+const TRACKASIA_STYLE = TRACKASIA_KEY
+  ? `https://maps.track-asia.com/styles/v1/streets.json?key=${TRACKASIA_KEY}`
+  : undefined;
 // Fallback to OpenFreeMap
 const FALLBACK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
@@ -235,7 +240,7 @@ export default function ChatbotMap({
           zoom: 12
         }}
         style={{ width: "100%", height: "100%" }}
-        mapStyle={FALLBACK_STYLE}
+        mapStyle={TRACKASIA_STYLE ?? FALLBACK_STYLE}
         attributionControl={false}
       >
         <NavigationControl position="top-right" />
