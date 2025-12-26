@@ -55,10 +55,10 @@ export default function PlaceCard({
 
   return (
     <div className={cn(
-      "bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer",
+      "bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer h-full flex flex-col",
       className
     )}>
-      <div className="relative h-44 lg:h-52 overflow-hidden">
+      <div className="relative h-44 lg:h-52 overflow-hidden flex-shrink-0">
         <img
           src={image.includes('?') ? image : `${image}?w=600&h=400&fit=crop&q=80`}
           alt={name}
@@ -92,11 +92,11 @@ export default function PlaceCard({
           </div>
         )}
       </div>
-      <div className="p-4 lg:p-5">
+      <div className="p-4 lg:p-5 flex flex-col flex-1">
         <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">{name}</h3>
         <div className="flex items-start gap-1.5 text-primary mt-1.5">
           <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-          <span className="text-sm break-words">{location}</span>
+          <span className="text-sm line-clamp-2">{location}</span>
         </div>
         {category || categorySlug ? (
           <div className="mt-1 text-xs text-muted-foreground">
@@ -106,9 +106,7 @@ export default function PlaceCard({
             })()}
           </div>
         ) : null}
-        <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
-          {description}
-        </p>
+        <div className="flex-1" />
       </div>
     </div>
   );
