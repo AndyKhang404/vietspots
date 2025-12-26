@@ -226,6 +226,22 @@ export const categories = [
   { id: "food", labelKey: "categories.food", emoji: "🍜" },
   { id: "cafe", labelKey: "categories.cafe", emoji: "☕" },
   { id: "restaurant", labelKey: "categories.restaurant", emoji: "🍽️" },
+  // API categories (Vietnamese names)
+  { id: "Bảo Tàng & Triển Lãm", labelKey: "categories.bao_tang_trien_lam", emoji: "🏛️" },
+  { id: "Biển & Bãi Biển", labelKey: "categories.bien_bai_bien", emoji: "🏖️" },
+  { id: "Café & Bar", labelKey: "categories.cafe_bar", emoji: "☕" },
+  { id: "Chùa & Đền Thờ", labelKey: "categories.chua_den_tho", emoji: "🛕" },
+  { id: "Công Viên & Vườn", labelKey: "categories.cong_vien_vuon", emoji: "🌳" },
+  { id: "Di Tích Lịch Sử", labelKey: "categories.di_tich_lich_su", emoji: "🏛️" },
+  { id: "Điểm Ngắm Cảnh", labelKey: "categories.diem_ngam_canh", emoji: "🌄" },
+  { id: "Điểm thu hút khách du lịch", labelKey: "categories.diem_thu_hut", emoji: "📍" },
+  { id: "Giải Trí & Vui Chơi", labelKey: "categories.giai_tri_vui_choi", emoji: "🎢" },
+  { id: "Khách Sạn & Resort", labelKey: "categories.khach_san_resort", emoji: "🏨" },
+  { id: "Nhà Hàng & Ẩm Thực", labelKey: "categories.nha_hang_am_thuc", emoji: "🍽️" },
+  { id: "Núi & Thiên Nhiên", labelKey: "categories.nui_thien_nhien", emoji: "🏔️" },
+  { id: "Thác Nước & Hồ", labelKey: "categories.thac_nuoc_ho", emoji: "💧" },
+  { id: "Trung Tâm Thương Mại", labelKey: "categories.trung_tam_thuong_mai", emoji: "🛒" },
+  { id: "Trung Tâm Văn Hóa", labelKey: "categories.trung_tam_van_hoa", emoji: "🎭" },
 ];
 
 // Keep for backward compatibility
