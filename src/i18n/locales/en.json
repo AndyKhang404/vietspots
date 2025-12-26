@@ -407,7 +407,21 @@
     "trien_lam": "Exhibition",
     "nha_hang": "Restaurant",
     "quan_an": "Eatery",
-    "bao_tang_va_trien_lam": "Museum & Exhibition"
+    "bao_tang_va_trien_lam": "Museum & Exhibition",
+    "bien_bai_bien": "Beach & Bay",
+    "cafe_bar": "Café & Bar",
+    "chua_den_tho": "Temple & Shrine",
+    "cong_vien_vuon": "Park & Garden",
+    "di_tich_lich_su": "Historical Site",
+    "diem_ngam_canh": "Scenic Spot",
+    "diem_thu_hut": "Tourist Attraction",
+    "giai_tri_vui_choi": "Entertainment & Fun",
+    "khach_san_resort": "Hotel & Resort",
+    "nha_hang_am_thuc": "Restaurant & Cuisine",
+    "nui_thien_nhien": "Mountain & Nature",
+    "thac_nuoc_ho": "Waterfall & Lake",
+    "trung_tam_thuong_mai": "Shopping Mall",
+    "trung_tam_van_hoa": "Cultural Center"
   },
   "languages": {
     "vi": "Vietnamese",
