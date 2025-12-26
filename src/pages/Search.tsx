@@ -617,7 +617,7 @@ export default function Search() {
               {filteredPlaces.map((place, index) => (
                 <div
                   key={place.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 cursor-pointer"
+                  className="animate-in fade-in slide-in-from-bottom-4 cursor-pointer h-full"
                   style={{ animationDelay: `${index * 30}ms` }}
                   onClick={() => navigate(`/place/${place.id}`)}
                 >
