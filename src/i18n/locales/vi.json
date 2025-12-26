@@ -207,7 +207,8 @@
     "please_enter_filter_name": "Vui lòng nhập tên bộ lọc",
     "filter_applied": "Đã áp dụng bộ lọc \"{name}\"",
     "filter_deleted": "Đã xóa bộ lọc",
-    "share_text": "Khám phá {{name}} trên VietSpots!"
+    "share_text": "Khám phá {{name}} trên VietSpots!",
+    "login_to_sync_favorites": "Đăng nhập để đồng bộ yêu thích"
   },
   "amenities": {
     "nha_ve_sinh": "Nhà vệ sinh",
