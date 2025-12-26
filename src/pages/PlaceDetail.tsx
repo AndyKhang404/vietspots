@@ -23,6 +23,7 @@ import {
   Loader2,
   Send,
   Trash2,
+  ChevronDown,
   Wifi,
   ParkingCircle,
   UtensilsCrossed,
@@ -51,27 +52,46 @@ const getCoordinates = (place: PlaceInfo) => {
   }
   return null;
 };
-
-// Amenity icon mapping
-const amenityIcons: Record<string, typeof Wifi> = {
-  "Free WiFi": Wifi,
-  "WiFi": Wifi,
-  "Parking": ParkingCircle,
-  "Bãi đỗ xe": ParkingCircle,
-  "Restaurant": UtensilsCrossed,
-  "Nhà hàng": UtensilsCrossed,
-  "Photo Spot": Camera,
-  "24/7 Open": Clock,
-  "Mở cửa 24/7": Clock,
-  "Nhà vệ sinh": RefreshCw,
-  "Phù hợp cho trẻ em": Camera,
-  "Thẻ tín dụng": DollarSign,
-  "Chỗ ngồi cho xe lăn": Navigation,
-  "Nhà vệ sinh cho xe lăn": Navigation,
-};
-
 // Slugify helper for amenity translation keys
 const slugify = (s: string) => s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+// Amenity icon mapping (keys stored as slugified strings to support variants)
+const amenityIcons: Record<string, typeof Wifi> = {};
+
+// Helper to register icon variants (auto-slugifies keys)
+const registerAmenityIcon = (keys: string[], icon: typeof Wifi) => {
+  keys.forEach((k) => {
+    amenityIcons[slugify(k)] = icon;
+  });
+};
+
+registerAmenityIcon(['Free WiFi', 'WiFi', 'free_wifi', 'wifi'], Wifi);
+registerAmenityIcon(['Parking', 'Bãi đỗ xe', 'parking', 'bãi đỗ xe'], ParkingCircle);
+registerAmenityIcon(['Restaurant', 'Nhà hàng', 'restaurant', 'nha_hang'], UtensilsCrossed);
+registerAmenityIcon(['Photo Spot', 'photo_spot', 'photo_spot'], Camera);
+registerAmenityIcon(['24/7 Open', 'Mở cửa 24/7', 'mo_cua_24_7'], Clock);
+registerAmenityIcon(['Nhà vệ sinh', 'nha_ve_sinh', 'restroom'], RefreshCw);
+registerAmenityIcon(['Phù hợp cho trẻ em', 'phu_hop_cho_tre_em', 'child_friendly'], Camera);
+registerAmenityIcon(['Thẻ tín dụng', 'the_tin_dung', 'credit_card', 'card'], DollarSign);
+registerAmenityIcon(['Chỗ ngồi cho xe lăn', 'chỗ ngồi cho xe lăn', 'cho_ngoi_cho_xe_lan', 'wheelchair_seating'], Navigation);
+registerAmenityIcon(['Nhà vệ sinh cho xe lăn', 'nha_ve_sinh_cho_xe_lan', 'restroom_wheelchair'], Navigation);
+
+// Additional common amenity icons
+// Map additional amenity keys to existing icons (avoid importing icons that may not exist)
+registerAmenityIcon(['wheelchair', 'accessible', 'accessibility', 'khong_gian_tiep_can', 'cho_nguoi_khuyet_tat'], Navigation);
+registerAmenityIcon(['credit_card', 'the_tin_dung', 'thanh_toan_the', 'atm', 'atm_card'], DollarSign);
+registerAmenityIcon(['baby_change', 'baby', 'thay_tã', 'phu_hop_cho_tre_em'], Camera);
+registerAmenityIcon(['coffee', 'cafe', 'cà_phê', 'cafe_coffee'], UtensilsCrossed);
+
+// Fallback icon
+const defaultAmenityIcon = Camera;
+
+const getIconForAmenity = (label: string) => {
+  const key = slugify(label);
+  return amenityIcons[key] || defaultAmenityIcon;
+};
+
+// (slugify already defined above)
 
 // Extract amenities from API response
 const getAmenities = (place: PlaceInfo) => {
@@ -84,7 +104,7 @@ const getAmenities = (place: PlaceInfo) => {
   if (about.amenities && typeof about.amenities === 'object') {
     Object.entries(about.amenities).forEach(([key, value]) => {
       if (value === true) {
-        const icon = amenityIcons[key] || Camera;
+        const icon = getIconForAmenity(key);
         amenities.push({ icon, label: key });
       }
     });
@@ -94,7 +114,7 @@ const getAmenities = (place: PlaceInfo) => {
   if (about.accessibility && typeof about.accessibility === 'object') {
     Object.entries(about.accessibility).forEach(([key, value]) => {
       if (value === true) {
-        const icon = amenityIcons[key] || Navigation;
+        const icon = getIconForAmenity(key);
         amenities.push({ icon, label: key });
       }
     });
@@ -104,13 +124,117 @@ const getAmenities = (place: PlaceInfo) => {
   if (about.payments && typeof about.payments === 'object') {
     Object.entries(about.payments).forEach(([key, value]) => {
       if (value === true) {
-        const icon = amenityIcons[key] || DollarSign;
+        const icon = getIconForAmenity(key);
         amenities.push({ icon, label: key });
       }
     });
   }
 
   return amenities;
+};
+
+// Grouping map: slugified amenity key -> group key
+const amenityGroupMap: Record<string, string> = {
+  // Facilities / general
+  'nha_ve_sinh': 'facilities',
+  'free_wifi': 'facilities',
+  'wifi': 'facilities',
+  'parking': 'facilities',
+  'photo_spot': 'facilities',
+  'restaurant': 'food',
+  'coffee': 'food',
+
+  // Accessibility
+  'nha_ve_sinh_cho_xe_lan': 'facilities',
+  'cho_ngoi_cho_xe_lan': 'accessibility',
+  'wheelchair': 'accessibility',
+  'khong_gian_tiep_can': 'accessibility',
+  // Ramps / wheelchair parking variants
+  'loi_vao_cho_xe_lan': 'accessibility',
+  'cho_do_xe_cho_xe_lan': 'accessibility',
+  // Wheelchair parking / accessible parking variants
+  'cho_do_xe_cho_xe_lan_parking': 'accessibility',
+  'wheelchair_parking': 'accessibility',
+  'accessible_parking': 'accessibility',
+  'parking_wheelchair': 'accessibility',
+  // Common parking keys from API
+  'bai_do_xe_mien_phi': 'facilities',
+  'do_xe_mien_phi_tren_duong': 'facilities',
+  // Child-friendly / family
+  'phu_hop_cho_tre_em': 'accessibility',
+  'child_friendly': 'accessibility',
+
+  // Additional keys discovered in backend scan
+  'cho_phep_cho': 'facilities',
+  'nhac_song': 'other',
+  'phu_hop_cho_nhom': 'facilities',
+
+  // Beverages / dining options
+  'bia': 'food',
+  'bua_sang': 'food',
+  'bua_trua': 'food',
+  'bua_toi': 'food',
+  'ca_phe': 'food',
+
+  // Service / delivery / reservations
+  'nhan_dat_cho': 'other',
+  'an_tai_cho': 'food',
+  'do_an_mang_di': 'food',
+  'giao_hang': 'other',
+  'mua_hang_ngay_tren_xe': 'other',
+
+  // Payments
+  'the_tin_dung': 'payments',
+  'credit_card': 'payments',
+  // Debit / NFC / contactless payment variants
+  'the_ghi_no': 'payments',
+  'debit_card': 'payments',
+  'nfc': 'payments',
+  'contactless': 'payments',
+  'thanh_toan_nfc': 'payments',
+
+  // Cash / payment variants found in real data
+  'chi_tien_mat': 'payments',
+
+  // Hours / services
+  'mo_cua_24_7': 'hours',
+};
+
+// Order of groups for rendering
+const GROUP_ORDER = ['facilities', 'accessibility', 'payments', 'food', 'hours', 'other'];
+
+// Build grouped amenities from place data. Returns record[groupKey] = array of {icon,label}
+const getGroupedAmenities = (place: PlaceInfo) => {
+  const groups: Record<string, { icon: typeof Wifi; label: string }[]> = {};
+  const push = (groupKey: string, item: { icon: typeof Wifi; label: string }) => {
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(item);
+  };
+
+  const addFromObject = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return;
+    Object.entries(obj).forEach(([key, value]) => {
+      if (value === true) {
+        const icon = getIconForAmenity(key);
+        const slug = slugify(key);
+        const group = amenityGroupMap[slug] || 'other';
+        push(group, { icon, label: key });
+      }
+    });
+  };
+
+  const about = place.about;
+  if (!about) return groups;
+
+  addFromObject(about.amenities);
+  addFromObject(about.accessibility);
+  addFromObject(about.payments);
+  // Also include parking, dining and service options which often contain amenity-like keys
+  addFromObject(about.parking);
+  addFromObject(about.dining_options);
+  addFromObject(about.service_options);
+
+  return groups;
 };
 
 // Try to translate amenity label using i18n keys, fallback to provided label
@@ -177,8 +301,18 @@ export default function PlaceDetail() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
+  // Collapsible group state
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
+    const m: Record<string, boolean> = {};
+    GROUP_ORDER.forEach((g) => (m[g] = true));
+    return m;
+  });
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+
+  const toggleGroup = (g: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [g]: !prev[g] }));
+  };
 
   useEffect(() => {
     const fetchPlace = async () => {
@@ -581,23 +715,50 @@ export default function PlaceDetail() {
                 </span>
               </div>
 
-              {/* Highlights */}
+              {/* Highlights - grouped amenities */}
               {(() => {
-                const amenities = getAmenities(place);
-                if (amenities.length === 0) return null;
+                const grouped = getGroupedAmenities(place);
+                const hasAny = GROUP_ORDER.some((g) => (grouped[g] && grouped[g].length > 0));
+                if (!hasAny) return null;
                 return (
                   <div className="mb-6">
                     <h3 className="font-semibold text-foreground mb-3">{t('place.amenities')}</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {amenities.map((chip) => (
-                        <div
-                          key={chip.label}
-                          className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
-                        >
-                          <chip.icon className="h-4 w-4 text-primary" />
-                          <span className="text-foreground">{translateAmenity(chip.label, t)}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      {GROUP_ORDER.map((g) => {
+                        const items = grouped[g];
+                        if (!items || items.length === 0) return null;
+                        const expanded = !!expandedGroups[g];
+                        return (
+                          <div key={g}>
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(g)}
+                              aria-expanded={expanded}
+                              className="w-full flex items-center justify-between mb-2 text-sm font-medium text-foreground"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{t(`amenity_groups.${g}`)}</span>
+                                <span className="text-xs text-muted-foreground">{`(${items.length})`}</span>
+                              </div>
+                              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded ? 'rotate-180' : '')} />
+                            </button>
+
+                            {expanded && (
+                              <div className="flex flex-wrap gap-2">
+                                {items.map((chip) => (
+                                  <div
+                                    key={chip.label}
+                                    className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-sm"
+                                  >
+                                    <chip.icon className="h-4 w-4 text-primary" />
+                                    <span className="text-foreground">{translateAmenity(chip.label, t)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

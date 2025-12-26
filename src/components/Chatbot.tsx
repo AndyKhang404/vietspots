@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatConversations } from "@/hooks/useChatConversations";
-import { fallbackPlaces, transformPlace, categories } from "@/data/places";
+import { fallbackPlaces, transformPlace, categories, resolveCategoryId } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import ChatbotMap from "./ChatbotMap";
 import {
@@ -505,7 +505,7 @@ export default function Chatbot() {
   const availableCategories = Array.from(
     new Set([
       ...allCategories.map((c) => c.id),
-      ...placeResults.map((p) => p.category).filter(Boolean),
+      ...placeResults.map((p) => resolveCategoryId(p.category)).filter(Boolean),
     ])
   ) as string[];
 

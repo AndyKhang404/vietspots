@@ -12,10 +12,11 @@ export function usePlaces(params?: {
   lat?: number;
   lon?: number;
   maxDistance?: number;
-}) {
+}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["places", params],
     queryFn: () => vietSpotAPI.getPlaces(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

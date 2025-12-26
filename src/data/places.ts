@@ -230,3 +230,30 @@ export const categories = [
 
 // Keep for backward compatibility
 export const allPlaces = fallbackPlaces;
+
+// Resolve a category name or label to a known category id.
+// Normalizes input (remove diacritics, lowercase, replace spaces) and
+// attempts to match against the `categories` list `id` values.
+export function resolveCategoryId(input?: string | null): string | null {
+  if (!input) return null;
+  const normalize = (s: string) =>
+    s
+      .toString()
+      .normalize('NFD')
+      .replace(/[ -\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+
+  const slug = normalize(input);
+
+  // Direct id match
+  if (categories.some((c) => c.id === slug)) return slug;
+
+  // Try contains match (e.g., "beach resort" -> "beach")
+  for (const c of categories) {
+    if (slug.includes(c.id)) return c.id;
+  }
+
+  return null;
+}

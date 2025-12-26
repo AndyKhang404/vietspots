@@ -59,7 +59,7 @@ export default function Search() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
-  const [activeFilter, setActiveFilter] = useState(searchParams.get("category") || "all");
+  const [activeFilter, setActiveFilter] = useState(searchParams.get("category") || "");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [minRating, setMinRating] = useState(0);
@@ -180,11 +180,11 @@ export default function Search() {
 
   // Only fetch places when there's a search term or category filter
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
-  // Always fetch places - no "all" filter anymore, fetch first category by default
-  const effectiveCategory = activeFilter || (categoriesResponse?.[0] || "");
+  // Effective category (empty string = no category filter)
+  const effectiveCategory = activeFilter || "";
   const shouldFetchPlaces = debouncedSearch.length > 0 || !!effectiveCategory;
   const { data: placesResponse, isLoading: placesLoading } = usePlaces(
-    shouldFetchPlaces ? {
+    {
       category: effectiveCategory || undefined,
       limit: 50,
       minRating: minRating > 0 ? minRating : 0.1,
@@ -192,7 +192,8 @@ export default function Search() {
       lat: userLocation?.lat,
       lon: userLocation?.lon,
       maxDistance: maxDistance > 0 && userLocation ? maxDistance : undefined,
-    } : { limit: 0 }
+    },
+    { enabled: shouldFetchPlaces }
   );
 
   // Only search when user types something
@@ -215,12 +216,7 @@ export default function Search() {
     (f) => f.label.toLowerCase().includes(searchTerm.toLowerCase()) && searchTerm.length >= 2
   );
 
-  // Set default filter to first category if not set
-  useEffect(() => {
-    if (!activeFilter && filters.length > 0) {
-      setActiveFilter(filters[0].id);
-    }
-  }, [filters, activeFilter]);
+  // NOTE: do not auto-select a category by default — allow users to clear selection
 
   // Auto-switch category when search matches a category name
   useEffect(() => {
@@ -231,15 +227,57 @@ export default function Search() {
 
   // Transform API data (no mock-data fallback)
   const isSearching = debouncedSearch.length > 0;
-  const rawPlaces = isSearching ? searchResponse || [] : placesResponse || [];
+  // If user is searching but the search API returned no results, fall
+  // back to the broader placesResponse and apply tokenized client-side
+  // matching so single-word queries (e.g. "CLB") still find matches.
+  const rawPlaces = isSearching
+    ? (searchResponse && searchResponse.length > 0 ? searchResponse : placesResponse || [])
+    : placesResponse || [];
   const places = rawPlaces.map(transformPlace);
+  // Filter by category on client side and make search tokenized + accent-insensitive
+  const normalize = (s: string | undefined | null) =>
+    (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-  // Filter by category on client side if needed
+  const searchTokens = debouncedSearch
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // Debug logging to help diagnose token matching issues (remove in production)
+  if (searchTokens.length > 0) {
+    try {
+      console.debug("[search] tokens:", searchTokens);
+    } catch (e) { }
+  }
+
   const filteredPlaces = places.filter((place) => {
+    const name = normalize(place.name);
+    const loc = normalize(place.location as string);
+    const nameNoSpaces = name.replace(/\s+/g, '');
+    const initials = (name.split(/\s+/).map(w => w[0] || '').join(''));
+
+    // Debug each place when searching to inspect matching fields
+    if (searchTokens.length > 0) {
+      try {
+        console.debug("[search] place:", place.id, {
+          rawName: place.name,
+          name,
+          nameNoSpaces,
+          initials,
+          location: place.location,
+        });
+      } catch (e) { }
+    }
+
     const matchesSearch =
       !isSearching ||
-      place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      place.location.toLowerCase().includes(searchTerm.toLowerCase());
+      searchTokens.every((tok) =>
+        name.includes(tok) || loc.includes(tok) || nameNoSpaces.includes(tok) || initials.includes(tok)
+      );
+
     const matchesFilter = !effectiveCategory || place.category === effectiveCategory;
     const matchesRating = minRating === 0 || place.rating >= minRating;
     return matchesSearch && matchesFilter && matchesRating;
@@ -249,9 +287,15 @@ export default function Search() {
   const displayedCount = isLoading ? 0 : filteredPlaces.length;
 
   const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter);
     const newParams = new URLSearchParams(searchParams);
-    newParams.set("category", filter);
+    if (filter === activeFilter) {
+      // Toggle off
+      setActiveFilter("");
+      newParams.delete("category");
+    } else {
+      setActiveFilter(filter);
+      newParams.set("category", filter);
+    }
     setSearchParams(newParams);
   };
 
@@ -548,7 +592,7 @@ export default function Search() {
         </div>
 
         {/* Results Count - only show when searching or filtering */}
-        {(debouncedSearch || activeFilter !== "all") && (
+        {(debouncedSearch || activeFilter) && (
           <div className="mb-6">
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{displayedCount}</span> {t('search.results_found')}

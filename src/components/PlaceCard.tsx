@@ -2,6 +2,7 @@ import { Heart, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTranslation } from 'react-i18next';
+import { resolveCategoryId } from '@/data/places';
 
 interface PlaceCardProps {
   id: string;
@@ -99,7 +100,10 @@ export default function PlaceCard({
         </div>
         {category || categorySlug ? (
           <div className="mt-1 text-xs text-muted-foreground">
-            {t(`categories.${categorySlug || category}`, { defaultValue: category || '' })}
+            {(() => {
+              const resolved = resolveCategoryId(categorySlug || category || undefined);
+              return t(`categories.${resolved}`, { defaultValue: category || '' });
+            })()}
           </div>
         ) : null}
         <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">

@@ -6,8 +6,9 @@
   "nav": {
     "home": "Home",
     "search": "Search",
-    "itinerary": "Itinerary",
-    "favorites": "Favorites",
+    "location": "Location",
+    "opening_today": "Today",
+    "opening_hours": "Opening hours",
     "notifications": "Notifications",
     "settings": "Settings"
   },
@@ -37,6 +38,7 @@
     "saved_filters": "Saved filters",
     "results_found": "results found",
     "try_different_keywords": "Try searching with different keywords",
+    "switch_to_category": "Switch to category: {{label}}",
     "max_distance": "Maximum distance"
   },
   "preferences": {
@@ -256,7 +258,44 @@
     "restaurant": "Restaurant",
     "photo_spot": "Photo spot",
     "mở_cửa_24_7": "Open 24/7",
-    "thẻ_tín_dụng": "Credit cards accepted"
+    "thẻ_tín_dụng": "Credit cards accepted",
+    "loi_vao_cho_xe_lan": "Wheelchair ramp",
+    "cho_ngoi_cho_xe_lan": "Wheelchair seating",
+    "the_ghi_no": "Debit cards accepted",
+    "thanh_toan_nfc": "NFC / Contactless payment",
+    "chap_nhan_the_tin_dung": "Credit cards accepted",
+    "cho_do_xe_cho_xe_lan": "Accessible parking",
+    "bai_do_xe_tra_phi": "Paid parking",
+    "bai_do_xe_mien_phi": "Free parking",
+    "do_xe_mien_phi_tren_duong": "Free on-street parking",
+    "cho_do_xe_cho_xe_lan_parking": "Accessible parking",
+    "wheelchair_parking": "Accessible parking",
+    "accessible_parking": "Accessible parking",
+    "parking_wheelchair": "Accessible parking",
+    "ca_phe": "Cafe",
+    "cho_phep_cho": "Pets allowed",
+    "nhac_song": "Live music",
+    "phu_hop_cho_nhom": "Good for groups",
+    "bia": "Beer",
+    "bua_sang": "Breakfast",
+    "bua_trua": "Lunch",
+    "bua_toi": "Dinner",
+    "nhan_dat_cho": "Reservations accepted",
+    "an_tai_cho": "Dine-in",
+    "do_an_mang_di": "Takeaway",
+    "giao_hang": "Delivery",
+    "mua_hang_ngay_tren_xe": "In-vehicle purchase",
+    "chi_tien_mat": "Cash only",
+    "mo_cua_24_7": "Open 24/7",
+    "the_tin_dung": "Credit cards accepted"
+  },
+  "amenity_groups": {
+    "facilities": "Facilities",
+    "accessibility": "Accessibility",
+    "payments": "Payments",
+    "food": "Food & Dining",
+    "hours": "Hours & Services",
+    "other": "Other"
   },
   "itinerary": {
     "updated": "Itinerary updated!",
@@ -268,6 +307,8 @@
     "days_label": "Days",
     "day_unit": "days",
     "budget_label": "Budget",
+    "day_label": "Day",
+    "enter_destination": "Please enter a destination",
     "preferences_label": "Preferences",
     "generate_button": "Generate AI Itinerary",
     "generating": "Generating itinerary...",
@@ -304,6 +345,7 @@
     "places_label": "places",
     "amenities": "Amenities",
     "location": "Location",
+    "opening_today": "Today",
     "opening_hours": "Opening hours",
     "phone": "Phone",
     "website": "Website"
@@ -365,7 +407,7 @@
     "bao_tang_va_trien_lam": "Museum & Exhibition"
   },
   "languages": {
-    "vi": "Tiếng Việt",
+    "vi": "Vietnamese",
     "en": "English"
   }
 }

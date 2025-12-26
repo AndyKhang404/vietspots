@@ -1,0 +1,34 @@
+accessibility
+accessibility::Chỗ ngồi cho xe lăn
+accessibility::Chỗ đỗ xe cho xe lăn
+accessibility::Lối vào cho xe lăn
+accessibility::Nhà vệ sinh cho xe lăn
+amenities
+amenities::Cho phép chó
+amenities::Nhà vệ sinh
+amenities::Nhạc sống
+amenities::Phù hợp cho nhóm
+amenities::Phù hợp cho trẻ em
+beverages
+beverages::Bia
+dining_options
+dining_options::Bữa sáng
+dining_options::Bữa trưa
+dining_options::Bữa tối
+dining_options::Cà phê
+highlights
+parking
+parking::Bãi đỗ xe miễn phí
+parking::Đỗ xe miễn phí trên đường
+payments
+payments::Chỉ tiền mặt
+payments::Thanh toán NFC
+payments::Thẻ ghi nợ
+payments::Thẻ tín dụng
+planning
+planning::Nhận đặt chỗ
+service_options
+service_options::Giao hàng
+service_options::Mua hàng ngay trên xe
+service_options::Ăn tại chỗ
+service_options::Đồ ăn mang đi
