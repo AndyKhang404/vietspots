@@ -6,6 +6,8 @@
   "nav": {
     "home": "Home",
     "search": "Search",
+    "itinerary": "Itinerary",
+    "favorites": "Favorites",
     "location": "Location",
     "opening_today": "Today",
     "opening_hours": "Opening hours",
@@ -246,7 +248,8 @@
     "filter_applied": "Applied filter \"{name}\"",
     "filter_deleted": "Filter deleted",
     "link_copied": "Link copied to clipboard",
-    "share_text": "Discover {{name}} on VietSpots!"
+    "share_text": "Discover {{name}} on VietSpots!",
+    "login_to_sync_favorites": "Log in to sync your favorites"
   },
   "amenities": {
     "nha_ve_sinh": "Restroom",
