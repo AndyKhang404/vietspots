@@ -59,35 +59,39 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
+        const res = await signIn(email, password);
+        if (res.error) {
+          console.error('Sign in error', res.error);
           toast({
             variant: 'destructive',
             title: t('auth.loginError'),
-            description: t('auth.invalidCredentials'),
+            description: res.error.message || t('auth.invalidCredentials'),
           });
         } else {
-          toast({
-            title: t('auth.loginSuccess'),
-          });
+          toast({ title: t('auth.loginSuccess') });
           navigate('/');
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) {
-          const message = error.message.includes('already registered')
+        const res = await signUp(email, password, fullName);
+        if (res.error) {
+          console.error('Sign up error', res.error);
+          const message = (res.error.message || '').includes('already registered')
             ? t('auth.emailExists')
-            : error.message;
+            : res.error.message || t('auth.signupError');
           toast({
             variant: 'destructive',
             title: t('auth.signupError'),
             description: message,
           });
         } else {
-          toast({
-            title: t('auth.signupSuccess'),
-          });
-          navigate('/');
+          // If there's no session returned, Supabase likely requires email confirmation
+          const createdUser = res.data?.user;
+          if (createdUser && !res.data?.session) {
+            toast({ title: t('auth.signupSuccess'), description: t('auth.check_email_for_confirmation') });
+          } else {
+            toast({ title: t('auth.signupSuccess') });
+            navigate('/');
+          }
         }
       }
     } finally {

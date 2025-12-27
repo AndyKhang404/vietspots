@@ -3,7 +3,7 @@ import {
   Send, X, MapPin, Loader2, Phone, Globe, Navigation, Star,
   ChevronUp, ChevronDown, MessageSquare, FileText, Bookmark,
   Map as MapIcon, Clock, MapPinned, Filter, LocateFixed, Percent,
-  Plus, History, Trash2
+  Plus, History, Trash2, Mic, Volume2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -208,6 +208,16 @@ export default function Chatbot() {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Speech / STT / TTS state
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [sttLoading, setSttLoading] = useState(false);
+  const [ttsLanguage, setTtsLanguage] = useState<string>(i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
@@ -262,6 +272,159 @@ export default function Chatbot() {
       setTimeout(checkScrollPosition, 100);
     }
   }, [messages, placeResults, checkScrollPosition]);
+
+  // Start recording audio using MediaRecorder
+  const startRecording = async () => {
+    // If browser supports Web Speech API, use it for live interim transcripts
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = ttsLanguage || (i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.onresult = (event: any) => {
+          let interim = '';
+          let final = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const res = event.results[i];
+            if (res.isFinal) final += res[0].transcript;
+            else interim += res[0].transcript;
+          }
+          // Show interim + final in input as user speaks
+          setInput((prev) => {
+            // Keep any existing typed text (prefix) and append live transcript
+            const prefix = prev && prev.trim() ? prev.split('\n')[0] : '';
+            const live = (prefix ? prefix + ' ' : '') + (final || interim);
+            return live;
+          });
+        };
+        recognition.onerror = (e: any) => {
+          console.error('Recognition error', e);
+          toast.error(t('messages.cannot_transcribe'));
+        };
+        recognition.onend = () => {
+          setIsRecording(false);
+          recognitionRef.current = null;
+        };
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsRecording(true);
+        return;
+      } catch (e) {
+        console.warn('SpeechRecognition failed, falling back to MediaRecorder', e);
+      }
+    }
+
+    // Fallback: record audio and send to backend STT when finished
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/webm;codecs=opus';
+      const mr = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        // Upload to backend STT endpoint
+        try {
+          setSttLoading(true);
+          const fd = new FormData();
+          fd.append('file', blob, 'recording.webm');
+          fd.append('language', ttsLanguage || 'vi-VN');
+          const res = await fetch('https://vietspotbackend-production.up.railway.app/api/stt/transcribe', {
+            method: 'POST',
+            body: fd,
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json && json.transcript) {
+              setInput((prev) => (prev ? prev + ' ' + json.transcript : json.transcript));
+            }
+          } else {
+            const text = await res.text();
+            console.error('STT error', res.status, text);
+            toast.error(t('messages.cannot_transcribe'));
+          }
+        } catch (e) {
+          console.error('STT upload error', e);
+          toast.error(t('messages.cannot_transcribe'));
+        } finally {
+          setSttLoading(false);
+        }
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setIsRecording(true);
+    } catch (e) {
+      console.error('Recording start failed', e);
+      toast.error(t('messages.microphone_permission_required'));
+    }
+  };
+
+  const stopRecording = () => {
+    try {
+      // If using SpeechRecognition, stop it
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+        recognitionRef.current = null;
+      }
+
+      mediaRecorderRef.current?.stop();
+      mediaRecorderRef.current = null;
+      // stop all tracks
+      try {
+        mediaStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+      } catch {}
+      mediaStreamRef.current = null;
+    } catch (e) {
+      console.error('Stop recording failed', e);
+    }
+    setIsRecording(false);
+  };
+
+  // Call backend TTS or fallback to SpeechSynthesis
+  const speakText = async (text: string, language?: string) => {
+    if (!text || text.trim().length === 0) return;
+    const lang = language || ttsLanguage || (i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
+    // Try backend TTS first
+    try {
+      const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language: lang }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (ttsAudioRef.current) {
+          ttsAudioRef.current.src = url;
+        } else {
+          ttsAudioRef.current = new Audio(url);
+        }
+        await ttsAudioRef.current.play().catch(() => {});
+        // release object URL after some time
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        return;
+      }
+    } catch (e) {
+      console.warn('Backend TTS failed, falling back to SpeechSynthesis', e);
+    }
+
+    // Fallback: browser SpeechSynthesis
+    try {
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = lang === 'vi-VN' ? 'vi-VN' : 'en-US';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+      }
+    } catch (e) {
+      console.error('SpeechSynthesis failed', e);
+    }
+  };
 
   useEffect(() => {
     const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
@@ -380,6 +543,15 @@ export default function Chatbot() {
           )
         );
 
+        // Trigger TTS for streamed response (best-effort)
+        try {
+          if (fullContent && fullContent.trim()) {
+            void speakText(fullContent, ttsLanguage);
+          }
+        } catch (e) {
+          // ignore
+        }
+
         if (placesData.length > 0) {
           setPlaceResults(placesData.map(p => transformToPlaceResult(p, userLocation || undefined)));
           setLastPlaceMessageId(assistantMessageId);
@@ -435,6 +607,15 @@ export default function Chatbot() {
               : msg
           )
         );
+
+        // Speak the final answer via TTS (best-effort)
+        try {
+          if (answer && answer.trim()) {
+            void speakText(answer, ttsLanguage);
+          }
+        } catch (e) {
+          // ignore
+        }
 
         if (data.places && data.places.length > 0) {
           setPlaceResults(data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined)));
@@ -1166,8 +1347,22 @@ export default function Chatbot() {
                     e.preventDefault();
                     handleSendWithStreaming();
                   }}
-                  className="flex gap-2"
+                  className="flex gap-2 items-center"
                 >
+                  <Button
+                    variant={isRecording ? 'destructive' : 'outline'}
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (isRecording) stopRecording(); else startRecording();
+                    }}
+                    disabled={sttLoading || isLoading}
+                    title={isRecording ? t('chatbot.stop_recording') : t('chatbot.start_recording')}
+                  >
+                    {isRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                  </Button>
+
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -1175,6 +1370,19 @@ export default function Chatbot() {
                     className="flex-1 rounded-full"
                     disabled={isLoading}
                   />
+
+                  <div className="w-36">
+                    <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
+                      <SelectTrigger className="w-full h-10">
+                        <SelectValue placeholder={ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vi-VN">Tiếng Việt</SelectItem>
+                        <SelectItem value="en-US">English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button type="submit" className="rounded-full px-6" disabled={isLoading}>
                     {t('chatbot.send')}
                   </Button>
