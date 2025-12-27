@@ -57,15 +57,30 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+      // Ensure we query with the authenticated user's id (refresh session)
+      const { data, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.error('getUser error', userErr);
+      const currentUser = data?.user;
+      const dbUserId = currentUser?.id || user?.id;
+
+      const { data: result, error } = await supabase
         .from("wishlists")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", dbUserId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error inserting/deleting wishlist:', error);
+        throw error;
+      }
 
-      const items: WishlistItem[] = (data || []).map((item) => ({
+      const items: WishlistItem[] = (result || []).map((item) => ({
         id: item.id,
         place_id: item.place_id,
         place_name: item.place_name,
@@ -79,8 +94,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       setWishlistItems(items);
       setFavorites(items.map((item) => item.place_id));
       setHasFetched(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching wishlist:", error);
+      const msg = error?.message || JSON.stringify(error);
+      toast.error(`${t('messages.cannot_load_favorites') || 'Cannot load favorites.'} ${msg}`);
       // On error, still mark as fetched to prevent infinite retries
       setHasFetched(true);
     } finally {
@@ -129,13 +146,29 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Logged in - sync with Supabase
+    // Logged in - ensure we have the correct authenticated user
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        toast.error(t('messages.login_required'));
+        return;
+      }
+      const { data, error: userErr } = await supabase.auth.getUser();
+      if (userErr) {
+        console.error('Failed to get current supabase user', userErr);
+      }
+      const currentUser = data?.user;
+      const dbUserId = currentUser?.id || user?.id;
+      if (!dbUserId) {
+        toast.error(t('messages.login_required'));
+        return;
+      }
       if (isCurrentlyFavorite) {
         const { error } = await supabase
           .from("wishlists")
           .delete()
-          .eq("user_id", user.id)
+          .eq("user_id", dbUserId)
           .eq("place_id", place.id);
 
         if (error) throw error;
@@ -144,17 +177,19 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         setWishlistItems((prev) => prev.filter((item) => item.place_id !== place.id));
         toast.success(t('messages.removed_favorite'));
       } else {
+        const payload: Record<string, any> = {
+          user_id: user.id,
+          place_id: place.id,
+          place_name: place.name,
+        };
+        if (place.address) payload.place_address = place.address;
+        if (place.image) payload.place_image = place.image;
+        if (place.rating !== undefined && place.rating !== null) payload.place_rating = place.rating;
+        if (place.category) payload.place_category = place.category;
+
         const { data, error } = await supabase
           .from("wishlists")
-          .insert({
-            user_id: user.id,
-            place_id: place.id,
-            place_name: place.name,
-            place_address: place.address,
-            place_image: place.image,
-            place_rating: place.rating,
-            place_category: place.category,
-          })
+          .insert({ id: crypto.randomUUID(), ...payload, user_id: dbUserId } as any)
           .select()
           .single();
 
@@ -175,9 +210,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         setWishlistItems((prev) => [newItem, ...prev]);
         toast.success(t('messages.saved_favorite'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error toggling favorite:", error);
-      toast.error(t('messages.error_occurred_apology'));
+      const msg = error?.message || JSON.stringify(error);
+      toast.error(`${t('messages.error_occurred_apology')} ${msg}`);
     }
   };
 
@@ -189,10 +225,21 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        toast.error(t('messages.login_required'));
+        return;
+      }
+      const { data, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.error('getUser error', userErr);
+      const currentUser = data?.user;
+      const dbUserId = currentUser?.id || user?.id;
+
       const { error } = await supabase
         .from("wishlists")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", dbUserId)
         .eq("place_id", placeId);
 
       if (error) throw error;

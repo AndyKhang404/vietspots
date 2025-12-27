@@ -51,6 +51,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
+    // If signup succeeded, ensure a profile row exists
+    try {
+      const userId = result.data?.user?.id;
+      if (userId) {
+        await supabase.from('profiles').insert({ user_id: userId, full_name: fullName } as any);
+      }
+    } catch (e) {
+      // non-fatal
+      // eslint-disable-next-line no-console
+      console.warn('Failed to create profile row after signUp', e);
+    }
+
     return { error: result.error ?? null, data: result.data };
   };
 
@@ -59,6 +71,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    // After sign-in, ensure profile exists for the authenticated user
+    try {
+      const userId = result.data?.user?.id;
+      if (userId) {
+        const { data: existing } = await supabase.from('profiles').select('user_id').eq('user_id', userId).limit(1);
+        if (!existing || existing.length === 0) {
+          const fullName = result.data?.user?.user_metadata?.full_name || null;
+          await supabase.from('profiles').insert({ user_id: userId, full_name: fullName } as any);
+        }
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to ensure profile after signIn', e);
+    }
+
     return { error: result.error ?? null, data: result.data };
   };
 

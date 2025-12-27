@@ -19,3 +19,9 @@ export const supabase = createClient<Database>(SUPABASE_URL || '', SUPABASE_PUBL
     autoRefreshToken: true,
   }
 });
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  // Provide clear runtime warning to help debugging env issues
+  // eslint-disable-next-line no-console
+  console.warn('Supabase client initialized without URL or key. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your .env');
+}

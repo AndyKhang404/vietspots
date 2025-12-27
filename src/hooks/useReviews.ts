@@ -135,6 +135,7 @@ export function useReviews(placeId?: string) {
       const { data: review, error: reviewError } = await supabase
         .from("reviews")
         .insert({
+          id: crypto.randomUUID(),
           user_id: user.id,
           place_id: placeId,
           rating,
@@ -163,6 +164,7 @@ export function useReviews(placeId?: string) {
             .getPublicUrl(fileName);
 
           await supabase.from("review_images").insert({
+            id: crypto.randomUUID(),
             review_id: review.id,
             image_url: publicUrl.publicUrl,
           });

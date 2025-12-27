@@ -6,6 +6,7 @@ import {
   Plus, History, Trash2, Mic, Volume2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -217,6 +218,18 @@ export default function Chatbot() {
   const [sttLoading, setSttLoading] = useState(false);
   const [ttsLanguage, setTtsLanguage] = useState<string>(i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const currentUtterRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(() => localStorage.getItem('vietspots_tts_voice') || null);
+  const [preferBackendTts, setPreferBackendTts] = useState<boolean>(() => {
+    const v = localStorage.getItem('vietspots_prefer_backend_tts');
+    return v === '1' || v === 'true';
+  });
+  // TTS tuning controls (rate/pitch/volume)
+  const [ttsRate, setTtsRate] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_rate')) || 1);
+  const [ttsPitch, setTtsPitch] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_pitch')) || 1);
+  const [ttsVolume, setTtsVolume] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_volume')) || 1);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -255,6 +268,17 @@ export default function Chatbot() {
     }
   }, []);
 
+  useEffect(() => {
+    try {
+      if (selectedVoiceName) localStorage.setItem('vietspots_tts_voice', selectedVoiceName);
+      else localStorage.removeItem('vietspots_tts_voice');
+      localStorage.setItem('vietspots_prefer_backend_tts', preferBackendTts ? '1' : '0');
+      localStorage.setItem('vietspots_tts_rate', String(ttsRate));
+      localStorage.setItem('vietspots_tts_pitch', String(ttsPitch));
+      localStorage.setItem('vietspots_tts_volume', String(ttsVolume));
+    } catch {}
+  }, [selectedVoiceName, preferBackendTts, ttsRate, ttsPitch, ttsVolume]);
+
   const checkScrollPosition = useCallback(() => {
     const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (el) {
@@ -272,6 +296,51 @@ export default function Chatbot() {
       setTimeout(checkScrollPosition, 100);
     }
   }, [messages, placeResults, checkScrollPosition]);
+
+  // Load available SpeechSynthesis voices and keep selection in localStorage
+  useEffect(() => {
+    try {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices() || [];
+        setAvailableVoices(voices);
+        if (!selectedVoiceName && voices.length > 0) {
+          const pref = voices.find(v => v.lang && v.lang.startsWith(ttsLanguage.split('-')[0]));
+          if (pref) setSelectedVoiceName(pref.name);
+        }
+      };
+      loadVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+    } catch (e) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reduce available voice choices shown to user to a concise list
+  const filteredVoices = (() => {
+    try {
+      const langPref = (ttsLanguage || 'en-US').split('-')[0];
+      const voices = availableVoices || [];
+      // Prioritize voices that match language, then take first 6 overall
+      const preferred = voices.filter(v => v.lang && v.lang.startsWith(langPref));
+      const others = voices.filter(v => !(v.lang && v.lang.startsWith(langPref)));
+      const sorted = [...preferred, ...others];
+      // Deduplicate by name
+      const seen = new Set<string>();
+      const unique: SpeechSynthesisVoice[] = [];
+      for (const v of sorted) {
+        if (!seen.has(v.name)) {
+          unique.push(v);
+          seen.add(v.name);
+        }
+        if (unique.length >= 6) break;
+      }
+      return unique;
+    } catch {
+      return availableVoices.slice(0, 6);
+    }
+  })();
 
   // Start recording audio using MediaRecorder
   const startRecording = async () => {
@@ -389,7 +458,99 @@ export default function Chatbot() {
   const speakText = async (text: string, language?: string) => {
     if (!text || text.trim().length === 0) return;
     const lang = language || ttsLanguage || (i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
-    // Try backend TTS first
+
+    // Toggle: if currently speaking, stop
+    if (isSpeaking) {
+      try {
+        if (ttsAudioRef.current) {
+          ttsAudioRef.current.pause();
+          try { ttsAudioRef.current.currentTime = 0; } catch {}
+        }
+      } catch {}
+      try { window.speechSynthesis.cancel(); } catch {}
+      currentUtterRef.current = null;
+      setIsSpeaking(false);
+      return;
+    }
+
+    // If user prefers backend TTS, try backend first
+    if (preferBackendTts) {
+      try {
+        const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, language: lang }),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          if (ttsAudioRef.current) {
+            ttsAudioRef.current.src = url;
+          } else {
+            ttsAudioRef.current = new Audio(url);
+          }
+          ttsAudioRef.current.onended = () => {
+            setIsSpeaking(false);
+            try { URL.revokeObjectURL(url); } catch {}
+          };
+          ttsAudioRef.current.onplay = () => setIsSpeaking(true);
+          await ttsAudioRef.current.play().catch(() => {});
+          return;
+        }
+      } catch (e) {
+        console.warn('Backend TTS failed', e);
+      }
+      // if backend fails, fall through to browser TTS
+    }
+
+    // Prefer immediate browser SpeechSynthesis for low latency playback
+    try {
+      if ('speechSynthesis' in window) {
+        let voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) {
+          await new Promise<void>((resolve) => {
+            const handler = () => {
+              voices = window.speechSynthesis.getVoices();
+              window.speechSynthesis.removeEventListener('voiceschanged', handler);
+              resolve();
+            };
+            window.speechSynthesis.addEventListener('voiceschanged', handler);
+            setTimeout(resolve, 500);
+          });
+        }
+
+        // If a voice was explicitly selected, use it
+        const selected = selectedVoiceName ? voices.find(v => v.name === selectedVoiceName) : null;
+
+        // Fallback: prefer higher-quality voices by name or by language
+        const preferred = selected || voices.find(v => v.lang && v.lang.startsWith(lang.split('-')[0]) && /google|neural|wave|microsoft|yandex|amazon|aws|azure/i.test(v.name))
+          || voices.find(v => v.lang && v.lang.startsWith(lang.split('-')[0]));
+
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = lang;
+        if (preferred) utter.voice = preferred;
+        utter.rate = ttsRate;
+        utter.pitch = ttsPitch;
+        utter.volume = ttsVolume;
+        utter.onend = () => {
+          setIsSpeaking(false);
+          currentUtterRef.current = null;
+        };
+        utter.onerror = () => {
+          setIsSpeaking(false);
+          currentUtterRef.current = null;
+        };
+        currentUtterRef.current = utter;
+        window.speechSynthesis.cancel();
+        setIsSpeaking(true);
+        window.speechSynthesis.speak(utter);
+        return;
+      }
+    } catch (e) {
+      console.warn('SpeechSynthesis playback failed', e);
+    }
+
+    // Fallback to backend TTS as last resort
     try {
       const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
         method: 'POST',
@@ -404,26 +565,19 @@ export default function Chatbot() {
         } else {
           ttsAudioRef.current = new Audio(url);
         }
+        ttsAudioRef.current.onended = () => {
+          setIsSpeaking(false);
+          try { URL.revokeObjectURL(url); } catch {}
+        };
+        ttsAudioRef.current.onplay = () => setIsSpeaking(true);
         await ttsAudioRef.current.play().catch(() => {});
-        // release object URL after some time
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
         return;
       }
     } catch (e) {
-      console.warn('Backend TTS failed, falling back to SpeechSynthesis', e);
+      console.warn('Backend TTS failed', e);
     }
 
-    // Fallback: browser SpeechSynthesis
-    try {
-      if ('speechSynthesis' in window) {
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = lang === 'vi-VN' ? 'vi-VN' : 'en-US';
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utter);
-      }
-    } catch (e) {
-      console.error('SpeechSynthesis failed', e);
-    }
+    setIsSpeaking(false);
   };
 
   useEffect(() => {
@@ -446,6 +600,15 @@ export default function Chatbot() {
     if (el) {
       el.scrollBy({ top: 150, behavior: 'smooth' });
     }
+  };
+
+  const playLastAssistantMessage = () => {
+    const last = [...messages].slice().reverse().find((m) => m.role === 'assistant' && !m.isStreaming && m.content && m.content.trim().length > 0);
+    if (!last) {
+      toast.info(t('messages.nothing_to_read') || 'No message to read');
+      return;
+    }
+    void speakText(last.content, ttsLanguage);
   };
 
   // Streaming chat handler
@@ -543,14 +706,7 @@ export default function Chatbot() {
           )
         );
 
-        // Trigger TTS for streamed response (best-effort)
-        try {
-          if (fullContent && fullContent.trim()) {
-            void speakText(fullContent, ttsLanguage);
-          }
-        } catch (e) {
-          // ignore
-        }
+        // Do not auto-play TTS for responses; user can press the speaker button to play.
 
         if (placesData.length > 0) {
           setPlaceResults(placesData.map(p => transformToPlaceResult(p, userLocation || undefined)));
@@ -608,14 +764,7 @@ export default function Chatbot() {
           )
         );
 
-        // Speak the final answer via TTS (best-effort)
-        try {
-          if (answer && answer.trim()) {
-            void speakText(answer, ttsLanguage);
-          }
-        } catch (e) {
-          // ignore
-        }
+        // Do not auto-play TTS for responses; user can press the speaker button to play.
 
         if (data.places && data.places.length > 0) {
           setPlaceResults(data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined)));
@@ -697,7 +846,8 @@ export default function Chatbot() {
         <div
           className={cn(
             "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
-            "right-[400px] lg:right-[450px] w-[350px] lg:w-[400px]"
+            // Map takes half of screen when chat is expanded (split 50/50)
+            "right-[50vw] w-[50vw]"
           )}
         >
           <div className="h-full flex flex-col">
@@ -743,11 +893,7 @@ export default function Chatbot() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen
-            ? showMap && mapMarkers.length > 0
-              ? "right-[750px] lg:right-[850px]"
-              : "right-[400px] lg:right-[450px]"
-            : "right-0"
+          isOpen ? "right-[66vw]" : "right-0"
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
@@ -757,7 +903,7 @@ export default function Chatbot() {
       {isOpen && !showMap && mapMarkers.length > 0 && (
         <button
           onClick={() => setShowMap(true)}
-          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[400px] lg:right-[450px]"
+          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[66vw]"
           style={{ marginTop: "60px" }}
         >
           <MapIcon className="h-5 w-5" />
@@ -767,8 +913,9 @@ export default function Chatbot() {
       {/* Sidebar Panel */}
       <div
         className={cn(
-          "fixed top-0 right-0 z-40 h-screen w-[400px] lg:w-[450px] bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
-          isOpen ? "translate-x-0" : "translate-x-full"
+          "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
+          // When open the chat takes ~66% of viewport so text input area is much larger
+          isOpen ? "translate-x-0 w-[66vw]" : "translate-x-full w-[400px]"
         )}
       >
         {/* Tabs */}
@@ -1362,16 +1509,99 @@ export default function Chatbot() {
                   >
                     {isRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
                   </Button>
+                  {/* TTS settings popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10">
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-3">
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_voice') || 'Voice'}</div>
+                          <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
+                            <SelectTrigger className="w-full h-10">
+                              <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredVoices.length === 0 && (
+                                <SelectItem value="">{t('chatbot.no_voices') || 'No voices available'}</SelectItem>
+                              )}
+                              {filteredVoices.map((v) => (
+                                <SelectItem key={v.name} value={v.name}>{v.name} {v.lang ? `(${v.lang})` : ''}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium">{t('chatbot.prefer_backend_tts') || 'Prefer backend TTS'}</div>
+                          <Switch checked={preferBackendTts} onCheckedChange={(v: any) => setPreferBackendTts(Boolean(v))} />
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_rate') || 'Rate'}</div>
+                          <Slider
+                            value={[ttsRate]}
+                            onValueChange={([v]) => setTtsRate(Number(v))}
+                            min={0.5}
+                            max={1.5}
+                            step={0.05}
+                            className="w-full"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_pitch') || 'Pitch'}</div>
+                          <Slider
+                            value={[ttsPitch]}
+                            onValueChange={([v]) => setTtsPitch(Number(v))}
+                            min={0.5}
+                            max={2}
+                            step={0.05}
+                            className="w-full"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_volume') || 'Volume'}</div>
+                          <Slider
+                            value={[ttsVolume]}
+                            onValueChange={([v]) => setTtsVolume(Number(v))}
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Speaker button: user triggers TTS for last assistant message */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      playLastAssistantMessage();
+                    }}
+                    title={t('chatbot.play_last_message') || 'Play last message'}
+                    disabled={isLoading}
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
 
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={t('chatbot.placeholder')}
-                    className="flex-1 rounded-full"
+                    className="flex-1 min-w-0 rounded-full"
                     disabled={isLoading}
                   />
 
-                  <div className="w-36">
+                  <div className="w-24">
                     <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
                       <SelectTrigger className="w-full h-10">
                         <SelectValue placeholder={ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English'} />

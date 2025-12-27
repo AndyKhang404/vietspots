@@ -28,6 +28,8 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePlaces, useSearchPlaces, useCategories } from "@/hooks/useVietSpotAPI";
 import { transformPlace, categories as defaultCategories } from "@/data/places";
 import { useTranslation } from "react-i18next";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -285,6 +287,42 @@ export default function Search() {
 
   const isLoading = isSearching ? searchLoading : placesLoading;
   const displayedCount = isLoading ? 0 : filteredPlaces.length;
+
+  const { user } = useAuth();
+
+  // Persist search history for authenticated users
+  useEffect(() => {
+    const saveSearch = async () => {
+      if (!debouncedSearch || debouncedSearch.trim().length === 0) return;
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+        if (!session) return;
+
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (userErr) console.warn('getUser error saving search history', userErr);
+        const dbUserId = userData?.user?.id || user?.id;
+        if (!dbUserId) return; // still not authenticated
+
+        await supabase.from('search_history').insert({
+          id: crypto.randomUUID(),
+          user_id: dbUserId,
+          query: debouncedSearch,
+          category: effectiveCategory || null,
+          city: null,
+          created_at: new Date().toISOString(),
+        } as any);
+      } catch (e) {
+        // non-fatal: log for debugging
+        // eslint-disable-next-line no-console
+        console.warn('Failed to save search history', e);
+      }
+    };
+
+    saveSearch();
+    // only when a new debounced search fires
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, effectiveCategory, user]);
 
   const handleFilterChange = (filter: string) => {
     const newParams = new URLSearchParams(searchParams);

@@ -38,16 +38,32 @@ export function useItinerary() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        setItineraries([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.error('getUser error', userErr);
+      const currentUser = userData?.user;
+      const dbUserId = currentUser?.id || user?.id;
+
+      const { data: result, error } = await supabase
         .from("itineraries")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", dbUserId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error saving itinerary:', error);
+        throw error;
+      }
 
       setItineraries(
-        (data || []).map((item) => ({
+        (result || []).map((item) => ({
           ...item,
           preferences: item.preferences || [],
           itinerary_data: item.itinerary_data as unknown as DayItinerary[],
@@ -181,7 +197,18 @@ export function useItinerary() {
     itinerary_data: DayItinerary[];
     is_public?: boolean;
   }) => {
-    if (!user) {
+    // Ensure authenticated session/user
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    if (!session) {
+      toast.error(t('messages.login_to_save_itinerary'));
+      return null;
+    }
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr) console.error('getUser error', userErr);
+    const currentUser = userData?.user;
+    const dbUserId = currentUser?.id || user?.id;
+    if (!dbUserId) {
       toast.error(t('messages.login_to_save_itinerary'));
       return null;
     }
@@ -192,7 +219,8 @@ export function useItinerary() {
         : null;
 
       const insertData = {
-        user_id: user.id,
+        id: crypto.randomUUID(),
+        user_id: dbUserId,
         title: params.title,
         destination: params.destination,
         days: params.days,
@@ -203,7 +231,7 @@ export function useItinerary() {
         share_token: shareToken,
       };
 
-      const { data, error } = await supabase
+      const { data: inserted, error } = await supabase
         .from("itineraries")
         .insert([insertData] as never)
         .select()
@@ -213,10 +241,11 @@ export function useItinerary() {
 
       toast.success(t('messages.itinerary_saved'));
       await fetchItineraries();
-      return data;
-    } catch (error) {
+      return inserted;
+    } catch (error: any) {
       console.error("Error saving itinerary:", error);
-      toast.error(t('messages.cannot_create_itinerary'));
+      const msg = error?.message || JSON.stringify(error);
+      toast.error(`${t('messages.cannot_create_itinerary')} ${msg}`);
       return null;
     }
   };
