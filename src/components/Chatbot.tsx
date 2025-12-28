@@ -278,7 +278,7 @@ export default function Chatbot() {
       localStorage.setItem('vietspots_tts_rate', String(ttsRate));
       localStorage.setItem('vietspots_tts_pitch', String(ttsPitch));
       localStorage.setItem('vietspots_tts_volume', String(ttsVolume));
-    } catch {}
+    } catch { }
   }, [selectedVoiceName, preferBackendTts, ttsRate, ttsPitch, ttsVolume]);
 
   const checkScrollPosition = useCallback(() => {
@@ -355,9 +355,9 @@ export default function Chatbot() {
         recognition.interimResults = true;
         recognition.continuous = true; // Keep listening for better results
         recognition.maxAlternatives = 1;
-        
+
         let finalTranscript = '';
-        
+
         recognition.onresult = (event: any) => {
           let interim = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -371,14 +371,14 @@ export default function Chatbot() {
           // Update input with final + interim text
           setInput(finalTranscript + interim);
         };
-        
+
         recognition.onerror = (e: any) => {
           console.error('Recognition error', e);
           if (e.error !== 'aborted' && e.error !== 'no-speech') {
             toast.error(t('messages.cannot_transcribe'));
           }
         };
-        
+
         recognition.onend = () => {
           setIsRecording(false);
           recognitionRef.current = null;
@@ -387,7 +387,7 @@ export default function Chatbot() {
             setInput(finalTranscript.trim());
           }
         };
-        
+
         recognitionRef.current = recognition;
         recognition.start();
         setIsRecording(true);
@@ -449,7 +449,7 @@ export default function Chatbot() {
     try {
       // If using SpeechRecognition, stop it
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
+        try { recognitionRef.current.stop(); } catch { }
         recognitionRef.current = null;
       }
 
@@ -458,7 +458,7 @@ export default function Chatbot() {
       // stop all tracks
       try {
         mediaStreamRef.current?.getTracks().forEach((tr) => tr.stop());
-      } catch {}
+      } catch { }
       mediaStreamRef.current = null;
     } catch (e) {
       console.error('Stop recording failed', e);
@@ -476,10 +476,10 @@ export default function Chatbot() {
       try {
         if (ttsAudioRef.current) {
           ttsAudioRef.current.pause();
-          try { ttsAudioRef.current.currentTime = 0; } catch {}
+          try { ttsAudioRef.current.currentTime = 0; } catch { }
         }
-      } catch {}
-      try { window.speechSynthesis.cancel(); } catch {}
+      } catch { }
+      try { window.speechSynthesis.cancel(); } catch { }
       currentUtterRef.current = null;
       setIsSpeaking(false);
       return;
@@ -503,10 +503,10 @@ export default function Chatbot() {
           }
           ttsAudioRef.current.onended = () => {
             setIsSpeaking(false);
-            try { URL.revokeObjectURL(url); } catch {}
+            try { URL.revokeObjectURL(url); } catch { }
           };
           ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-          await ttsAudioRef.current.play().catch(() => {});
+          await ttsAudioRef.current.play().catch(() => { });
           return;
         }
       } catch (e) {
@@ -579,10 +579,10 @@ export default function Chatbot() {
         }
         ttsAudioRef.current.onended = () => {
           setIsSpeaking(false);
-          try { URL.revokeObjectURL(url); } catch {}
+          try { URL.revokeObjectURL(url); } catch { }
         };
         ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-        await ttsAudioRef.current.play().catch(() => {});
+        await ttsAudioRef.current.play().catch(() => { });
         return;
       }
     } catch (e) {
@@ -859,7 +859,7 @@ export default function Chatbot() {
           className={cn(
             "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
             // Map takes remaining space on left of chat panel
-            "right-[420px] w-[calc(100vw-420px)] max-w-[500px]"
+            "right-[560px] w-[calc(100vw-560px)] max-w-[740px]"
           )}
         >
           <div className="h-full flex flex-col">
@@ -905,7 +905,7 @@ export default function Chatbot() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen ? "right-[420px]" : "right-0"
+          isOpen ? "right-[560px]" : "right-0"
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
@@ -915,7 +915,7 @@ export default function Chatbot() {
       {isOpen && !showMap && mapMarkers.length > 0 && (
         <button
           onClick={() => setShowMap(true)}
-          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[420px]"
+          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[560px]"
           style={{ marginTop: "60px" }}
         >
           <MapIcon className="h-5 w-5" />
@@ -927,7 +927,7 @@ export default function Chatbot() {
         className={cn(
           "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
           // Chat panel width reduced to 420px for a more compact look
-          isOpen ? "translate-x-0 w-[420px]" : "translate-x-full w-[400px]"
+          isOpen ? "translate-x-0 w-[560px]" : "translate-x-full w-[540px]"
         )}
       >
         {/* Tabs */}
@@ -1500,7 +1500,7 @@ export default function Chatbot() {
               )}
 
               {/* Input */}
-              <div className="p-4 border-t border-border shrink-0 bg-card">
+              <div className="p-3 border-t border-border shrink-0 bg-card">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -1511,7 +1511,7 @@ export default function Chatbot() {
                   <Button
                     variant={isRecording ? 'destructive' : 'outline'}
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9"
                     onClick={(e) => {
                       e.preventDefault();
                       if (isRecording) stopRecording(); else startRecording();
@@ -1524,7 +1524,7 @@ export default function Chatbot() {
                   {/* TTS settings popover */}
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10">
+                      <Button variant="outline" size="icon" className="h-9 w-9">
                         <Filter className="h-4 w-4" />
                       </Button>
                     </PopoverTrigger>
@@ -1603,7 +1603,7 @@ export default function Chatbot() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9"
                     onClick={(e) => {
                       e.preventDefault();
                       playLastAssistantMessage();
@@ -1618,16 +1618,16 @@ export default function Chatbot() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={t('chatbot.placeholder')}
-                    className="flex-1 min-w-0 rounded-full"
+                    className="flex-1 min-w-0 rounded-full h-9 px-3"
                     disabled={isLoading}
                   />
 
-                  <div className="w-24">
+                  <div className="w-28">
                     <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
-                      <SelectTrigger className="w-full h-10">
+                      <SelectTrigger className="w-full h-9">
                         <SelectValue placeholder={ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English'} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="w-32">
                         <SelectItem value="vi-VN">Tiếng Việt</SelectItem>
                         <SelectItem value="en-US">English</SelectItem>
                       </SelectContent>
