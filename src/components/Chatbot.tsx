@@ -1552,7 +1552,10 @@ export default function Chatbot() {
                         </div>
 
                         <div>
-                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_rate') || 'Rate'}</div>
+                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                            <span>{t('chatbot.tts_rate') || 'Rate'}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{ttsRate.toFixed(2)}x</span>
+                          </div>
                           <Slider
                             value={[ttsRate]}
                             onValueChange={([v]) => setTtsRate(Number(v))}
@@ -1564,7 +1567,10 @@ export default function Chatbot() {
                         </div>
 
                         <div>
-                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_pitch') || 'Pitch'}</div>
+                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                            <span>{t('chatbot.tts_pitch') || 'Pitch'}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{ttsPitch.toFixed(2)}</span>
+                          </div>
                           <Slider
                             value={[ttsPitch]}
                             onValueChange={([v]) => setTtsPitch(Number(v))}
@@ -1576,7 +1582,10 @@ export default function Chatbot() {
                         </div>
 
                         <div>
-                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_volume') || 'Volume'}</div>
+                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                            <span>{t('chatbot.tts_volume') || 'Volume'}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{Math.round(ttsVolume * 100)}%</span>
+                          </div>
                           <Slider
                             value={[ttsVolume]}
                             onValueChange={([v]) => setTtsVolume(Number(v))}
