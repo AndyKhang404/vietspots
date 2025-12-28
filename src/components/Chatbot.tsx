@@ -858,8 +858,8 @@ export default function Chatbot() {
         <div
           className={cn(
             "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
-            // Map takes half of screen when chat is expanded (split 50/50)
-            "right-[50vw] w-[50vw]"
+            // Map takes remaining space on left of chat panel
+            "right-[420px] w-[calc(100vw-420px)] max-w-[500px]"
           )}
         >
           <div className="h-full flex flex-col">
@@ -905,7 +905,7 @@ export default function Chatbot() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen ? "right-[66vw]" : "right-0"
+          isOpen ? "right-[420px]" : "right-0"
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
@@ -915,7 +915,7 @@ export default function Chatbot() {
       {isOpen && !showMap && mapMarkers.length > 0 && (
         <button
           onClick={() => setShowMap(true)}
-          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[66vw]"
+          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[420px]"
           style={{ marginTop: "60px" }}
         >
           <MapIcon className="h-5 w-5" />
@@ -926,8 +926,8 @@ export default function Chatbot() {
       <div
         className={cn(
           "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
-          // When open the chat takes ~66% of viewport so text input area is much larger
-          isOpen ? "translate-x-0 w-[66vw]" : "translate-x-full w-[400px]"
+          // Chat panel width reduced to 420px for a more compact look
+          isOpen ? "translate-x-0 w-[420px]" : "translate-x-full w-[400px]"
         )}
       >
         {/* Tabs */}
