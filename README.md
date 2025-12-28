@@ -4,70 +4,101 @@
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-## How can I edit this code?
+# VietSpots
 
-There are several ways of editing your application.
+VietSpots — Ứng dụng web khám phá địa điểm tại Việt Nam, xây dựng bằng Vite + React + TypeScript. Ứng dụng cung cấp tìm kiếm, bản đồ, đánh giá và tối ưu lộ trình.
 
-**Use Lovable**
+## Tóm tắt dự án
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Stack:** Vite, React, TypeScript, Tailwind CSS, shadcn-ui, Supabase, MapLibre
+- **Scripts:** xem [package.json](package.json) (`dev`, `build`, `preview`, `lint`)
 
-Changes made via Lovable will be committed automatically to this repo.
+## Bắt đầu nhanh
 
-**Use your preferred IDE**
+### Yêu cầu
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 18+ (hoặc Bun), Git. Tuỳ chọn: `pnpm` hoặc `yarn`.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Clone
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+cd vietspots
 ```
 
-**Edit a file directly in GitHub**
+### Cài dependencies
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm ci
+# hoặc
+pnpm install
+# hoặc
+bun install
+```
 
-**Use GitHub Codespaces**
+### Chạy môi trường phát triển
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm run dev
+# hoặc
+pnpm dev
+# hoặc
+bun run dev
+```
 
-## What technologies are used for this project?
+### Build & Preview
 
-This project is built with:
+```bash
+npm run build
+npm run preview
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Lint
 
-## How can I deploy this project?
+```bash
+npm run lint
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Biến môi trường / Secrets
 
-## Can I connect a custom domain to my Lovable project?
+Ứng dụng sử dụng Supabase và các tích hợp khác. Tạo file `.env` hoặc `.env.local` với các biến cần thiết, ví dụ:
 
-Yes, you can!
+```
+VITE_SUPABASE_URL=https://...
+VITE_SUPABASE_ANON_KEY=...
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Kiểm tra mã trong [src](src) / [integrations/supabase](src/integrations/supabase) để biết tên biến thực tế.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Cấu trúc dự án (tóm tắt)
+
+- `src/`: mã nguồn chính (components, pages, hooks, contexts)
+- `src/pages/`: các route page (Index, PlaceDetail, Itinerary...)
+- `src/components/`: UI và feature components
+- `integrations/`: client cho bên thứ ba (Supabase)
+- `supabase/`: functions và cấu hình liên quan
+
+Xem chi tiết trong thư mục [src](src).
+
+## Triển khai
+
+Build bằng `npm run build` và triển khai nội dung `dist/` lên hosting tĩnh (Vercel, Netlify, Cloudflare Pages) hoặc server phù hợp. Nếu dùng Supabase Edge Functions, đảm bảo deploy functions tương ứng trong thư mục `supabase/`.
+
+## Contributing
+
+- Fork → Tạo branch feature → Tạo PR.
+- Chạy `npm run lint` và đảm bảo không có lỗi type. Viết test khi cần.
+
+## Troubleshooting
+
+- Lỗi bản đồ: kiểm tra token/config MapLibre và CORS.
+- Lỗi Supabase: kiểm tra `VITE_SUPABASE_*` trong `.env`.
+
+## License & Contact
+
+- Thêm file license (ví dụ MIT) nếu muốn cấp phép mã nguồn.
+- Mở issue hoặc liên hệ maintainer trong repository để hỏi thêm.
+
+---
+
+File này được cập nhật tự động bởi trợ lý; bạn có thể chỉnh lại nội dung tuỳ ý.
