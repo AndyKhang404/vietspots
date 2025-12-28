@@ -22,6 +22,8 @@ export default function Index() {
 
   const [recommendedPlaces, setRecommendedPlaces] = useState<Place[]>([]);
   const [nearbyPlaces, setNearbyPlaces] = useState<Place[]>([]);
+  const [visibleRecommended, setVisibleRecommended] = useState(8);
+  const [visibleNearby, setVisibleNearby] = useState(8);
   const [placesLoading, setPlacesLoading] = useState(true);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null);
@@ -347,10 +349,17 @@ export default function Index() {
             </button>
           </div>
           <PlacesList
-            places={recommendedPlaces}
+            places={recommendedPlaces.slice(0, visibleRecommended)}
             loading={placesLoading}
             emptyMessage={t('messages.loading_places')}
           />
+          {recommendedPlaces.length > visibleRecommended && (
+            <div className="mt-3 text-center">
+              <Button variant="ghost" onClick={() => setVisibleRecommended((v) => v + 8)}>
+                {t('home.load_more') || 'Load more'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Nearby Places */}
@@ -380,11 +389,20 @@ export default function Index() {
               <p className="text-sm text-primary font-medium">{t('messages.press_to_grant_permission')}</p>
             </div>
           ) : (
-            <PlacesList
-              places={nearbyPlaces}
-              loading={nearbyLoading}
-              emptyMessage={t('messages.no_nearby_places')}
-            />
+            <>
+              <PlacesList
+                places={nearbyPlaces.slice(0, visibleNearby)}
+                loading={nearbyLoading}
+                emptyMessage={t('messages.no_nearby_places')}
+              />
+              {nearbyPlaces.length > visibleNearby && (
+                <div className="mt-3 text-center">
+                  <Button variant="ghost" onClick={() => setVisibleNearby((v) => v + 8)}>
+                    {t('home.load_more') || 'Load more'}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
 

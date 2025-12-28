@@ -88,12 +88,11 @@ export default function Auth() {
         } else {
           // If there's no session returned, Supabase likely requires email confirmation
           const createdUser = res.data?.user;
-          if (createdUser && !res.data?.session) {
-            toast({ title: t('auth.signupSuccess'), description: t('auth.check_email_for_confirmation') });
-          } else {
-            toast({ title: t('auth.signupSuccess') });
-            navigate('/');
-          }
+          // Always switch to login page after signup so user can sign in (or check email for confirmation)
+          toast({ title: t('auth.signupSuccess'), description: createdUser && !res.data?.session ? t('auth.check_email_for_confirmation') : undefined });
+          setIsLogin(true);
+          // Redirect to login view (same page, but ensure route is /auth)
+          navigate('/auth');
         }
       }
     } finally {

@@ -127,6 +127,8 @@ export function useChatConversations() {
                     title,
                     messages: localMessages as unknown as Json,
                     place_results: [] as unknown as Json,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                   }])
                   .select()
                   .single();
@@ -274,6 +276,14 @@ export function useChatConversations() {
           .eq('id', currentConversationId);
 
         if (error) throw error;
+        // Update local conversations state so UI reflects new updatedAt and messages
+        setConversations((prev) => prev.map((c) => c.id === currentConversationId ? ({
+          ...c,
+          title,
+          messages,
+          placeResults,
+          updatedAt: new Date().toISOString(),
+        }) : c));
       } else {
         // Create new conversation
         try {
@@ -285,6 +295,8 @@ export function useChatConversations() {
               title,
               messages: messages as unknown as Json,
               place_results: placeResults as unknown as Json,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             }])
             .select()
             .single();
@@ -307,6 +319,18 @@ export function useChatConversations() {
           }
           if (data) {
             setCurrentConversationId(data.id);
+            // Insert newly created conversation into local state so UI shows created_at immediately
+            setConversations((prev) => [
+              {
+                id: data.id,
+                title: data.title,
+                messages: (data.messages as unknown) as Message[],
+                placeResults: (data.place_results as unknown) as PlaceResult[],
+                createdAt: data.created_at,
+                updatedAt: data.updated_at,
+              },
+              ...prev,
+            ]);
           }
         } catch (err: any) {
           const msg = err?.message || '';
@@ -354,6 +378,8 @@ export function useChatConversations() {
               title: item.title,
               messages: item.messages as unknown as Json,
               place_results: item.place_results as unknown as Json,
+              created_at: item.created_at || new Date().toISOString(),
+              updated_at: item.updated_at || new Date().toISOString(),
             }])
             .select()
             .single();

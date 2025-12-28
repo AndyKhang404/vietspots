@@ -187,27 +187,39 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         if (place.rating !== undefined && place.rating !== null) payload.place_rating = place.rating;
         if (place.category) payload.place_category = place.category;
 
+        const now = new Date().toISOString();
         const { data, error } = await supabase
           .from("wishlists")
-          .insert({ id: crypto.randomUUID(), ...payload, user_id: dbUserId } as any)
-          .select()
+          .insert({ id: crypto.randomUUID(), created_at: now, updated_at: now, ...payload, user_id: dbUserId } as any)
+          .select('id,place_id,place_name,place_address,place_image,place_rating,place_category,created_at')
           .single();
 
-        if (error) throw error;
+        console.debug('wishlists.insert result', { data, error, dbUserId });
 
-        const newItem: WishlistItem = {
-          id: data.id,
-          place_id: data.place_id,
-          place_name: data.place_name,
-          place_address: data.place_address || undefined,
-          place_image: data.place_image || undefined,
-          place_rating: data.place_rating ? Number(data.place_rating) : undefined,
-          place_category: data.place_category || undefined,
-          created_at: data.created_at,
-        };
+        if (error) {
+          console.error('Supabase wishlists insert error', error);
+          throw error;
+        }
 
-        setFavorites((prev) => [...prev, place.id]);
-        setWishlistItems((prev) => [newItem, ...prev]);
+        // Try to refresh from DB (handles RLS/defaults); if that fails, fall back to using returned row
+        try {
+          await fetchWishlist();
+        } catch (e) {
+          const newItem: WishlistItem = {
+            id: data.id,
+            place_id: data.place_id,
+            place_name: data.place_name,
+            place_address: data.place_address || undefined,
+            place_image: data.place_image || undefined,
+            place_rating: data.place_rating ? Number(data.place_rating) : undefined,
+            place_category: data.place_category || undefined,
+            created_at: data.created_at,
+          };
+
+          setFavorites((prev) => [...prev, place.id]);
+          setWishlistItems((prev) => [newItem, ...prev]);
+        }
+
         toast.success(t('messages.saved_favorite'));
       }
     } catch (error: any) {

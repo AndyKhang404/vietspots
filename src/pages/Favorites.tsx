@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 export default function Favorites() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { wishlistItems, loading, removeFavorite, refreshWishlist } = useFavorites();
@@ -99,6 +99,9 @@ export default function Favorites() {
                   <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">
                     {item.place_name}
                   </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(item.created_at).toLocaleString(i18n.language || 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
                   {item.place_address && (
                     <div className="flex items-center gap-1.5 text-primary mt-1.5">
                       <MapPin className="h-4 w-4" />

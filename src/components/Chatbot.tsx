@@ -179,6 +179,7 @@ export default function Chatbot() {
   const { user } = useAuth();
   const {
     conversations,
+    currentConversationId,
     messages,
     setMessages,
     placeResults,
@@ -208,6 +209,8 @@ export default function Chatbot() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const currentConversation = conversations.find(c => c.id === currentConversationId) || null;
 
   // Speech / STT / TTS state
   const [isRecording, setIsRecording] = useState(false);
@@ -983,6 +986,18 @@ export default function Chatbot() {
                   )}
                   {userLocation ? t('ui.locating') : t('actions.location')}
                 </Button>
+
+                  {/* Current conversation saved timestamp */}
+                  {currentConversation && (
+                    <div className="ml-auto text-xs text-muted-foreground px-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {t('chat.saved_on') || 'Saved on'} {new Date(currentConversation.createdAt || currentConversation.updatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Filters Popover */}
                 <Popover open={showFilters} onOpenChange={setShowFilters}>

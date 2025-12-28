@@ -229,17 +229,25 @@ export function useItinerary() {
         itinerary_data: JSON.parse(JSON.stringify(params.itinerary_data)),
         is_public: params.is_public || false,
         share_token: shareToken,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       const { data: inserted, error } = await supabase
         .from("itineraries")
         .insert([insertData] as never)
-        .select()
+        .select('id,user_id,title,destination,days,budget,preferences,itinerary_data,is_public,share_token,created_at,updated_at')
         .single();
 
-      if (error) throw error;
+      console.debug('itineraries.insert result', { inserted, error, dbUserId });
+
+      if (error) {
+        console.error('Supabase itineraries insert error', error);
+        throw error;
+      }
 
       toast.success(t('messages.itinerary_saved'));
+      // Refresh list to ensure server-side defaults and RLS are reflected
       await fetchItineraries();
       return inserted;
     } catch (error: any) {
