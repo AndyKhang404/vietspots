@@ -1,4 +1,6 @@
 import { ReactNode } from "react";
+import logo from "@/images/logo2.jpg";
+import logo2 from "@/images/logo.png";
 import { Home, Heart, Bell, Settings, Search, MapPin, User, Calendar } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -30,8 +32,8 @@ export default function Layout({ children }: LayoutProps) {
         {/* Logo */}
         <div className="p-6 border-b border-border">
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-              <MapPin className="h-5 w-5 text-primary-foreground" />
+            <div className="h-10 w-10 rounded-xl overflow-hidden bg-primary flex items-center justify-center">
+              <img src={logo} alt={t('app.name')} className="h-10 w-10 object-cover" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-primary">{t('app.name')}</h1>
@@ -92,8 +94,8 @@ export default function Layout({ children }: LayoutProps) {
         <header className="lg:hidden sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <MapPin className="h-4 w-4 text-primary-foreground" />
+              <div className="h-8 w-8 rounded-lg overflow-hidden bg-primary flex items-center justify-center">
+                <img src={logo} alt={t('app.name')} className="h-8 w-8 object-cover" />
               </div>
               <h1 className="text-lg font-bold text-primary">{t('app.name')}</h1>
             </div>

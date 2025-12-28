@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import logo from '@/images/logo2.jpg';
+import logo2 from '@/images/logo.png';
 import { z } from 'zod';
 
 const emailSchema = z.string().email();
@@ -107,7 +109,10 @@ export default function Auth() {
           <button onClick={() => navigate('/')} className="p-2 hover:bg-secondary rounded-lg">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-bold text-primary">VietSpots</h1>
+          <div className="flex items-center gap-3">
+            <img src={logo} alt={t('app.name')} className="h-6 w-6 rounded-md object-contain" />
+            <h1 className="text-xl font-bold text-primary">{t('app.name')}</h1>
+          </div>
         </div>
       </header>
 
@@ -115,8 +120,8 @@ export default function Auth() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-              <MapPin className="h-10 w-10 text-primary" />
+            <div className="inline-flex items-center justify-center bg-white/90 rounded-xl px-3 py-2 shadow-md">
+              <img src={logo2} alt={t('app.name')} className="h-10 w-auto" />
             </div>
             <h2 className="text-2xl font-bold text-foreground">
               {isLogin ? t('auth.login') : t('auth.signup')}
