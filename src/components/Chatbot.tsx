@@ -40,6 +40,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  createdAt?: string;
 }
 
 interface PlaceResult {
@@ -669,6 +670,7 @@ export default function Chatbot() {
       id: Date.now().toString(),
       role: "user",
       content: input,
+      createdAt: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -685,6 +687,7 @@ export default function Chatbot() {
         role: "assistant",
         content: "",
         isStreaming: true,
+        createdAt: new Date().toISOString(),
       },
     ]);
 
@@ -1191,6 +1194,9 @@ export default function Chatbot() {
                                     <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
                                   )}
                                 </p>
+                                <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
+                                  {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1317,6 +1323,9 @@ export default function Chatbot() {
                                     <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
                                   )}
                                 </p>
+                                <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
+                                  {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </div>
                               </div>
                             </div>
                           ))}

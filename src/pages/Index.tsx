@@ -356,7 +356,7 @@ export default function Index() {
           {recommendedPlaces.length > visibleRecommended && (
             <div className="mt-3 text-center">
               <Button variant="ghost" onClick={() => setVisibleRecommended((v) => v + 8)}>
-                {t('home.load_more') || 'Load more'}
+                {t('Xem thêm') || 'Load more'}
               </Button>
             </div>
           )}
@@ -398,7 +398,7 @@ export default function Index() {
               {nearbyPlaces.length > visibleNearby && (
                 <div className="mt-3 text-center">
                   <Button variant="ghost" onClick={() => setVisibleNearby((v) => v + 8)}>
-                    {t('home.load_more') || 'Load more'}
+                    {t('Xem thêm') || 'Load more'}
                   </Button>
                 </div>
               )}

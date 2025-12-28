@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Layout from "@/components/Layout";
@@ -43,6 +43,7 @@ export default function Settings() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [colorThemeOpen, setColorThemeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState<'profile' | 'privacy'>('profile');
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
@@ -51,7 +52,41 @@ export default function Settings() {
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || "");
   const [phone, setPhone] = useState(user?.user_metadata?.phone || "");
   const [bio, setBio] = useState(user?.user_metadata?.bio || "");
+  const [companionType, setCompanionType] = useState<string>(user?.user_metadata?.companion_type || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
+  const [gender, setGender] = useState<string>(user?.user_metadata?.gender || "");
+  const [age, setAge] = useState<string>(user?.user_metadata?.age ? String(user?.user_metadata?.age) : "");
+  const [hobbies, setHobbies] = useState<string[]>(user?.user_metadata?.hobby ? String(user?.user_metadata?.hobby).split(',') : []);
+  const [culture, setCulture] = useState<string>(user?.user_metadata?.culture || "");
+  const [religion, setReligion] = useState<string>(user?.user_metadata?.religion || "");
+
+  const hobbyOptions = [
+    'Phiêu lưu', 'Ít di chuyển', 'Đẹp', 'Bí ẩn', 'Ẩm thực', 'Văn hóa', 'Thiên nhiên', 'Cuộc sống về đêm'
+  ];
+
+  const cultureOptions = [
+    'Việt Nam','Trung Quốc','Nhật Bản','Hàn Quốc','Thái Lan','Ấn Độ','Phương Tây / Châu Âu','Mỹ','Trung Đông','Châu Phi','Khác'
+  ];
+
+  const religionOptions = [
+    'Không','Phật giáo','Thiên Chúa giáo','Hồi giáo','Ấn Độ giáo','Do Thái giáo','Đạo Sikh','Khác'
+  ];
+
+  // Refresh local profile form from auth user metadata when opening dialog
+  useEffect(() => {
+    if (!profileOpen) return;
+    const meta = user?.user_metadata || {};
+    setFullName(meta.full_name || "");
+    setPhone(meta.phone || "");
+    setBio(meta.bio || "");
+    setAvatarUrl(meta.avatar_url || "");
+    setGender(meta.gender || "");
+    setAge(meta.age ? String(meta.age) : "");
+    setHobbies(meta.hobby ? String(meta.hobby).split(',') : []);
+    setCulture(meta.culture || "");
+    setReligion(meta.religion || "");
+    setCompanionType(meta.companion_type || meta.companionType || "");
+  }, [profileOpen, user]);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
@@ -75,7 +110,14 @@ export default function Settings() {
           full_name: fullName,
           phone: phone,
           bio: bio,
-          avatar_url: avatarUrl
+          companion_type: companionType || null,
+          introduction: bio || null,
+          avatar_url: avatarUrl,
+          gender: gender || null,
+          age: age || null,
+          hobby: hobbies.join(',') || null,
+          culture: culture || null,
+          religion: religion || null,
         }
       });
 
@@ -86,10 +128,26 @@ export default function Settings() {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData?.user?.id || user?.id;
         if (userId) {
-          // Use upsert on user_id (profiles_user_id_key)
+          // Use upsert on user_id (profiles_user_id_key) and persist privacy fields
+          const profilePayload: any = {
+            user_id: userId,
+            full_name: fullName || null,
+            avatar_url: avatarUrl || null,
+            phone: phone || null,
+            bio: bio || null,
+            gender: gender || null,
+            age: age ? parseInt(age, 10) : null,
+            hobby: hobbies.length > 0 ? hobbies.join(',') : null,
+            culture: culture || null,
+            religion: religion || null,
+            companion_type: companionType || null,
+            introduction: bio || null,
+            preferences: hobbies || [],
+          };
+
           const { error: profilesError } = await supabase
             .from('profiles')
-            .upsert({ user_id: userId, full_name: fullName, avatar_url: avatarUrl, preferences: [] }, { onConflict: 'user_id' });
+            .upsert(profilePayload, { onConflict: 'user_id' });
 
           if (profilesError) {
             // eslint-disable-next-line no-console
@@ -100,7 +158,7 @@ export default function Settings() {
           try {
             const { error: usersError } = await (supabase as any)
               .from('users')
-              .upsert({ id: userId, email: user?.email || userData?.user?.email || null, name: fullName || null, avatar_url: avatarUrl || null, phone: phone || null }, { onConflict: 'id' });
+                .upsert({ id: userId, email: user?.email || userData?.user?.email || null, name: fullName || null, avatar_url: avatarUrl || null, phone: phone || null, gender: gender || null, age: age ? parseInt(age, 10) : null, hobby: hobbies.join(',') || null, culture: culture || null, religion: religion || null, companion_type: companionType || null, introduction: bio || null }, { onConflict: 'id' });
 
             if (usersError) {
               // eslint-disable-next-line no-console
@@ -171,7 +229,14 @@ export default function Settings() {
           icon: User,
           label: t('settings.personalInfo'),
           hasArrow: true,
-          onClick: () => user ? setProfileOpen(true) : navigate('/auth')
+          onClick: () => {
+            if (user) {
+              setProfileTab('profile');
+              setProfileOpen(true);
+            } else {
+              navigate('/auth');
+            }
+          }
         },
         {
           icon: Bell,
@@ -382,87 +447,193 @@ export default function Settings() {
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('settings.profile_info')}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{t('settings.personalInfo')}</span>
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
-            {/* Avatar preview */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="h-10 w-10 text-primary" />
-                )}
-              </div>
-              <div className="w-full">
-                <Label htmlFor="avatarUrl">{t('settings.avatar_url')}</Label>
-                <Input
-                  id="avatarUrl"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="mt-1.5"
-                />
-              </div>
-            </div>
 
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={user?.email || ""} disabled className="mt-1.5" />
+          {/* Tabs: Profile | Privacy */}
+          <div className="mt-2 px-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setProfileTab('profile')}
+                className={`flex-1 py-2 rounded-t-xl border border-border ${profileTab === 'profile' ? 'bg-primary/10 text-primary font-medium' : 'bg-card'}`}
+              >
+                Thông tin hồ sơ
+              </button>
+              <button
+                onClick={() => setProfileTab('privacy')}
+                className={`flex-1 py-2 rounded-t-xl border border-border ${profileTab === 'privacy' ? 'bg-primary/10 text-primary font-medium' : 'bg-card'}`}
+              >
+                Thông tin riêng tư
+              </button>
             </div>
-            <div>
-              <Label htmlFor="fullName">{t('settings.full_name')}</Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder={t('settings.enter_full_name')}
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">{t('settings.phone')}</Label>
-              <Input
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0123 456 789"
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="bio">{t('settings.bio')}</Label>
-              <Input
-                id="bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder={t('settings.bio_placeholder')}
-                className="mt-1.5"
-              />
-            </div>
+          </div>
 
-            {/* Account info */}
-            <div className="pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground mb-2">{t('settings.account_info')}</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('settings.account_created')}</span>
-                  <span className="text-foreground">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A'}
-                  </span>
+          <div className="space-y-4 mt-4 px-4">
+            {profileTab === 'profile' ? (
+              <div>
+                {/* Avatar preview */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="h-10 w-10 text-primary" />
+                    )}
+                  </div>
+                  <div className="w-full">
+                    <Label htmlFor="avatarUrl">{t('settings.avatar_url')}</Label>
+                    <Input
+                      id="avatarUrl"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="mt-1.5"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('settings.last_login')}</span>
-                  <span className="text-foreground">
-                    {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('vi-VN') : 'N/A'}
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            <Button onClick={handleSaveProfile} className="w-full">
-              {t('settings.save_changes')}
-            </Button>
+                <div className="mt-3">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={user?.email || ""} disabled className="mt-1.5" />
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="fullName">{t('settings.full_name')}</Label>
+                  <Input
+                    id="fullName"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder={t('settings.enter_full_name')}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="phone">{t('settings.phone')}</Label>
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0123 456 789"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="bio">Giới thiệu</Label>
+                  <Input
+                    id="bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Viết đôi dòng giới thiệu về bạn"
+                    className="mt-1.5"
+                  />
+                </div>
+
+                {/* Personal extra fields: gender & age */}
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <Label htmlFor="gender">Giới tính</Label>
+                    <select id="gender" value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1.5 w-full rounded-md border p-2">
+                      <option value="">Không chọn</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="age">Tuổi</Label>
+                    <Input id="age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" className="mt-1.5" />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground mb-2">{t('settings.account_info')}</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('settings.account_created')}</span>
+                      <span className="text-foreground">
+                        {user?.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('settings.last_login')}</span>
+                      <span className="text-foreground">
+                        {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('vi-VN') : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 mt-4">
+                  {t('settings.save_changes')}
+                </Button>
+              </div>
+            ) : (
+              <div>
+                {/* Privacy UI styled like screenshots */}
+                <div className="mb-4">
+                  <h4 className="text-base font-semibold">Sở thích</h4>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {hobbyOptions.map((h) => {
+                      const active = hobbies.includes(h);
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => setHobbies(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h])}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-full border-2 ${active ? 'bg-amber-400 text-black border-amber-400' : 'bg-white text-foreground border-black'} shadow-sm`}
+                        >
+                          {active && <Check className="h-4 w-4" />}
+                          <span className="text-sm">{h}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h4 className="text-base font-semibold">Văn hóa</h4>
+                  <div className="mt-3 bg-white rounded-xl border border-border">
+                    {cultureOptions.map((c) => (
+                      <label key={c} className="flex items-center justify-between p-4 border-b last:border-b-0">
+                        <span>{c}</span>
+                        <input type="radio" name="culture" value={c} checked={culture === c} onChange={(e) => setCulture(e.target.value)} className="ml-4 accent-red-600" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h4 className="text-base font-semibold">Tôn giáo</h4>
+                  <div className="mt-3 bg-white rounded-xl border border-border">
+                    {religionOptions.map((r) => (
+                      <label key={r} className="flex items-center justify-between p-4 border-b last:border-b-0">
+                        <span className={`${r === religion ? 'text-red-600' : ''}`}>{r}</span>
+                        <input type="radio" name="religion" value={r} checked={religion === r} onChange={(e) => setReligion(e.target.value)} className="ml-4 accent-red-600" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h4 className="text-base font-semibold">Bạn đồng hành</h4>
+                  <div className="mt-3 bg-white rounded-xl border border-border">
+                    {['Một mình', 'Cặp đôi', 'Gia đình', 'Bạn bè'].map((opt) => (
+                      <label key={opt} className={`flex items-center justify-between p-4 border-b last:border-b-0 cursor-pointer ${companionType === opt ? 'bg-primary/5' : ''}`}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm">{opt}</span>
+                        </div>
+                        <input type="radio" name="companion" value={opt} checked={companionType === opt} onChange={(e) => setCompanionType(e.target.value)} className="ml-4 accent-red-600" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Lưu
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

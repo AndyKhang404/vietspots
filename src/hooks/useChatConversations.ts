@@ -52,6 +52,7 @@ export function useChatConversations() {
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [migrated, setMigrated] = useState(false);
+  const isSavingRef = useRef(false);
   // Track if migration toast was already shown in this session
   const [migrationToastShown, setMigrationToastShown] = useState(false);
   // Remember last saved messages hash to avoid duplicate saves
@@ -83,11 +84,23 @@ export function useChatConversations() {
       setConversations(data?.map(conv => ({
         id: conv.id,
         title: conv.title,
-        messages: (conv.messages as unknown) as Message[],
+        messages: ((conv.messages as unknown) as Message[]).map((m) => ({ ...(m as Message), createdAt: (m as any)?.createdAt || conv.created_at })),
         placeResults: (conv.place_results as unknown) as PlaceResult[],
         createdAt: conv.created_at,
         updatedAt: conv.updated_at,
       })) || []);
+      // If we fetched at least one conversation, set the most recent as current
+      if (data && Array.isArray(data) && data.length > 0) {
+        const first = data[0];
+        try {
+          const msgs = ((first.messages as unknown) as Message[]).map((m) => ({ ...(m as Message), createdAt: (m as any)?.createdAt || first.created_at }));
+          setCurrentConversationId(first.id);
+          setMessages(msgs);
+          setPlaceResults((first.place_results as unknown) as PlaceResult[] || []);
+        } catch (e) {
+          // ignore parsing errors
+        }
+      }
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
@@ -260,6 +273,10 @@ export function useChatConversations() {
       // ignore stringify errors and proceed to save
     }
 
+    // Prevent concurrent saves
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
     // Require an authenticated session to avoid RLS check failures
     const { data: sessionData } = await supabase.auth.getSession();
     const session = sessionData?.session;
@@ -309,110 +326,164 @@ export function useChatConversations() {
         try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
       } else {
         // Create new conversation
-        try {
-          const { data, error } = await supabase
-            .from('chat_conversations')
-            .insert([{
-              id: crypto.randomUUID(),
-              user_id: dbUserId,
-              title,
-              messages: messages as unknown as Json,
-              place_results: placeResults as unknown as Json,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }])
-            .select()
-            .single();
+        const { data: insertData, error: insertError } = await supabase
+          .from('chat_conversations')
+          .insert([{
+            id: crypto.randomUUID(),
+            user_id: dbUserId,
+            title,
+            messages: messages as unknown as Json,
+            place_results: placeResults as unknown as Json,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }])
+          .select()
+          .single();
 
-          if (error) {
-            // If RLS blocks insert, queue locally
-            const msg = error?.message || '';
-            if (msg.includes('row-level')) {
-              console.warn('RLS blocked insert; queueing conversation for later sync');
-              const queueRaw = localStorage.getItem(QUEUE_KEY);
-              const queue = queueRaw ? JSON.parse(queueRaw) : [];
-              queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
-              localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-              // Mark as saved/queued to avoid duplicates
-              try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
-              toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
-            } else {
-              console.error('Error saving conversation:', error);
-              toast.error(t('messages.error_occurred_apology') + ' ' + (error.message || ''));
-              throw error;
-            }
-          }
-          if (data) {
-            setCurrentConversationId(data.id);
-            // Insert newly created conversation into local state so UI shows created_at immediately
-            setConversations((prev) => [
-              {
-                id: data.id,
-                title: data.title,
-                messages: (data.messages as unknown) as Message[],
-                placeResults: (data.place_results as unknown) as PlaceResult[],
-                createdAt: data.created_at,
-                updatedAt: data.updated_at,
-              },
-              ...prev,
-            ]);
-            // Mark as saved
-            try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
-          }
-        } catch (err: any) {
-          const msg = err?.message || '';
+        if (insertError) {
+          const msg = insertError?.message || '';
           if (msg.includes('row-level')) {
             console.warn('RLS blocked insert; queueing conversation for later sync');
             const queueRaw = localStorage.getItem(QUEUE_KEY);
             const queue = queueRaw ? JSON.parse(queueRaw) : [];
             queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
             localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+            try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
+            toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
           } else {
-            console.error('Error saving conversation:', err);
-            toast.error(t('messages.error_occurred_apology'));
+            console.error('Error saving conversation:', insertError);
+            toast.error((t('messages.error_occurred_apology') || 'An error occurred') + ' ' + (insertError.message || ''));
+            throw insertError;
+          }
+        } else if (insertData) {
+          setCurrentConversationId(insertData.id);
+          setConversations((prev) => [
+            {
+              id: insertData.id,
+              title: insertData.title,
+              messages: (insertData.messages as unknown) as Message[],
+              placeResults: (insertData.place_results as unknown) as PlaceResult[],
+              createdAt: insertData.created_at,
+              updatedAt: insertData.updated_at,
+            },
+            ...prev,
+          ]);
+          try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
+        } else {
+          // Fallback: try upsert to ensure idempotent save
+          const newId = crypto.randomUUID();
+          setCurrentConversationId(newId);
+          try {
+            const payload = {
+              id: newId,
+              user_id: dbUserId,
+              title,
+              messages: messages as unknown as Json,
+              place_results: placeResults as unknown as Json,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+
+            const { data: upsertData, error: upsertErr } = await supabase
+              .from('chat_conversations')
+              .upsert(payload, { onConflict: 'id' })
+              .select()
+              .single();
+
+            if (upsertErr) {
+              const msg = upsertErr?.message || '';
+              if (msg.includes('row-level')) {
+                console.warn('RLS blocked upsert; queueing conversation for later sync');
+                const queueRaw = localStorage.getItem(QUEUE_KEY);
+                const queue = queueRaw ? JSON.parse(queueRaw) : [];
+                queue.push({ id: newId, title, messages, place_results: placeResults });
+                localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
+                toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+              } else {
+                console.error('Error saving conversation:', upsertErr);
+                toast.error((t('messages.error_occurred_apology') || 'An error occurred') + ' ' + (upsertErr.message || ''));
+                throw upsertErr;
+              }
+            }
+
+            if (upsertData) {
+              setConversations((prev) => [
+                {
+                  id: upsertData.id,
+                  title: upsertData.title,
+                  messages: (upsertData.messages as unknown) as Message[],
+                  placeResults: (upsertData.place_results as unknown) as PlaceResult[],
+                  createdAt: upsertData.created_at,
+                  updatedAt: upsertData.updated_at,
+                },
+                ...prev,
+              ]);
+              try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
+            }
+          } catch (err: any) {
+            const msg = err?.message || '';
+            if (msg.includes('row-level')) {
+              console.warn('RLS blocked upsert; queueing conversation for later sync');
+              const queueRaw = localStorage.getItem(QUEUE_KEY);
+              const queue = queueRaw ? JSON.parse(queueRaw) : [];
+              queue.push({ id: newId, title, messages, place_results: placeResults });
+              localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+            } else {
+              console.error('Error saving conversation:', err);
+              toast.error(t('messages.error_occurred_apology'));
+            }
           }
         }
       }
-    } catch (error) {
-      console.error('Error saving conversation:', error);
-      toast.error(t('messages.error_occurred_apology'));
+    } catch (e) {
+      console.error('saveConversation error', e);
+    } finally {
+      isSavingRef.current = false;
     }
-  }, [user, currentConversationId, messages, placeResults]);
+  }, [user, messages, placeResults, currentConversationId, t]);
 
-  // Attempt to flush any queued conversations when a session becomes available
+  // Flush locally queued conversations to Supabase when session/user available
   const flushQueue = useCallback(async () => {
+    if (!user) return;
     try {
       const queueRaw = localStorage.getItem(QUEUE_KEY);
-      if (!queueRaw) return;
-      const queue = JSON.parse(queueRaw) as any[];
+      const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
       if (!queue || queue.length === 0) return;
 
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
       if (!session) return;
-      const { data: userData } = await supabase.auth.getUser();
+
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.warn('getUser error flushing queue', userErr);
       const dbUserId = userData?.user?.id || user?.id;
-      if (!dbUserId) return;
 
       const remaining: any[] = [];
       for (const item of queue) {
         try {
-          const { data, error } = await supabase
+          const payload = {
+            id: item.id || crypto.randomUUID(),
+            user_id: dbUserId,
+            title: item.title || (item.messages?.find((m: any) => m.role === 'user')?.content?.slice(0,50) || t('chat.default_saved_title') || 'Saved conversation'),
+            messages: item.messages as unknown as Json,
+            place_results: item.place_results as unknown as Json,
+            created_at: item.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
             .from('chat_conversations')
-            .insert([{
-              id: item.id || crypto.randomUUID(),
-              user_id: dbUserId,
-              title: item.title,
-              messages: item.messages as unknown as Json,
-              place_results: item.place_results as unknown as Json,
-              created_at: item.created_at || new Date().toISOString(),
-              updated_at: item.updated_at || new Date().toISOString(),
-            }])
-            .select()
-            .single();
+            .upsert(payload, { onConflict: 'id' });
+
           if (error) {
-            console.warn('Failed to sync queued conversation:', error);
-            remaining.push(item);
+            const msg = error?.message || '';
+            if (msg.includes('row-level')) {
+              remaining.push(item);
+            } else {
+              console.error('flushQueue item error', error);
+              remaining.push(item);
+            }
           }
         } catch (e) {
           console.error('Error flushing queued conversation', e);
@@ -428,7 +499,7 @@ export function useChatConversations() {
     } catch (e) {
       console.error('flushQueue error', e);
     }
-  }, [user]);
+  }, [user, t]);
 
   // Try flushing queue when user/session becomes available
   useEffect(() => {
