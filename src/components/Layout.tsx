@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import logo from "@/images/logo2.jpg";
 import logo2 from "@/images/logo.png";
-import { Home, Heart, Bell, Settings, Search, MapPin, User, Calendar } from "lucide-react";
+import { Home, Heart, Bell, Settings, Search, MapPin, User, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,25 +26,57 @@ export default function Layout({ children }: LayoutProps) {
     { icon: Settings, label: t('nav.settings'), path: "/settings" },
   ];
 
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('vietspots_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapsed = () => {
+    const v = !collapsed;
+    setCollapsed(v);
+    try { localStorage.setItem('vietspots_sidebar_collapsed', v ? '1' : '0'); } catch { }
+  };
+
   return (
     <div className="min-h-screen bg-background flex overflow-x-hidden">
       {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card fixed h-full">
+      <aside className={"hidden lg:flex flex-col border-r border-border bg-card fixed h-full transition-all " + (collapsed ? 'w-16' : 'w-64')}>
         {/* Logo */}
-        <div className="p-6 border-b border-border">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl overflow-hidden bg-primary flex items-center justify-center">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <Link
+            to="/"
+            className={"flex items-center gap-2 " + (collapsed ? 'w-full' : '')}
+            onClick={(e) => {
+              if (collapsed) {
+                // If collapsed, reopen instead of navigating away
+                e.preventDefault();
+                try { localStorage.setItem('vietspots_sidebar_collapsed', '0'); } catch { }
+                setCollapsed(false);
+              }
+            }}
+          >
+            <div className={"h-10 w-10 rounded-xl overflow-hidden bg-primary flex items-center justify-center" + (collapsed ? ' mx-auto' : '')}>
               <img src={logo} alt={t('app.name')} className="h-10 w-10 object-cover" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-primary">{t('app.name')}</h1>
-              <p className="text-xs text-muted-foreground">{t('app.tagline')}</p>
-            </div>
+            {!collapsed && (
+              <div>
+                <h1 className="text-xl font-bold text-primary">{t('app.name')}</h1>
+                <p className="text-xs text-muted-foreground">{t('app.tagline')}</p>
+              </div>
+            )}
           </Link>
+          {!collapsed && (
+            <button onClick={toggleCollapsed} aria-label="Toggle sidebar" className="ml-2 p-1 rounded hover:bg-secondary">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-2 space-y-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -60,9 +92,12 @@ export default function Layout({ children }: LayoutProps) {
               >
                 <item.icon className={cn(
                   "h-5 w-5 transition-transform group-hover:scale-110",
-                  isActive && "scale-110"
+                  isActive && "scale-110",
+                  // Ensure active icon keeps strong appearance when collapsed
+                  isActive ? "text-primary-foreground" : "text-muted-foreground",
+                  collapsed && isActive && "stroke-2"
                 )} />
-                <span className="font-medium">{item.label}</span>
+                {!collapsed && <span className="font-medium">{item.label}</span>}
               </Link>
             );
           })}
@@ -72,25 +107,33 @@ export default function Layout({ children }: LayoutProps) {
         <div className="p-4 border-t border-border">
           <Link
             to={user ? "/settings" : "/auth"}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary transition-colors"
+            className={cn(
+              "flex items-center rounded-xl hover:bg-secondary transition-colors",
+              collapsed ? "p-3 justify-center" : "gap-3 p-3"
+            )}
           >
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-5 w-5 text-primary" />
+            <div className={cn(
+              "h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center",
+              collapsed && "mx-auto"
+            )}>
+              <User className={cn("h-5 w-5 text-primary", collapsed && "stroke-2")} />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {user?.user_metadata?.full_name || t('auth.guest')}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user?.email || t('auth.login')}
-              </p>
-            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user?.user_metadata?.full_name || t('auth.guest')}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || t('auth.login')}
+                </p>
+              </div>
+            )}
           </Link>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64">
+      <div className={"flex-1 " + (collapsed ? 'lg:ml-16' : 'lg:ml-64')}>
         {/* Header - Mobile & Tablet */}
         <header className="lg:hidden sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
           <div className="flex items-center justify-between">

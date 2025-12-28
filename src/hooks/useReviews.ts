@@ -32,58 +32,69 @@ export function useReviews(placeId?: string) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch reviews for a place - from both backend API and local Supabase
+  // Fetch reviews (stored as `comments` in Supabase schema) for a place
   const fetchReviews = useCallback(async () => {
     if (!placeId) return;
 
     setLoading(true);
     try {
-      // Fetch from local database first so UI remains responsive even if external API fails
-      const { data: localReviews, error: localError } = await supabase
-        .from("reviews")
-        .select(`
-          *,
-          review_images (*)
-        `)
+      // Query the `comments` table and include any linked `images` rows
+      const res = await (supabase as any)
+        .from("comments")
+        .select(`*, images (*)`)
         .eq("place_id", placeId)
         .order("created_at", { ascending: false });
 
-      if (localError) throw localError;
+      if (res.error) {
+        console.error('Supabase error fetching comments:', res.error);
+        toast.error(t('review.fetch_error') || `Không thể tải đánh giá: ${res.error.message || res.error}`);
+        setReviews([]);
+        setLoading(false);
+        return;
+      }
 
-      // Fetch user profiles for local reviews
-      const userIds = localReviews?.map((r) => r.user_id) || [];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, avatar_url")
-        .in("user_id", userIds);
+      const localReviews = (res.data as any[]) || [];
 
-      const profileMap = new Map(
-        profiles?.map((p) => [p.user_id, { name: p.full_name, avatar: p.avatar_url }]) || []
-      );
+      // Fetch user profiles for these comments from `users` table
+      const userIds = localReviews.map((r) => r.user_id).filter(Boolean) || [];
+      let profiles: any[] = [];
+      if (userIds.length > 0) {
+        const { data: p } = await (supabase as any)
+          .from("users")
+          .select("id, name, avatar_url")
+          .in("id", userIds);
+        profiles = p || [];
+      }
 
-      // Format local reviews
-      const localFormatted: Review[] = (localReviews || []).map((r) => ({
+      const profileMap = new Map(profiles.map((p) => [p.id, { name: p.name, avatar: p.avatar_url }]));
+
+      // Map rows to Review[] (keep `review_id` naming for compatibility in UI)
+      const localFormatted: Review[] = localReviews.map((r) => ({
         id: r.id,
         user_id: r.user_id,
         place_id: r.place_id,
-        rating: r.rating,
-        content: r.content,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        images: (r.review_images || []).map((img: { id: string; image_url: string; created_at: string }) => ({
-          id: img.id,
-          review_id: r.id,
-          image_url: img.image_url,
-          created_at: img.created_at,
-        })),
-        user_name:
-          profileMap.get(r.user_id)?.name ||
-          (user && r.user_id === user.id
-            ? (user.user_metadata as any)?.full_name || user.email
-            : "Người dùng"),
-        user_avatar:
-          profileMap.get(r.user_id)?.avatar || (user && r.user_id === user.id ? (user.user_metadata as any)?.avatar_url : undefined) || undefined,
-      }));
+        rating: Number(r.rating) || 0,
+        content: r.text ?? null,
+        created_at: r.created_at || r.date || new Date().toISOString(),
+        updated_at: r.created_at || r.date || new Date().toISOString(),
+        images: (r.images || []).map((img: any) => ({ id: img.id, review_id: r.id, image_url: img.url, created_at: img.uploaded_at })),
+        user_name: (() => {
+          // Prefer linked `users` table name when available
+          const u = r.user_id ? profileMap.get(r.user_id) : undefined;
+          if (u?.name) return u.name;
+          // If comment has an `author` field (scraped or manual), use it
+          if (r.author) return r.author;
+          // If this comment belongs to current authenticated user, try their profile
+          if (user && r.user_id === user.id) return (user.user_metadata as any)?.full_name || (user as any).name || user.email;
+          return "Người dùng";
+        })(),
+        user_avatar: (() => {
+          const u = r.user_id ? profileMap.get(r.user_id) : undefined;
+          if (u?.avatar) return u.avatar;
+          if (user && r.user_id === user.id) return (user.user_metadata as any)?.avatar_url || (user as any).avatar_url || undefined;
+          return undefined;
+        })(),
+      } as Review));
 
       // Attempt to fetch external API comments, but don't fail the whole flow if it errors
       let apiFormatted: Review[] = [];
@@ -109,13 +120,36 @@ export function useReviews(placeId?: string) {
           user_name: c.author || "Du khách",
         }));
       } catch (apiErr) {
-        // Log and continue with local results only
+        // Log and continue with local results only, but surface a warning so we can debug missing external comments
         // eslint-disable-next-line no-console
         console.warn('Failed to fetch external comments, continuing with local reviews only', apiErr);
+        toast.error(t('review.external_fetch_warning') || 'Không thể tải bình luận từ API ngoài, chỉ hiển thị bình luận cục bộ');
       }
 
-      // Combine and sort by date
-      const combined = [...localFormatted, ...apiFormatted].sort(
+      // Combine local + external, but deduplicate (prefer local comments over external)
+      const byKey = new Map<string, Review>();
+
+      // Add local (comments table) first so they take precedence
+      for (const r of localFormatted) {
+        if (r.id) {
+          byKey.set(String(r.id), r);
+        } else {
+          const key = `${r.user_id}_${r.created_at}_${(r.content || '').slice(0, 50)}`;
+          byKey.set(key, r);
+        }
+      }
+
+      // Add apiFormatted only if not duplicated
+      for (const r of apiFormatted) {
+        if (r.id) {
+          if (!byKey.has(String(r.id))) byKey.set(String(r.id), r);
+        } else {
+          const key = `${r.user_id}_${r.created_at}_${(r.content || '').slice(0, 50)}`;
+          if (!byKey.has(key)) byKey.set(key, r);
+        }
+      }
+
+      const combined = Array.from(byKey.values()).sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -137,54 +171,82 @@ export function useReviews(placeId?: string) {
 
     setSubmitting(true);
     try {
-      // Insert review
-      const { data: review, error: reviewError } = await supabase
-        .from("reviews")
-        .insert({
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          place_id: placeId,
-          rating,
-          content: content || null,
-        })
-        .select()
-        .single();
+      // Insert directly into `comments` table
+      const { data: comment, error } = await (supabase as any).from('comments').insert({
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        place_id: placeId,
+        rating,
+        text: content || null,
+        author: (user.user_metadata as any)?.full_name || null,
+        date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      }).select().single();
 
-      if (reviewError) throw reviewError;
+      if (error) {
+        console.error('Error inserting comment:', error);
+        throw error;
+      }
 
-      // Upload images if any
+      // If images provided, upload to Supabase Storage and insert into `images` table
       if (imageFiles && imageFiles.length > 0) {
+        const bucket = (import.meta as any).env?.VITE_SUPABASE_IMAGES_BUCKET || 'images';
         for (const file of imageFiles) {
-          const fileName = `${user.id}/${review.id}/${Date.now()}_${file.name}`;
-          const { error: uploadError } = await supabase.storage
-            .from("review-images")
-            .upload(fileName, file);
+          try {
+            const fileName = `${user.id}/${comment.id}/${Date.now()}_${file.name}`;
+            const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file as File);
+            if (uploadError) {
+              console.error('Image upload error:', uploadError);
+              toast.error(t('review.image_upload_error') || 'Image upload failed');
+              continue;
+            }
 
-          if (uploadError) {
-            console.error("Error uploading image:", uploadError);
-            continue;
+            const { publicURL, error: publicUrlErr } = supabase.storage.from(bucket).getPublicUrl(fileName) as any;
+            // Older Supabase client returns { data: { publicUrl } } in some setups; handle both
+            let url: string | undefined = undefined;
+            if (publicUrlErr) {
+              console.warn('getPublicUrl error:', publicUrlErr);
+            }
+            if (publicURL) url = publicURL;
+            else if ((publicUrlErr == null) && (publicURL == null)) {
+              // try alternate shape
+              const { data: pu } = supabase.storage.from(bucket).getPublicUrl(fileName) as any;
+              url = pu?.publicUrl || pu?.publicURL || undefined;
+            }
+
+            if (!url) {
+              console.warn('Could not determine public URL for uploaded image');
+              toast.error(t('review.image_save_error') || 'Could not get public URL for image');
+              continue;
+            }
+
+            const { error: imgErr } = await (supabase as any).from('images').insert({
+              id: crypto.randomUUID(),
+              place_id: placeId,
+              comment_id: comment.id,
+              url,
+            });
+            if (imgErr) {
+              console.error('Error inserting images row:', imgErr);
+              toast.error(t('review.image_save_error') || 'Failed to save review image');
+            }
+          } catch (imgEx) {
+            console.error('Exception uploading image:', imgEx);
+            toast.error(t('review.image_upload_error') || 'Image upload failed');
           }
-
-          const { data: publicUrl } = supabase.storage
-            .from("review-images")
-            .getPublicUrl(fileName);
-
-          await supabase.from("review_images").insert({
-            id: crypto.randomUUID(),
-            review_id: review.id,
-            image_url: publicUrl.publicUrl,
-          });
         }
       }
 
       toast.success(t('review.submitted'));
       await fetchReviews();
       return true;
-    } catch (error: unknown) {
-      const err = error as { code?: string };
-      console.error("Error submitting review:", error);
-      if (err?.code === "23505") {
+    } catch (err: unknown) {
+      const e: any = err;
+      console.error("Error submitting review:", err);
+      if (e?.code === "23505") {
         toast.error(t('review.already_submitted'));
+      } else if (e?.message) {
+        toast.error(`${t('review.submit_error')} (${e.message})`);
       } else {
         toast.error(t('review.submit_error'));
       }
@@ -194,18 +256,66 @@ export function useReviews(placeId?: string) {
     }
   };
 
-  // Update a review
-  const updateReview = async (reviewId: string, rating: number, content: string) => {
+  // Update a review (comments table)
+  const updateReview = async (reviewId: string, rating: number, content: string, imageFiles?: File[]) => {
     if (!user) return false;
 
+    setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("reviews")
-        .update({ rating, content })
-        .eq("id", reviewId)
-        .eq("user_id", user.id);
+      const { error } = await (supabase as any)
+        .from('comments')
+        .update({ rating, text: content })
+        .eq('id', reviewId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // If new images were provided while editing, upload them and insert into images table
+      if (imageFiles && imageFiles.length > 0) {
+        const bucket = (import.meta as any).env?.VITE_SUPABASE_IMAGES_BUCKET || 'images';
+        for (const file of imageFiles) {
+          try {
+            const fileName = `${user.id}/${reviewId}/${Date.now()}_${file.name}`;
+            const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file as File);
+            if (uploadError) {
+              console.error('Image upload error (update):', uploadError);
+              toast.error(t('review.image_upload_error') || 'Image upload failed');
+              continue;
+            }
+
+            const { publicURL, error: publicUrlErr } = supabase.storage.from(bucket).getPublicUrl(fileName) as any;
+            let url: string | undefined = undefined;
+            if (publicUrlErr) {
+              console.warn('getPublicUrl error (update):', publicUrlErr);
+            }
+            if (publicURL) url = publicURL;
+            else if ((publicUrlErr == null) && (publicURL == null)) {
+              const { data: pu } = supabase.storage.from(bucket).getPublicUrl(fileName) as any;
+              url = pu?.publicUrl || pu?.publicURL || undefined;
+            }
+
+            if (!url) {
+              console.warn('Could not determine public URL for uploaded image (update)');
+              toast.error(t('review.image_save_error') || 'Could not get public URL for image');
+              continue;
+            }
+
+            const { error: imgErr } = await (supabase as any).from('images').insert({
+              id: crypto.randomUUID(),
+              place_id: placeId,
+              comment_id: reviewId,
+              url,
+            });
+            if (imgErr) {
+              console.error('Error inserting images row (update):', imgErr);
+              toast.error(t('review.image_save_error') || 'Failed to save review image');
+            }
+          } catch (imgEx) {
+            console.error('Exception uploading image (update):', imgEx);
+            toast.error(t('review.image_upload_error') || 'Image upload failed');
+          }
+        }
+      }
 
       toast.success(t('review.update_success'));
       await fetchReviews();
@@ -214,19 +324,21 @@ export function useReviews(placeId?: string) {
       console.error("Error updating review:", error);
       toast.error(t('review.submit_error'));
       return false;
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Delete a review
+  // Delete a review (comments table)
   const deleteReview = async (reviewId: string) => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from("reviews")
+      const { error } = await (supabase as any)
+        .from('comments')
         .delete()
-        .eq("id", reviewId)
-        .eq("user_id", user.id);
+        .eq('id', reviewId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 

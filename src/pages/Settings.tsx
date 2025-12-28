@@ -31,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_DEBUG } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -65,11 +65,11 @@ export default function Settings() {
   ];
 
   const cultureOptions = [
-    'Việt Nam','Trung Quốc','Nhật Bản','Hàn Quốc','Thái Lan','Ấn Độ','Phương Tây / Châu Âu','Mỹ','Trung Đông','Châu Phi','Khác'
+    'Việt Nam', 'Trung Quốc', 'Nhật Bản', 'Hàn Quốc', 'Thái Lan', 'Ấn Độ', 'Phương Tây / Châu Âu', 'Mỹ', 'Trung Đông', 'Châu Phi', 'Khác'
   ];
 
   const religionOptions = [
-    'Không','Phật giáo','Thiên Chúa giáo','Hồi giáo','Ấn Độ giáo','Do Thái giáo','Đạo Sikh','Khác'
+    'Không', 'Phật giáo', 'Thiên Chúa giáo', 'Hồi giáo', 'Ấn Độ giáo', 'Do Thái giáo', 'Đạo Sikh', 'Khác'
   ];
 
   // Refresh local profile form from auth user metadata when opening dialog
@@ -105,6 +105,17 @@ export default function Settings() {
 
   const handleSaveProfile = async () => {
     try {
+      // Debug: log session and supabase env to help diagnose why upserts fail
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        // eslint-disable-next-line no-console
+        console.log('[Settings] supabase debug', SUPABASE_DEBUG);
+        // eslint-disable-next-line no-console
+        console.log('[Settings] auth.getUser()', authData);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[Settings] failed to fetch current auth user for debug', e);
+      }
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
@@ -114,8 +125,8 @@ export default function Settings() {
           introduction: bio || null,
           avatar_url: avatarUrl,
           gender: gender || null,
-          age: age || null,
-          hobby: hobbies.join(',') || null,
+          age: age ? parseInt(age, 10) : null,
+          hobby: hobbies.length > 0 ? hobbies : null,
           culture: culture || null,
           religion: religion || null,
         }
@@ -123,47 +134,49 @@ export default function Settings() {
 
       if (error) throw error;
 
-      // Also upsert into public.profiles so server-side reads (RLS / API) see updated profile
+      // Upsert into `public.users` so that the app-level users table (if present) reflects the changes.
+      // NOTE: we intentionally skip upserting into `public.profiles` to avoid failures when
+      // the `profiles` table does not exist in the target Supabase project.
       try {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData?.user?.id || user?.id;
         if (userId) {
-          // Use upsert on user_id (profiles_user_id_key) and persist privacy fields
-          const profilePayload: any = {
-            user_id: userId,
-            full_name: fullName || null,
-            avatar_url: avatarUrl || null,
-            phone: phone || null,
-            bio: bio || null,
-            gender: gender || null,
-            age: age ? parseInt(age, 10) : null,
-            hobby: hobbies.length > 0 ? hobbies.join(',') : null,
-            culture: culture || null,
-            religion: religion || null,
-            companion_type: companionType || null,
-            introduction: bio || null,
-            preferences: hobbies || [],
-          };
+          // eslint-disable-next-line no-console
+          console.log('[Settings] userId before users upsert:', userId);
 
-          const { error: profilesError } = await supabase
-            .from('profiles')
-            .upsert(profilePayload, { onConflict: 'user_id' });
-
-          if (profilesError) {
-            // eslint-disable-next-line no-console
-            console.warn('Failed to upsert public.profiles after updating auth user metadata', profilesError);
-          }
-
-          // Also upsert into public.users so that the `users` table (if present) reflects the changes
           try {
+            const payload: any = {
+              id: userId,
+              email: user?.email || userData?.user?.email || null,
+              name: fullName || null,
+              avatar_url: avatarUrl || null,
+              phone: phone || null,
+              gender: gender || null,
+              age: age ? parseInt(age, 10) : null,
+              hobby: hobbies.length > 0 ? hobbies : null,
+              culture: culture || null,
+              religion: religion || null,
+              companion_type: companionType || null,
+              introduction: bio || null,
+            };
+
+            // eslint-disable-next-line no-console
+            console.log('[Settings] users upsert payload:', payload);
+
             const { error: usersError } = await (supabase as any)
               .from('users')
-                .upsert({ id: userId, email: user?.email || userData?.user?.email || null, name: fullName || null, avatar_url: avatarUrl || null, phone: phone || null, gender: gender || null, age: age ? parseInt(age, 10) : null, hobby: hobbies.join(',') || null, culture: culture || null, religion: religion || null, companion_type: companionType || null, introduction: bio || null }, { onConflict: 'id' });
+              .upsert(payload, { onConflict: 'id' });
 
             if (usersError) {
               // eslint-disable-next-line no-console
-              console.warn('Failed to upsert public.users after updating profile', usersError);
+              console.error('Failed to upsert public.users after updating profile', usersError);
+              // eslint-disable-next-line no-console
+              console.error('users upsert response:', { usersError });
+              throw usersError;
             }
+
+            // eslint-disable-next-line no-console
+            console.log('users upsert success');
           } catch (e) {
             // eslint-disable-next-line no-console
             console.warn('Unexpected error upserting public.users', e);
@@ -172,14 +185,17 @@ export default function Settings() {
       } catch (e) {
         // non-fatal: log
         // eslint-disable-next-line no-console
-        console.warn('Failed to upsert public.profiles after updating auth user metadata', e);
+        console.warn('Failed to upsert public.users after updating auth user metadata', e);
       }
 
       toast({ title: t('settings.profile_updated') });
       setProfileOpen(false);
     } catch (error) {
+      // Improve error visibility during debugging: show Supabase message when available
+      // eslint-disable-next-line no-console
       console.error("Error updating profile:", error);
-      toast({ title: t('messages.error_occurred_apology'), variant: "destructive" });
+      const errMessage = (error && (error as any).message) ? (error as any).message : t('messages.error_occurred_apology');
+      toast({ title: errMessage, variant: "destructive" });
     }
   };
 

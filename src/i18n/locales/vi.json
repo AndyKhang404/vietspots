@@ -39,7 +39,15 @@
     "results_found": "kết quả được tìm thấy",
     "try_different_keywords": "Thử tìm kiếm với từ khóa khác",
     "switch_to_category": "Chuyển sang danh mục: {{label}}",
-    "max_distance": "Khoảng cách tối đa"
+    "max_distance": "Khoảng cách tối đa",
+    "history": "Lịch sử",
+    "no_history": "Không có lịch sử",
+    "clear_history": "Xóa tất cả",
+    "saved_history": "Đã lưu vào lịch sử",
+    "deleted_history": "Đã xóa",
+    "cleared_history": "Đã xóa lịch sử",
+    "save_failed": "Không lưu được lịch sử lên máy chủ",
+    "delete_failed": "Không xóa được lịch sử trên máy chủ"
   },
   "favorites": {
     "title": "Yêu thích của bạn",
@@ -303,6 +311,7 @@
     "retry": "Thử lại",
     "save": "Lưu",
     "cancel": "Hủy",
+    "edit": "Chỉnh sửa",
     "confirm": "Xác nhận",
     "user": "Người dùng",
     "back": "Quay lại",
@@ -374,7 +383,11 @@
     "no_reviews": "Chưa có đánh giá nào",
     "update_success": "Cập nhật đánh giá thành công!",
     "delete_success": "Đã xóa đánh giá!",
-    "submit_error": "Đã xảy ra lỗi. Vui lòng thử lại."
+    "submit_error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "fetch_error": "Không thể tải đánh giá (lỗi máy chủ)",
+    "external_fetch_warning": "Không thể tải bình luận từ API ngoài, chỉ hiển thị bình luận cục bộ",
+    "image_upload_error": "Không thể tải ảnh lên. Ảnh sẽ bị bỏ qua",
+    "image_save_error": "Không thể lưu thông tin ảnh đánh giá"
   },
   "chat": {
     "tab_chat": "Chatbot",

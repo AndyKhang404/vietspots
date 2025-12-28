@@ -1,125 +1,154 @@
-# Welcome to your Lovable project
+# VietSpots (VietSpots Team)
 
-## Project info
+VietSpots là một ứng dụng web khám phá địa điểm tại Việt Nam, giúp người dùng tìm, đánh giá, lưu lại và tối ưu lộ trình tham quan. Project này được phát triển bằng Vite + React + TypeScript, sử dụng Supabase làm backend/BaaS và MapLibre cho bản đồ.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
-# VietSpots
-
-VietSpots — Ứng dụng web khám phá địa điểm tại Việt Nam, xây dựng bằng Vite + React + TypeScript. Ứng dụng cung cấp tìm kiếm, bản đồ, đánh giá và tối ưu lộ trình.
-
-## Tóm tắt dự án
-
-- **Stack:** Vite, React, TypeScript, Tailwind CSS, shadcn-ui, Supabase, MapLibre
-- **Scripts:** xem [package.json](package.json) (`dev`, `build`, `preview`, `lint`)
-
-## 🚀 Tính năng
-
-- 🔍 **Tìm kiếm địa điểm** theo tên, loại, vị trí…
-- 🗺️ **Bản đồ tương tác** với MapLibre
-- ⭐ **Đánh giá & xếp hạng** địa điểm
-- 🛣️ **Tối ưu lộ trình** khám phá nhiều nơi
-- 🧠 Kết nối dữ liệu qua **Supabase** (Auth, Database, Storage)
-- UI hiện đại với **Tailwind CSS + shadcn-ui** :contentReference[oaicite:1]{index=1}
+Tài liệu này trình bày cách chạy, cấu hình và đóng góp cho dự án.
 
 ---
 
-## 🛠️ Công nghệ chính
+## Tổng quan
 
-| Phần | Công nghệ |
-|------|-----------|
-| Frontend | Vite, React, TypeScript |
-| UI | Tailwind CSS, shadcn-ui |
-| Bản đồ | MapLibre |
-| Backend/BaaS | Supabase (Auth, Database, Edge Functions) |
-| Tooling | ESLint, Prettier | :contentReference[oaicite:2]{index=2}
+- Tên dự án: **VietSpots**
+- Chủ sở hữu: **VietSpots Team**
+- Ngôn ngữ: Tiếng Việt (một số file hỗ trợ i18n)
 
-## Bắt đầu nhanh
+## Tính năng chính
 
-### Yêu cầu
+- Tìm kiếm địa điểm theo tên, loại và vị trí
+- Xem thông tin chi tiết địa điểm, ảnh và bản đồ
+- Đánh giá & chấm sao (cùng upload ảnh minh hoạ)
+- Tối ưu lộ trình (itinerary/route optimizer)
+- Quản lý yêu thích cá nhân
+- Xác thực người dùng qua Supabase Auth
 
-- Node.js 18+ (hoặc Bun), Git. Tuỳ chọn: `pnpm` hoặc `yarn`.
+## Kiến trúc & Công nghệ
 
-### Clone
+- Frontend: Vite, React, TypeScript
+- UI: Tailwind CSS, shadcn-ui components
+- Bản đồ: MapLibre
+- Backend / BaaS: Supabase (Auth, Database, Storage, Edge Functions)
+- Tooling: ESLint, Prettier, Vitest (nếu có)
+
+---
+
+## Bắt đầu nhanh (Developer)
+
+Yêu cầu:
+- Node.js 18+ (hoặc Bun)
+- Git
+
+Clone repository và cài dependencies:
 
 ```bash
 git clone <YOUR_GIT_URL>
 cd vietspots
-```
-
-### Cài dependencies
-
-```bash
+# Nếu bạn dùng npm
 npm ci
-# hoặc
+# hoặc pnpm
 pnpm install
-# hoặc
+# hoặc bun
 bun install
 ```
 
-### Chạy môi trường phát triển
+Chạy môi trường phát triển:
 
 ```bash
 npm run dev
-# hoặc
-pnpm dev
-# hoặc
-bun run dev
+# hoặc pnpm dev
 ```
 
-### Build & Preview
+Build production:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-### Lint
+Kiểm tra lint:
 
 ```bash
 npm run lint
 ```
 
-## Biến môi trường / Secrets
+---
 
-Ứng dụng sử dụng Supabase và các tích hợp khác. Tạo file `.env` hoặc `.env.local` với các biến cần thiết, ví dụ:
+## Biến môi trường (ví dụ)
+
+Tạo file `.env.local` hoặc `.env` ở gốc dự án và thêm các biến sau:
 
 ```
-VITE_SUPABASE_URL=https://...
-VITE_SUPABASE_ANON_KEY=...
+VITE_SUPABASE_URL=https://your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_IMAGES_BUCKET=images
+VITE_TRACKASIA_PUBLIC_KEY=your-track-asia-key
 ```
 
-Kiểm tra mã trong [src](src) / [integrations/supabase](src/integrations/supabase) để biết tên biến thực tế.
-
-## Cấu trúc dự án (tóm tắt)
-
-- `src/`: mã nguồn chính (components, pages, hooks, contexts)
-- `src/pages/`: các route page (Index, PlaceDetail, Itinerary...)
-- `src/components/`: UI và feature components
-- `integrations/`: client cho bên thứ ba (Supabase)
-- `supabase/`: functions và cấu hình liên quan
-
-Xem chi tiết trong thư mục [src](src).
-
-## Triển khai
-
-Build bằng `npm run build` và triển khai nội dung `dist/` lên hosting tĩnh (Vercel, Netlify, Cloudflare Pages) hoặc server phù hợp. Nếu dùng Supabase Edge Functions, đảm bảo deploy functions tương ứng trong thư mục `supabase/`.
-
-## Contributing
-
-- Fork → Tạo branch feature → Tạo PR.
-- Chạy `npm run lint` và đảm bảo không có lỗi type. Viết test khi cần.
-
-## Troubleshooting
-
-- Lỗi bản đồ: kiểm tra token/config MapLibre và CORS.
-- Lỗi Supabase: kiểm tra `VITE_SUPABASE_*` trong `.env`.
-
-## License & Contact
-
-- Thêm file license (ví dụ MIT) nếu muốn cấp phép mã nguồn.
-- Mở issue hoặc liên hệ maintainer trong repository để hỏi thêm.
+Ghi chú:
+- `VITE_SUPABASE_IMAGES_BUCKET` là tên bucket dùng để lưu ảnh người dùng. Nếu không set, app sẽ fallback sang `images`.
 
 ---
 
-File này được cập nhật tự động bởi trợ lý; bạn có thể chỉnh lại nội dung tuỳ ý.
+## Cấu trúc dự án (quan trọng)
+
+- `src/` — mã nguồn chính
+	- `src/pages/` — các trang chính (Index, PlaceDetail, Itinerary...)
+	- `src/components/` — thành phần UI dùng lại
+	- `src/hooks/` — custom hooks (ví dụ `useReviews`)
+	- `src/contexts/` — React Contexts (Auth, Favorites...)
+- `supabase/` — functions & migrations
+- `public/` — tài nguyên tĩnh
+
+---
+
+## Supabase (thiết lập cơ bản)
+
+1. Tạo project Supabase và thiết lập Database theo schema của dự án.
+2. Tạo bucket lưu ảnh (tên khớp `VITE_SUPABASE_IMAGES_BUCKET`).
+3. Cấu hình RLS / Policies nếu cần (read public images hoặc sử dụng Signed URLs).
+
+## Upload ảnh và Timezone
+
+- Ứng dụng hiện lưu `created_at` trên bản ghi comment và hiển thị giờ theo timezone local trên trình duyệt. Nếu bạn muốn hiển thị theo UTC hoặc timezone server, có thể điều chỉnh tại component hiển thị.
+
+---
+
+## Triển khai
+
+- Đối với hosting tĩnh (Vercel / Netlify / Cloudflare Pages): build `npm run build` và deploy thư mục `dist/`.
+- Nếu dùng Supabase Edge Functions, deploy folder `supabase/functions` theo hướng dẫn Supabase.
+
+## Kiểm tra sau deploy
+
+- Kiểm tra biến môi trường (Supabase URL / Keys).
+- Kiểm tra bucket ảnh và quyền truy cập.
+
+---
+
+## Contributing
+
+1. Fork repository
+2. Tạo branch feature: `git checkout -b feature/your-feature`
+3. Code & viết test (nếu cần)
+4. Lint và build local: `npm run lint` + `npm run build`
+5. Tạo PR và mô tả rõ thay đổi
+
+Standards:
+- Dùng Prettier + ESLint quy ước dự án
+- Viết commit rõ ràng
+
+---
+
+## Support / Contact
+
+- Mở issue trên repository để báo lỗi hoặc yêu cầu tính năng.
+- Liên hệ VietSpots Team qua kênh nội bộ của nhóm.
+
+---
+
+## License
+
+Thêm file `LICENSE` (ví dụ MIT) nếu bạn muốn công khai mã nguồn.
+
+---
+
+Tài liệu này do VietSpots Team duy trì. Nếu bạn muốn phiên bản tiếng Anh hoặc thêm badges (CI, license, coverage), cho mình biết để mình bổ sung.

@@ -287,6 +287,7 @@ export default function PlaceDetail() {
     fetchReviews,
     submitReview,
     deleteReview,
+    updateReview,
     getUserReview,
     averageRating,
     totalReviews,
@@ -298,6 +299,7 @@ export default function PlaceDetail() {
   const [newRating, setNewRating] = useState(5);
   const [newReviewContent, setNewReviewContent] = useState("");
   const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [editingReview, setEditingReview] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showRoute, setShowRoute] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -521,6 +523,17 @@ export default function PlaceDetail() {
   };
 
   const handleSubmitReview = async () => {
+    if (editingReview && userReview) {
+      const success = await updateReview(userReview.id, newRating, newReviewContent, reviewImages);
+      if (success) {
+        setEditingReview(false);
+        setNewReviewContent("");
+        setNewRating(5);
+        setReviewImages([]);
+      }
+      return;
+    }
+
     const success = await submitReview(newRating, newReviewContent, reviewImages);
     if (success) {
       setNewReviewContent("");
@@ -711,7 +724,7 @@ export default function PlaceDetail() {
                   </span>
                 </div>
                 <span className="text-muted-foreground">
-                  {`${(place.total_comments ?? place.rating_count ?? 0)} ${t('place.reviews')}`}
+                  {`${(place.total_comments ?? place.rating_count ?? totalReviews)} ${t('place.reviews')}`}
                 </span>
               </div>
 
@@ -872,9 +885,14 @@ export default function PlaceDetail() {
               </h2>
 
               {/* Write Review Form */}
-              {user && !userReview ? (
+              {user && (!userReview || editingReview) ? (
                 <div className="mb-6 p-4 bg-muted/50 rounded-xl">
-                  <h3 className="font-semibold mb-3">{t('review.write')}</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold">{t('review.write')}</h3>
+                    {editingReview && (
+                      <span className="text-sm text-primary font-medium">Bạn đang sửa đánh giá</span>
+                    )}
+                  </div>
 
                   {/* Star Rating */}
                   <div className="flex items-center gap-1 mb-3">
@@ -953,18 +971,32 @@ export default function PlaceDetail() {
                   )}
 
                   {/* Submit Button */}
-                  <Button
-                    onClick={handleSubmitReview}
-                    disabled={submitting}
-                    className="w-full gap-2"
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSubmitReview}
+                      disabled={submitting}
+                      className="flex-1 gap-2"
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {editingReview ? t('common.save') : t('actions.send_review')}
+                    </Button>
+                    {editingReview && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingReview(false);
+                          setNewReviewContent("");
+                          setNewRating(5);
+                        }}
+                      >
+                        {t('common.cancel')}
+                      </Button>
                     )}
-                    {t('actions.send_review')}
-                  </Button>
+                  </div>
                 </div>
               ) : !user ? (
                 <div className="mb-6 p-4 bg-muted/50 rounded-xl text-center">
@@ -977,7 +1009,7 @@ export default function PlaceDetail() {
                 </div>
               ) : null}
 
-              {/* Reviews List - Show only first 3 */}
+              {/* Reviews List - allow scrolling through all comments */}
               <ScrollArea className="h-[400px]">
                 <div className="space-y-4 pr-4">
                   {reviewsLoading ? (
@@ -985,7 +1017,7 @@ export default function PlaceDetail() {
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                   ) : reviews.length > 0 ? (
-                    reviews.slice(0, 3).map((review) => (
+                    reviews.map((review) => (
                       <div
                         key={review.id}
                         className="p-4 bg-muted/30 rounded-xl"
@@ -1016,14 +1048,28 @@ export default function PlaceDetail() {
                             </div>
                           </div>
                           {review.user_id === user?.id && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => deleteReview(review.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => deleteReview(review.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2"
+                                onClick={() => {
+                                  setEditingReview(true);
+                                  setNewRating(review.rating || 5);
+                                  setNewReviewContent(review.content || "");
+                                }}
+                              >
+                                {t('common.edit')}
+                              </Button>
+                            </div>
                           )}
                         </div>
                         {review.content && (
@@ -1045,7 +1091,7 @@ export default function PlaceDetail() {
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(review.created_at).toLocaleDateString(i18n.language)}
+                          {formatDateTime(review.created_at)}
                         </p>
                       </div>
                     ))
@@ -1066,3 +1112,13 @@ export default function PlaceDetail() {
     </Layout>
   );
 }
+
+// Format date/time as "HH:MM:SS DD/MM/YYYY"
+const formatDateTime = (dInput?: string | number | Date) => {
+  if (!dInput) return "";
+  const d = new Date(dInput);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(
+    d.getMonth() + 1
+  )}/${d.getFullYear()}`;
+};

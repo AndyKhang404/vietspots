@@ -25,3 +25,9 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   // eslint-disable-next-line no-console
   console.warn('Supabase client initialized without URL or key. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your .env');
 }
+
+// Export debug info (safe to log in dev; don't expose service key in production)
+export const SUPABASE_DEBUG = {
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+};
