@@ -16,6 +16,8 @@ import Auth from "./pages/Auth";
 import PlaceDetail from "./pages/PlaceDetail";
 import Itinerary from "./pages/Itinerary";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Contact from "./pages/Contact";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,8 @@ const App = () => (
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/place/:placeId" element={<PlaceDetail />} />
                 <Route path="/itinerary" element={<Itinerary />} />

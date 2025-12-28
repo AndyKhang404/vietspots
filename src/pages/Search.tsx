@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -290,32 +291,52 @@ export default function Search() {
 
   const { user } = useAuth();
 
-  // Persist search history for authenticated users
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<Array<any>>([]);
+
+  // Persist search history (Supabase for authenticated users; localStorage fallback)
   useEffect(() => {
     const saveSearch = async () => {
       if (!debouncedSearch || debouncedSearch.trim().length === 0) return;
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const session = sessionData?.session;
-        if (!session) return;
-
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr) console.warn('getUser error saving search history', userErr);
-        const dbUserId = userData?.user?.id || user?.id;
-        if (!dbUserId) return; // still not authenticated
-
-        await supabase.from('search_history').insert({
-          id: crypto.randomUUID(),
-          user_id: dbUserId,
-          query: debouncedSearch,
-          category: effectiveCategory || null,
-          city: null,
-          created_at: new Date().toISOString(),
-        } as any);
+        if (session) {
+          const { data: userData, error: userErr } = await supabase.auth.getUser();
+          if (userErr) console.warn('getUser error saving search history', userErr);
+          const dbUserId = userData?.user?.id || user?.id;
+          if (dbUserId) {
+            try {
+              await supabase.from('search_history').insert({
+                id: crypto.randomUUID(),
+                user_id: dbUserId,
+                query: debouncedSearch,
+                category: effectiveCategory || null,
+                city: null,
+                created_at: new Date().toISOString(),
+              } as any);
+            } catch (e) {
+              // non-fatal
+              // eslint-disable-next-line no-console
+              console.warn('Failed to save search history to supabase', e);
+            }
+          }
+        }
       } catch (e) {
-        // non-fatal: log for debugging
         // eslint-disable-next-line no-console
-        console.warn('Failed to save search history', e);
+        console.warn('Failed to save search history session check', e);
+      } finally {
+        // Always persist locally as a fallback so unauthenticated users can still see history
+        try {
+          const key = 'vietspots_search_history_local';
+          const raw = localStorage.getItem(key);
+          const arr = raw ? JSON.parse(raw) : [];
+          arr.unshift({ id: crypto.randomUUID(), query: debouncedSearch, category: effectiveCategory || null, created_at: new Date().toISOString() });
+          const truncated = arr.slice(0, 50);
+          localStorage.setItem(key, JSON.stringify(truncated));
+        } catch (le) {
+          // ignore local save errors
+        }
       }
     };
 
@@ -323,6 +344,32 @@ export default function Search() {
     // only when a new debounced search fires
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, effectiveCategory, user]);
+
+  // Load history when dialog opens
+  useEffect(() => {
+    if (!historyOpen) return;
+    const load = async () => {
+      try {
+        if (user) {
+          const { data } = await supabase
+            .from('search_history')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+          setSearchHistory((data as any) || []);
+        } else {
+          const raw = localStorage.getItem('vietspots_search_history_local');
+          setSearchHistory(raw ? JSON.parse(raw) : []);
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to load search history', e);
+        setSearchHistory([]);
+      }
+    };
+    load();
+  }, [historyOpen, user]);
 
   const handleFilterChange = (filter: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -335,6 +382,37 @@ export default function Search() {
       newParams.set("category", filter);
     }
     setSearchParams(newParams);
+  };
+
+  const applyHistoryItem = (item: any) => {
+    const q = item.query || "";
+    const cat = item.category || "";
+    setSearchTerm(q);
+    setActiveFilter(cat);
+    const newParams = new URLSearchParams(searchParams);
+    if (cat) newParams.set('category', cat);
+    else newParams.delete('category');
+    if (q) newParams.set('q', q);
+    setSearchParams(newParams);
+    setHistoryOpen(false);
+  };
+
+  const clearLocalHistory = () => {
+    try {
+      localStorage.removeItem('vietspots_search_history_local');
+      setSearchHistory([]);
+    } catch (e) { }
+  };
+
+  const clearAllHistory = async () => {
+    try {
+      if (user) {
+        await supabase.from('search_history').delete().eq('user_id', user.id);
+      }
+      clearLocalHistory();
+    } catch (e) {
+      // ignore
+    }
   };
 
   return (
@@ -555,6 +633,9 @@ export default function Search() {
                 </ScrollArea>
               </PopoverContent>
             </Popover>
+            <Button size="icon" className="h-12 w-12 rounded-xl" onClick={() => setHistoryOpen(true)} title={t('search.history') || 'Lịch sử'}>
+              <Clock className="h-5 w-5" />
+            </Button>
             <div className="hidden lg:flex border border-border rounded-xl overflow-hidden">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -690,6 +771,38 @@ export default function Search() {
           </>
         )}
       </div>
+
+      {/* Search History Dialog */}
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('search.history') || 'Lịch sử tìm kiếm'}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            {searchHistory && searchHistory.length > 0 ? (
+              <div className="space-y-2">
+                {searchHistory.map((h: any) => (
+                  <button key={h.id} onClick={() => applyHistoryItem(h)} className="w-full text-left p-2 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{h.query}</div>
+                        {h.category && <div className="text-xs text-muted-foreground">{h.category}</div>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString()}</div>
+                    </div>
+                  </button>
+                ))}
+                <div className="flex gap-2 mt-2">
+                  <Button className="flex-1" variant="outline" onClick={() => setHistoryOpen(false)}>{t('common.close') || 'Đóng'}</Button>
+                  <Button className="flex-1" variant="ghost" onClick={clearAllHistory}>{t('search.clear_history') || 'Xóa tất cả'}</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">{t('search.no_history') || 'Không có lịch sử'}</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Chatbot />
     </Layout>

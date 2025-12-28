@@ -38,11 +38,8 @@ export function useReviews(placeId?: string) {
 
     setLoading(true);
     try {
-      // Fetch from backend API (Railway) - returns raw array
-      const apiComments = await vietSpotAPI.getPlaceComments(placeId);
-
-      // Fetch from local database
-      const { data: localReviews, error } = await supabase
+      // Fetch from local database first so UI remains responsive even if external API fails
+      const { data: localReviews, error: localError } = await supabase
         .from("reviews")
         .select(`
           *,
@@ -51,7 +48,7 @@ export function useReviews(placeId?: string) {
         .eq("place_id", placeId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (localError) throw localError;
 
       // Fetch user profiles for local reviews
       const userIds = localReviews?.map((r) => r.user_id) || [];
@@ -88,26 +85,34 @@ export function useReviews(placeId?: string) {
           profileMap.get(r.user_id)?.avatar || (user && r.user_id === user.id ? (user.user_metadata as any)?.avatar_url : undefined) || undefined,
       }));
 
-      // Format API comments to Review shape
-      const apiFormatted: Review[] = (apiComments || []).map((c: any) => ({
-        id: c.id,
-        user_id: c.user_id ?? "",
-        place_id: c.place_id,
-        rating: Number(c.rating) || 0,
-        content: c.text ?? null,
-        created_at: c.date,
-        updated_at: c.date,
-        images: (c.images || []).map((img: any, idx: number) => {
-          const url = typeof img === "string" ? img : img?.url;
-          return {
-            id: (typeof img === "object" && img?.id) ? img.id : `${c.id}_${idx}`,
-            review_id: c.id,
-            image_url: url,
-            created_at: c.date,
-          };
-        }).filter((img: any) => Boolean(img.image_url)),
-        user_name: c.author || "Du khách",
-      }));
+      // Attempt to fetch external API comments, but don't fail the whole flow if it errors
+      let apiFormatted: Review[] = [];
+      try {
+        const apiComments = await vietSpotAPI.getPlaceComments(placeId);
+        apiFormatted = (apiComments || []).map((c: any) => ({
+          id: c.id,
+          user_id: c.user_id ?? "",
+          place_id: c.place_id,
+          rating: Number(c.rating) || 0,
+          content: c.text ?? null,
+          created_at: c.date,
+          updated_at: c.date,
+          images: (c.images || []).map((img: any, idx: number) => {
+            const url = typeof img === "string" ? img : img?.url;
+            return {
+              id: (typeof img === "object" && img?.id) ? img.id : `${c.id}_${idx}`,
+              review_id: c.id,
+              image_url: url,
+              created_at: c.date,
+            };
+          }).filter((img: any) => Boolean(img.image_url)),
+          user_name: c.author || "Du khách",
+        }));
+      } catch (apiErr) {
+        // Log and continue with local results only
+        // eslint-disable-next-line no-console
+        console.warn('Failed to fetch external comments, continuing with local reviews only', apiErr);
+      }
 
       // Combine and sort by date
       const combined = [...localFormatted, ...apiFormatted].sort(
@@ -117,6 +122,7 @@ export function useReviews(placeId?: string) {
       setReviews(combined);
     } catch (error) {
       console.error("Error fetching reviews:", error);
+      setReviews([]);
     } finally {
       setLoading(false);
     }

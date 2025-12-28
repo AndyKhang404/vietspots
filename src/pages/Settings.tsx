@@ -436,9 +436,31 @@ export default function Settings() {
           <DialogHeader>
             <DialogTitle>{t('settings.helpCenter')}</DialogTitle>
           </DialogHeader>
-          <div className="mt-2">
-            <p className="mb-2">{t('settings.helpCenter')}: </p>
-            <p className="text-sm text-muted-foreground">{t('messages.help_center_placeholder') || 'Trung tâm trợ giúp đang được cập nhật. Vui lòng quay lại sau.'}</p>
+          <div className="mt-2 space-y-4">
+            <p className="font-medium">{t('settings.help_center_intro') || 'Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.'}</p>
+
+            <div>
+              <h4 className="font-semibold">{t('help.faq.submit_review') || 'Không thể gửi đánh giá?'}</h4>
+              <p className="text-sm text-muted-foreground">{t('help.answers.submit_review') || 'Đảm bảo bạn đã đăng nhập. Nếu vẫn không được, kiểm tra kết nối mạng hoặc truy cập phần Hồ sơ để cập nhật thông tin tài khoản.'}</p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold">{t('help.faq.search_history') || 'Lịch sử tìm kiếm ở đâu?'}</h4>
+              <p className="text-sm text-muted-foreground">{t('help.answers.search_history') || 'Tính năng Lịch sử trong trang Tìm kiếm lưu các truy vấn. Bạn có thể mở và chọn lại một mục để chạy lại tìm kiếm.'}</p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold">{t('help.faq.reviews_visible') || 'Tại sao tôi không thấy đánh giá của người khác?'}</h4>
+              <p className="text-sm text-muted-foreground">{t('help.answers.reviews_visible') || 'Ứng dụng kết hợp đánh giá từ nguồn dữ liệu công khai và dữ liệu nội bộ. Nếu nguồn bên ngoài bị lỗi, bạn vẫn sẽ thấy đánh giá được lưu nội bộ (nếu có). Chúng tôi đang cải thiện khả năng kết hợp này.'}</p>
+            </div>
+
+            <div className="pt-2 border-t border-border">
+              <p className="text-sm">{t('help.contact_prompt') || 'Nếu cần hỗ trợ trực tiếp, liên hệ với chúng tôi:'}</p>
+              <div className="flex gap-2 mt-2">
+                <a href="mailto:hello@vietspots.app" className="text-sm text-primary hover:underline">hello@vietspots.app</a>
+                <a href="/policy" className="text-sm text-muted-foreground hover:underline">{t('help.privacy_policy') || 'Policy & Privacy'}</a>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

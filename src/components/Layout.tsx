@@ -6,6 +6,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import Footer from './Footer';
 
 interface LayoutProps {
   children: ReactNode;
@@ -107,6 +108,7 @@ export default function Layout({ children }: LayoutProps) {
         {/* Page Content */}
         <main className="min-h-[calc(100vh-64px)] lg:min-h-screen pb-20 lg:pb-0">
           {children}
+          <Footer />
         </main>
       </div>
 
