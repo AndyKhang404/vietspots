@@ -156,12 +156,27 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
     phone: place.phone,
     website: place.website,
     rating: place.rating || 0,
-    gps: (place.latitude && place.longitude)
-      ? `${place.latitude}, ${place.longitude}`
-      : (place.coordinates ? `${place.coordinates.lat}, ${place.coordinates.lon}` : undefined),
+    // Try to populate gps and lat/lon from several possible shapes returned by API
     images: place.images?.map((img: { url: string } | string) => typeof img === 'string' ? img : img.url) || (place.image_url ? [place.image_url] : []),
-    latitude: place.latitude || place.coordinates?.lat,
-    longitude: place.longitude || place.coordinates?.lon,
+    // Derive gps/latitude/longitude defensively because API shapes vary
+    gps: (() => {
+      const gpsStr = (place as any).gps;
+      if (place.latitude && place.longitude) return `${place.latitude}, ${place.longitude}`;
+      if (place.coordinates && typeof place.coordinates === 'object' && ('lat' in place.coordinates || 'latitude' in place.coordinates)) {
+        return `${(place.coordinates as any).lat || (place.coordinates as any).latitude}, ${(place.coordinates as any).lon || (place.coordinates as any).longitude}`;
+      }
+      return typeof gpsStr === 'string' ? gpsStr : undefined;
+    })(),
+    latitude: place.latitude || (place.coordinates ? (place.coordinates as any).lat || (place.coordinates as any).latitude : undefined) || (() => {
+      const gpsStr = (place as any).gps;
+      if (typeof gpsStr === 'string' && gpsStr.includes(',')) return Number(gpsStr.split(',')[0].trim());
+      return undefined;
+    })(),
+    longitude: place.longitude || (place.coordinates ? (place.coordinates as any).lon || (place.coordinates as any).longitude : undefined) || (() => {
+      const gpsStr = (place as any).gps;
+      if (typeof gpsStr === 'string' && gpsStr.includes(',')) return Number(gpsStr.split(',')[1].trim());
+      return undefined;
+    })(),
     openingHours: typeof place.opening_hours === 'string' ? place.opening_hours : (place.opening_hours ? JSON.stringify(place.opening_hours) : undefined),
     totalComments: place.total_comments || place.rating_count,
     matchingScore: Math.floor(Math.random() * 30 + 70),
@@ -169,6 +184,26 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
     category: place.category,
     description: place.description,
   };
+}
+
+// Remove duplicate place results (by id or gps) while preserving order
+function dedupePlaceResults(results: PlaceResult[]): PlaceResult[] {
+  const seenIds = new Set<string>();
+  const seenGps = new Set<string>();
+  const out: PlaceResult[] = [];
+  for (const p of results) {
+    const id = p.id || '';
+    const gpsKey = (p.gps && p.gps.trim()) || ((p.latitude !== undefined && p.longitude !== undefined) ? `${p.latitude},${p.longitude}` : '');
+    if (id) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+    } else if (gpsKey) {
+      if (seenGps.has(gpsKey)) continue;
+      seenGps.add(gpsKey);
+    }
+    out.push(p);
+  }
+  return out;
 }
 
 const CHAT_STORAGE_KEY = "vietspots_chat_history";
@@ -281,7 +316,7 @@ export default function Chatbot() {
       localStorage.setItem('vietspots_tts_rate', String(ttsRate));
       localStorage.setItem('vietspots_tts_pitch', String(ttsPitch));
       localStorage.setItem('vietspots_tts_volume', String(ttsVolume));
-    } catch {}
+    } catch { }
   }, [selectedVoiceName, preferBackendTts, ttsRate, ttsPitch, ttsVolume]);
 
   const checkScrollPosition = useCallback(() => {
@@ -358,9 +393,9 @@ export default function Chatbot() {
         recognition.interimResults = true;
         recognition.continuous = true; // Keep listening for better results
         recognition.maxAlternatives = 1;
-        
+
         let finalTranscript = '';
-        
+
         recognition.onresult = (event: any) => {
           let interim = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -374,14 +409,14 @@ export default function Chatbot() {
           // Update input with final + interim text
           setInput(finalTranscript + interim);
         };
-        
+
         recognition.onerror = (e: any) => {
           console.error('Recognition error', e);
           if (e.error !== 'aborted' && e.error !== 'no-speech') {
             toast.error(t('messages.cannot_transcribe'));
           }
         };
-        
+
         recognition.onend = () => {
           setIsRecording(false);
           recognitionRef.current = null;
@@ -390,7 +425,7 @@ export default function Chatbot() {
             setInput(finalTranscript.trim());
           }
         };
-        
+
         recognitionRef.current = recognition;
         recognition.start();
         setIsRecording(true);
@@ -452,7 +487,7 @@ export default function Chatbot() {
     try {
       // If using SpeechRecognition, stop it
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
+        try { recognitionRef.current.stop(); } catch { }
         recognitionRef.current = null;
       }
 
@@ -461,7 +496,7 @@ export default function Chatbot() {
       // stop all tracks
       try {
         mediaStreamRef.current?.getTracks().forEach((tr) => tr.stop());
-      } catch {}
+      } catch { }
       mediaStreamRef.current = null;
     } catch (e) {
       console.error('Stop recording failed', e);
@@ -479,10 +514,10 @@ export default function Chatbot() {
       try {
         if (ttsAudioRef.current) {
           ttsAudioRef.current.pause();
-          try { ttsAudioRef.current.currentTime = 0; } catch {}
+          try { ttsAudioRef.current.currentTime = 0; } catch { }
         }
-      } catch {}
-      try { window.speechSynthesis.cancel(); } catch {}
+      } catch { }
+      try { window.speechSynthesis.cancel(); } catch { }
       currentUtterRef.current = null;
       setIsSpeaking(false);
       return;
@@ -506,10 +541,10 @@ export default function Chatbot() {
           }
           ttsAudioRef.current.onended = () => {
             setIsSpeaking(false);
-            try { URL.revokeObjectURL(url); } catch {}
+            try { URL.revokeObjectURL(url); } catch { }
           };
           ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-          await ttsAudioRef.current.play().catch(() => {});
+          await ttsAudioRef.current.play().catch(() => { });
           return;
         }
       } catch (e) {
@@ -582,10 +617,10 @@ export default function Chatbot() {
         }
         ttsAudioRef.current.onended = () => {
           setIsSpeaking(false);
-          try { URL.revokeObjectURL(url); } catch {}
+          try { URL.revokeObjectURL(url); } catch { }
         };
         ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-        await ttsAudioRef.current.play().catch(() => {});
+        await ttsAudioRef.current.play().catch(() => { });
         return;
       }
     } catch (e) {
@@ -724,7 +759,8 @@ export default function Chatbot() {
         // Do not auto-play TTS for responses; user can press the speaker button to play.
 
         if (placesData.length > 0) {
-          setPlaceResults(placesData.map(p => transformToPlaceResult(p, userLocation || undefined)));
+          const mapped = placesData.map(p => transformToPlaceResult(p, userLocation || undefined));
+          setPlaceResults(dedupePlaceResults(mapped));
           setLastPlaceMessageId(assistantMessageId);
         } else {
           // clear previous place anchor when no places returned
@@ -782,7 +818,8 @@ export default function Chatbot() {
         // Do not auto-play TTS for responses; user can press the speaker button to play.
 
         if (data.places && data.places.length > 0) {
-          setPlaceResults(data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined)));
+          const mapped = data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined));
+          setPlaceResults(dedupePlaceResults(mapped));
           setLastPlaceMessageId(assistantMessageId);
         } else {
           setLastPlaceMessageId(null);
@@ -813,7 +850,11 @@ export default function Chatbot() {
     rating: p.rating || 0,
   }));
 
-  const knownPlaces = [...normalizedResults, ...fallbackPlaces];
+  // Merge API results with fallback places but avoid duplicates (keep API results first)
+  const knownPlaces = [
+    ...normalizedResults,
+    ...fallbackPlaces.filter(fp => !normalizedResults.some(n => n.id === fp.id)),
+  ];
 
   const savedPlaces = favorites
     .map((id) => knownPlaces.find((p) => p.id === id))
@@ -861,8 +902,8 @@ export default function Chatbot() {
         <div
           className={cn(
             "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
-            // Map takes remaining space on left of chat panel
-            "right-[420px] w-[calc(100vw-420px)] max-w-[500px]"
+            // Map takes remaining space on left of chat panel (updated width)
+            "right-[640px] w-[calc(100vw-640px)] max-w-[760px]"
           )}
         >
           <div className="h-full flex flex-col">
@@ -908,7 +949,7 @@ export default function Chatbot() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen ? "right-[420px]" : "right-0"
+          isOpen ? "right-[640px]" : "right-0"
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
@@ -918,7 +959,7 @@ export default function Chatbot() {
       {isOpen && !showMap && mapMarkers.length > 0 && (
         <button
           onClick={() => setShowMap(true)}
-          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[420px]"
+          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[640px]"
           style={{ marginTop: "60px" }}
         >
           <MapIcon className="h-5 w-5" />
@@ -929,8 +970,8 @@ export default function Chatbot() {
       <div
         className={cn(
           "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
-          // Chat panel width reduced to 420px for a more compact look
-          isOpen ? "translate-x-0 w-[420px]" : "translate-x-full w-[400px]"
+          // Chat panel width: expanded horizontally
+          isOpen ? "translate-x-0 w-[640px]" : "translate-x-full w-[620px]"
         )}
       >
         {/* Tabs */}
@@ -987,17 +1028,17 @@ export default function Chatbot() {
                   {userLocation ? t('ui.locating') : t('actions.location')}
                 </Button>
 
-                  {/* Current conversation saved timestamp */}
-                  {currentConversation && (
-                    <div className="ml-auto text-xs text-muted-foreground px-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {t('chat.saved_on') || 'Saved on'} {new Date(currentConversation.createdAt || currentConversation.updatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
+                {/* Current conversation saved timestamp */}
+                {currentConversation && (
+                  <div className="ml-auto text-xs text-muted-foreground px-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        {t('chat.saved_on') || 'Saved on'} {new Date(currentConversation.createdAt || currentConversation.updatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  )}
+                  </div>
+                )}
 
                 {/* Filters Popover */}
                 <Popover open={showFilters} onOpenChange={setShowFilters}>
@@ -1292,180 +1333,7 @@ export default function Chatbot() {
                       </div>
                     )}
 
-                    {/* Place Result Cards - Below messages */}
-                    {filteredPlaceResults.map((place, index) => (
-                      <div
-                        key={place.id}
-                        className={cn(
-                          "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
-                          selectedPlaceId === place.id
-                            ? "border-primary ring-2 ring-primary/20"
-                            : "border-border"
-                        )}
-                        style={{ animationDelay: `${index * 100}ms` }}
-                        onClick={() => {
-                          setSelectedPlaceId(place.id);
-                          if (!showMap) setShowMap(true);
-                        }}
-                      >
-                        {/* Place Header */}
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <h3 className="font-bold text-primary leading-tight">
-                            {place.name}
-                          </h3>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {/* Matching Score */}
-                            {place.matchingScore && (
-                              <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
-                                <Percent className="h-3 w-3" />
-                                {place.matchingScore}%
-                              </span>
-                            )}
-                            {/* Rating */}
-                            <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold">
-                              <Star className="h-3 w-3 fill-current" />
-                              {place.rating}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Category & Distance Row */}
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          {place.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {place.category}
-                            </Badge>
-                          )}
-                          {place.distance !== undefined && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              <MapPinned className="h-3 w-3" />
-                              {formatDistance(place.distance)}
-                            </Badge>
-                          )}
-                          {place.totalComments !== undefined && place.totalComments > 0 && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              {place.totalComments} {t('place.reviews')}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Address */}
-                        <div className="flex items-start gap-2 text-sm mb-2">
-                          <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                          <span className="text-muted-foreground">{place.address}</span>
-                        </div>
-
-                        {/* Opening Hours */}
-                        {place.openingHours && (
-                          <div className="flex items-center gap-2 text-sm mb-2">
-                            <Clock className="h-4 w-4 text-orange-500 shrink-0" />
-                            <span className="text-muted-foreground">{formatOpeningHours(place.openingHours, i18n.language, t)}</span>
-                          </div>
-                        )}
-
-                        {/* Phone */}
-                        {place.phone && (
-                          <div className="flex items-center gap-2 text-sm mb-2">
-                            <Phone className="h-4 w-4 text-green-600 shrink-0" />
-                            <a href={`tel:${place.phone}`} className="text-green-600 hover:underline">
-                              {place.phone}
-                            </a>
-                          </div>
-                        )}
-
-                        {/* Website */}
-                        {place.website && (
-                          <div className="flex items-center gap-2 text-sm mb-3">
-                            <Globe className="h-4 w-4 text-blue-600 shrink-0" />
-                            <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {t('place.website')}
-                            </a>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 mb-3">
-                          <Button
-                            size="sm"
-                            className="gap-2 bg-primary hover:bg-primary/90"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (place.latitude && place.longitude) {
-                                if (userLocation) {
-                                  // Show route on map
-                                  setRouteToPlaceId(place.id);
-                                  setSelectedPlaceId(null);
-                                  if (!showMap) setShowMap(true);
-                                } else {
-                                  // Get location first, then show route
-                                  toast.info(t('messages.getting_your_location'));
-                                  if (navigator.geolocation) {
-                                    navigator.geolocation.getCurrentPosition(
-                                      (position) => {
-                                        setUserLocation({
-                                          latitude: position.coords.latitude,
-                                          longitude: position.coords.longitude,
-                                        });
-                                        setRouteToPlaceId(place.id);
-                                        setSelectedPlaceId(null);
-                                        if (!showMap) setShowMap(true);
-                                      },
-                                      () => {
-                                        // Fallback to Google Maps if location fails
-                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
-                                      },
-                                      { enableHighAccuracy: true, timeout: 10000 }
-                                    );
-                                  } else {
-                                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, '_blank');
-                                  }
-                                }
-                              } else {
-                                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`, '_blank');
-                              }
-                            }}
-                          >
-                            <Navigation className="h-4 w-4" />
-                            {t('ui.directions')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={isFavorite(place.id) ? "default" : "outline"}
-                            className={cn("gap-2", isFavorite(place.id) && "bg-primary")}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite({
-                                id: place.id,
-                                name: place.name,
-                                address: place.address,
-                                image: place.images[0],
-                                rating: place.rating,
-                                category: place.category,
-                              });
-                              toast.success(isFavorite(place.id) ? t('messages.removed_favorite') : t('messages.saved_favorite'));
-                            }}
-                          >
-                            <Bookmark className={cn("h-4 w-4", isFavorite(place.id) && "fill-current")} />
-                            {isFavorite(place.id) ? t('ui.saved') : t('ui.save')}
-                          </Button>
-                        </div>
-
-                        {/* Image Gallery */}
-                        {place.images.length > 0 && (
-                          <div className="flex gap-2 overflow-x-auto">
-                            {place.images.map((img, i) => (
-                              <img
-                                key={i}
-                                src={img}
-                                alt={place.name}
-                                className="h-16 w-20 object-cover rounded-lg shrink-0"
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {/* Place results are rendered above between messages; duplicated rendering removed. */}
 
                   </div>
                 </ScrollArea>
@@ -1515,7 +1383,7 @@ export default function Chatbot() {
               )}
 
               {/* Input */}
-              <div className="p-4 border-t border-border shrink-0 bg-card">
+              <div className="p-3 border-t border-border shrink-0 bg-card">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -1526,7 +1394,7 @@ export default function Chatbot() {
                   <Button
                     variant={isRecording ? 'destructive' : 'outline'}
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9"
                     onClick={(e) => {
                       e.preventDefault();
                       if (isRecording) stopRecording(); else startRecording();
@@ -1539,7 +1407,7 @@ export default function Chatbot() {
                   {/* TTS settings popover */}
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10">
+                      <Button variant="outline" size="icon" className="h-9 w-9">
                         <Filter className="h-4 w-4" />
                       </Button>
                     </PopoverTrigger>
@@ -1618,7 +1486,7 @@ export default function Chatbot() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9"
                     onClick={(e) => {
                       e.preventDefault();
                       playLastAssistantMessage();
@@ -1632,14 +1500,20 @@ export default function Chatbot() {
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSendWithStreaming();
+                      }
+                    }}
                     placeholder={t('chatbot.placeholder')}
-                    className="flex-1 min-w-0 rounded-full"
+                    className="flex-1 min-w-0 rounded-full h-9 px-4"
                     disabled={isLoading}
                   />
 
-                  <div className="w-24">
+                  <div className="w-28">
                     <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
-                      <SelectTrigger className="w-full h-10">
+                      <SelectTrigger className="w-full h-9">
                         <SelectValue placeholder={ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English'} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1649,7 +1523,7 @@ export default function Chatbot() {
                     </Select>
                   </div>
 
-                  <Button type="submit" className="rounded-full px-6" disabled={isLoading}>
+                  <Button type="submit" className="rounded-full px-4 h-9" disabled={isLoading}>
                     {t('chatbot.send')}
                   </Button>
                 </form>

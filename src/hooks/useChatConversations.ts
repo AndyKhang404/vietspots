@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -41,7 +41,7 @@ interface Conversation {
 }
 
 const CHAT_STORAGE_KEY = "vietspots_chat_history";
-  const QUEUE_KEY = "vietspots_chat_sync_queue";
+const QUEUE_KEY = "vietspots_chat_sync_queue";
 
 export function useChatConversations() {
   const { t } = useTranslation();
@@ -54,6 +54,8 @@ export function useChatConversations() {
   const [migrated, setMigrated] = useState(false);
   // Track if migration toast was already shown in this session
   const [migrationToastShown, setMigrationToastShown] = useState(false);
+  // Remember last saved messages hash to avoid duplicate saves
+  const lastSavedHashRef = useRef<string | null>(null);
 
   // Fetch conversations from Supabase
   const fetchConversations = useCallback(async () => {
@@ -94,6 +96,11 @@ export function useChatConversations() {
   // Migrate localStorage to Supabase on first load
   useEffect(() => {
     const migrateLocalStorage = async () => {
+      // Avoid running migration multiple times per session
+      if (sessionStorage.getItem('vietspots_chat_migrated') === '1') {
+        setMigrated(true);
+        return;
+      }
       if (!user || migrated) return;
 
       const saved = localStorage.getItem(CHAT_STORAGE_KEY);
@@ -135,13 +142,17 @@ export function useChatConversations() {
 
                 if (!error && data) {
                   // Only show migration toast once per session
-                  if (!migrationToastShown) {
+                  // Only show migration toast once per browser session
+                  if (!migrationToastShown && sessionStorage.getItem('vietspots_chat_migrated') !== '1') {
                     toast.success(t('chat_messages.migrated_success'));
                     setMigrationToastShown(true);
+                    sessionStorage.setItem('vietspots_chat_migrated', '1');
                   }
                   // Clear localStorage after successful migration
                   localStorage.removeItem(CHAT_STORAGE_KEY);
                   sessionStorage.removeItem('vietspot_session_id');
+                  // Mark as migrated for this session to prevent duplicate migrations/toasts
+                  sessionStorage.setItem('vietspots_chat_migrated', '1');
 
                   // Load the migrated conversation
                   setCurrentConversationId(data.id);
@@ -198,7 +209,7 @@ export function useChatConversations() {
         for (const item of localQueue) {
           localConvs.push({
             id: item.id || `local-${Date.now()}`,
-            title: item.title || (item.messages?.find((m: any) => m.role === 'user')?.content?.slice(0,50) || t('chat.default_saved_title') || 'Saved conversation'),
+            title: item.title || (item.messages?.find((m: any) => m.role === 'user')?.content?.slice(0, 50) || t('chat.default_saved_title') || 'Saved conversation'),
             messages: item.messages || [],
             placeResults: item.place_results || [],
             createdAt: item.created_at || new Date().toISOString(),
@@ -209,7 +220,7 @@ export function useChatConversations() {
         if (savedMessages && savedMessages.length > 1) {
           localConvs.unshift({
             id: `local-${Date.now()}`,
-            title: savedMessages.find((m: any) => m.role === 'user')?.content?.slice(0,50) || t('chat.default_saved_title') || 'Saved conversation',
+            title: savedMessages.find((m: any) => m.role === 'user')?.content?.slice(0, 50) || t('chat.default_saved_title') || 'Saved conversation',
             messages: savedMessages,
             placeResults: [],
             createdAt: new Date().toISOString(),
@@ -241,16 +252,26 @@ export function useChatConversations() {
   const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return;
 
+    // Skip saving if messages content hasn't changed since last successful save/queue
+    try {
+      const currentHash = JSON.stringify(messages);
+      if (lastSavedHashRef.current === currentHash) return;
+    } catch {
+      // ignore stringify errors and proceed to save
+    }
+
     // Require an authenticated session to avoid RLS check failures
     const { data: sessionData } = await supabase.auth.getSession();
     const session = sessionData?.session;
-      if (!session) {
+    if (!session) {
       // Queue locally for later sync
       const queueRaw = localStorage.getItem(QUEUE_KEY);
       const queue = queueRaw ? JSON.parse(queueRaw) : [];
-      queue.push({ id: crypto.randomUUID(), title: messages.find(m => m.role === 'user')?.content?.slice(0,50) || 'Unsaved', messages, place_results: placeResults });
+      queue.push({ id: crypto.randomUUID(), title: messages.find(m => m.role === 'user')?.content?.slice(0, 50) || 'Unsaved', messages, place_results: placeResults });
       localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
       toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+      // Mark as saved to avoid re-queuing the same content
+      try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
       return;
     }
     const { data: userData, error: userErr } = await supabase.auth.getUser();
@@ -284,6 +305,8 @@ export function useChatConversations() {
           placeResults,
           updatedAt: new Date().toISOString(),
         }) : c));
+        // Mark as saved
+        try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
       } else {
         // Create new conversation
         try {
@@ -310,6 +333,8 @@ export function useChatConversations() {
               const queue = queueRaw ? JSON.parse(queueRaw) : [];
               queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
               localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+              // Mark as saved/queued to avoid duplicates
+              try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
               toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
             } else {
               console.error('Error saving conversation:', error);
@@ -331,6 +356,8 @@ export function useChatConversations() {
               },
               ...prev,
             ]);
+            // Mark as saved
+            try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
           }
         } catch (err: any) {
           const msg = err?.message || '';
@@ -469,21 +496,21 @@ export function useChatConversations() {
     if (!user) return;
 
     try {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        const session = sessionData?.session;
-        if (!session) {
-          console.warn('No active session; cannot delete conversation');
-          return;
-        }
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr) console.warn('getUser error deleting conversation', userErr);
-        const dbUserId = userData?.user?.id || user?.id;
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (!session) {
+        console.warn('No active session; cannot delete conversation');
+        return;
+      }
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.warn('getUser error deleting conversation', userErr);
+      const dbUserId = userData?.user?.id || user?.id;
 
-        const { error } = await supabase
-          .from('chat_conversations')
-          .delete()
-          .eq('id', conversationId)
-          .eq('user_id', dbUserId);
+      const { error } = await supabase
+        .from('chat_conversations')
+        .delete()
+        .eq('id', conversationId)
+        .eq('user_id', dbUserId);
 
       if (error) throw error;
 

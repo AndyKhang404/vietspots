@@ -11,6 +11,7 @@
     "notifications": "Thông báo",
     "settings": "Cài đặt"
   },
+  "saved_on": "Đã lưu lúc",
   "home": {
     "welcome": "Xin chào",
     "explore": "Khám phá những địa điểm tuyệt vời",
@@ -129,6 +130,7 @@
     "signupSuccess": "Đăng ký thành công",
     "loginError": "Đăng nhập thất bại",
     "signupError": "Đăng ký thất bại",
+    "check_email_for_confirmation": "Vui lòng kiểm tra email để xác nhận tài khoản",
     "invalidCredentials": "Email hoặc mật khẩu không đúng",
     "emailExists": "Email đã tồn tại",
     "guest": "Khách",
@@ -381,6 +383,7 @@
     "tab_saved": "Đã lưu",
     "default_saved_title": "Cuộc trò chuyện đã lưu",
     "default_new_title": "Cuộc trò chuyện mới",
+    "saved_on": "Đã lưu lúc:",
     "history_saved_on_login": "Lịch sử chat sẽ được lưu khi bạn đăng nhập",
     "no_history": "Chưa có lịch sử chat"
   },

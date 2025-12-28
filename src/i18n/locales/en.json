@@ -11,6 +11,7 @@
     "location": "Location",
     "opening_today": "Today",
     "opening_hours": "Opening hours",
+    "saved_on": "Saved on",
     "notifications": "Notifications",
     "settings": "Settings"
   },
@@ -147,6 +148,7 @@
     "signupSuccess": "Sign up successful",
     "loginError": "Login failed",
     "signupError": "Sign up failed",
+    "check_email_for_confirmation": "Please check your email to confirm your account",
     "invalidCredentials": "Invalid email or password",
     "invalidEmail": "Invalid email address",
     "password_too_short": "Password must be at least 6 characters",
@@ -381,6 +383,7 @@
     "tab_saved": "Saved",
     "default_saved_title": "Saved conversation",
     "default_new_title": "New conversation",
+    "saved_on": "Saved on:",
     "history_saved_on_login": "Chat history will be saved when you login",
     "no_history": "No chat history yet"
   },

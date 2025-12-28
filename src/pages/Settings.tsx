@@ -43,6 +43,7 @@ export default function Settings() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [colorThemeOpen, setColorThemeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
 
@@ -79,6 +80,20 @@ export default function Settings() {
       });
 
       if (error) throw error;
+
+      // Also upsert into public.profiles so server-side reads (RLS / API) see updated profile
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id || user?.id;
+        if (userId) {
+          // Use upsert on user_id (profiles_user_id_key)
+          await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName, avatar_url: avatarUrl, preferences: [] }, { onConflict: 'user_id' });
+        }
+      } catch (e) {
+        // non-fatal: log
+        // eslint-disable-next-line no-console
+        console.warn('Failed to upsert public.profiles after updating auth user metadata', e);
+      }
 
       toast({ title: t('settings.profile_updated') });
       setProfileOpen(false);
@@ -179,7 +194,7 @@ export default function Settings() {
     {
       title: t('settings.support'),
       items: [
-        { icon: HelpCircle, label: t('settings.helpCenter'), hasArrow: true, onClick: () => { } },
+        { icon: HelpCircle, label: t('settings.helpCenter'), hasArrow: true, onClick: () => setHelpOpen(true) },
       ],
     },
   ];
@@ -324,6 +339,19 @@ export default function Settings() {
                 )}
               </button>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Help Center Dialog (placeholder content) */}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('settings.helpCenter')}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            <p className="mb-2">{t('settings.helpCenter')}: </p>
+            <p className="text-sm text-muted-foreground">{t('messages.help_center_placeholder') || 'Trung tâm trợ giúp đang được cập nhật. Vui lòng quay lại sau.'}</p>
           </div>
         </DialogContent>
       </Dialog>
