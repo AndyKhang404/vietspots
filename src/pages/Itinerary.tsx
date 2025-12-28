@@ -444,7 +444,13 @@ export default function Itinerary() {
 
                   <p className="text-xs text-muted-foreground">
                     {t('itinerary.created_on')}{' '}
-                    {new Date(itinerary.created_at).toLocaleDateString(i18n.language)}
+                    {new Date(itinerary.created_at).toLocaleString(i18n.language || 'vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                 </div>
               ))

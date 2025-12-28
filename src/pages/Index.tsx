@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
-import { Search, TrendingUp, Sparkles, Loader2, MapPin, History, RefreshCw } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Loader2, MapPin, History, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/contexts/FavoritesContext";
@@ -255,6 +255,42 @@ export default function Index() {
     loading: boolean;
     emptyMessage: string;
   }) => {
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    useEffect(() => {
+      const check = () => {
+        const el = wrapperRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+        if (!el) {
+          setCanScrollLeft(false);
+          setCanScrollRight(false);
+          return;
+        }
+        setCanScrollLeft(el.scrollLeft > 10);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10);
+      };
+
+      check();
+      const el = wrapperRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+      el?.addEventListener('scroll', check);
+      window.addEventListener('resize', check);
+      return () => {
+        el?.removeEventListener('scroll', check);
+        window.removeEventListener('resize', check);
+      };
+    }, [places, loading]);
+
+    const scrollBy = (amount: number) => {
+      const el = wrapperRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+      if (!el) return;
+      el.scrollBy({ left: amount, behavior: 'smooth' });
+      setTimeout(() => {
+        setCanScrollLeft(el.scrollLeft > 10);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10);
+      }, 400);
+    };
+
     if (loading) {
       return (
         <div className="flex items-center justify-center py-12">
@@ -272,33 +308,57 @@ export default function Index() {
     }
 
     return (
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex gap-4 pb-4">
-          {places.map((place, index) => (
-            <div
-              key={place.id}
-              className="w-[260px] shrink-0 animate-in fade-in slide-in-from-right-4"
-              style={{ animationDelay: `${index * 50}ms` }}
-              onClick={() => navigate(`/place/${place.id}`)}
-            >
-              <PlaceCard
-                {...place}
-                ratingCount={place.ratingCount}
-                isFavorite={isFavorite(place.id)}
-                onFavoriteToggle={() => toggleFavorite({
-                  id: place.id,
-                  name: place.name,
-                  address: place.location,
-                  image: place.image,
-                  rating: place.rating,
-                  category: place.category,
-                })}
-              />
+      <div className="relative">
+        {canScrollLeft && (
+          <button
+            aria-label="Scroll left"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-card/80 backdrop-blur-sm shadow-md flex items-center justify-center"
+            onClick={() => scrollBy(-300)}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+
+        <div ref={wrapperRef}>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-4 pb-4">
+              {places.map((place, index) => (
+                <div
+                  key={place.id}
+                  className="w-[260px] shrink-0 animate-in fade-in slide-in-from-right-4"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => navigate(`/place/${place.id}`)}
+                >
+                  <PlaceCard
+                    {...place}
+                    ratingCount={place.ratingCount}
+                    isFavorite={isFavorite(place.id)}
+                    onFavoriteToggle={() => toggleFavorite({
+                      id: place.id,
+                      name: place.name,
+                      address: place.location,
+                      image: place.image,
+                      rating: place.rating,
+                      category: place.category,
+                    })}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+
+        {canScrollRight && (
+          <button
+            aria-label="Scroll right"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-card/80 backdrop-blur-sm shadow-md flex items-center justify-center"
+            onClick={() => scrollBy(300)}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+      </div>
     );
   };
 

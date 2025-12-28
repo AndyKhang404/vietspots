@@ -40,6 +40,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  timestamp?: string;
 }
 
 interface PlaceResult {
@@ -186,6 +187,7 @@ export default function Chatbot() {
     startNewConversation,
     loadConversation,
     deleteConversation,
+    currentConversationId,
   } = useChatConversations();
   const navigate = useNavigate();
 
@@ -631,6 +633,7 @@ export default function Chatbot() {
       id: Date.now().toString(),
       role: "user",
       content: input,
+      timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -647,6 +650,7 @@ export default function Chatbot() {
         role: "assistant",
         content: "",
         isStreaming: true,
+        timestamp: new Date().toISOString(),
       },
     ]);
 
@@ -850,6 +854,9 @@ export default function Chatbot() {
       ...placeResults.map((p) => resolveCategoryId(p.category)).filter(Boolean),
     ])
   ) as string[];
+
+  const currentConversation = conversations.find(c => c.id === currentConversationId);
+  const placeShownInline = Boolean(lastPlaceMessageId && messages.findIndex((m) => m.id === lastPlaceMessageId) >= 0);
 
   return (
     <>
@@ -1092,6 +1099,18 @@ export default function Chatbot() {
                     ≥{minRating}★
                   </Badge>
                 )}
+                {currentConversation && (
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    {t('chat.last_saved', { defaultValue: 'Saved:' })}{' '}
+                    {new Date(currentConversation.updatedAt || currentConversation.createdAt).toLocaleString(i18n.language || 'vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Place Results & Messages */}
@@ -1135,6 +1154,11 @@ export default function Chatbot() {
                                     <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
                                   )}
                                 </p>
+                                {message.timestamp && (
+                                  <div className={cn('text-[11px] mt-2 text-muted-foreground', message.role === 'user' ? 'text-right' : 'text-left')}>
+                                    {new Date(message.timestamp).toLocaleString(i18n.language || 'vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1261,6 +1285,11 @@ export default function Chatbot() {
                                     <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
                                   )}
                                 </p>
+                                {message.timestamp && (
+                                  <div className={cn('text-[11px] mt-2 text-muted-foreground', message.role === 'user' ? 'text-right' : 'text-left')}>
+                                    {new Date(message.timestamp).toLocaleString(i18n.language || 'vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1277,8 +1306,8 @@ export default function Chatbot() {
                       </div>
                     )}
 
-                    {/* Place Result Cards - Below messages */}
-                    {filteredPlaceResults.map((place, index) => (
+                    {/* Place Result Cards - Below messages (only when not already inserted between messages) */}
+                    {!placeShownInline && filteredPlaceResults.map((place, index) => (
                       <div
                         key={place.id}
                         className={cn(
@@ -1311,6 +1340,27 @@ export default function Chatbot() {
                               <Star className="h-3 w-3 fill-current" />
                               {place.rating}
                             </span>
+                            {/* Wishlist toggle */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                try {
+                                  toggleFavorite({
+                                    id: String(place.id),
+                                    name: place.name,
+                                    address: place.address,
+                                    image: place.images && place.images.length > 0 ? (place.images[0] as string) : undefined,
+                                    rating: place.rating,
+                                    category: place.category,
+                                  });
+                                } catch (err) { }
+                              }}
+                              className="h-8 w-8"
+                            >
+                              <Bookmark className={cn('h-4 w-4', isFavorite(String(place.id)) ? 'text-destructive' : '')} />
+                            </Button>
                           </div>
                         </div>
 
@@ -1509,6 +1559,7 @@ export default function Chatbot() {
                   className="flex gap-2 items-center"
                 >
                   <Button
+                    type="button"
                     variant={isRecording ? 'destructive' : 'outline'}
                     size="icon"
                     className="h-9 w-9"
@@ -1524,7 +1575,7 @@ export default function Chatbot() {
                   {/* TTS settings popover */}
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-9 w-9">
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9">
                         <Filter className="h-4 w-4" />
                       </Button>
                     </PopoverTrigger>
@@ -1601,6 +1652,7 @@ export default function Chatbot() {
 
                   {/* Speaker button: user triggers TTS for last assistant message */}
                   <Button
+                    type="button"
                     variant="outline"
                     size="icon"
                     className="h-9 w-9"
@@ -1790,7 +1842,7 @@ export default function Chatbot() {
                             {conv.title}
                           </h4>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(conv.updatedAt).toLocaleDateString('vi-VN', {
+                            {new Date(conv.updatedAt || conv.createdAt).toLocaleString(i18n.language || 'vi-VN', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric',
