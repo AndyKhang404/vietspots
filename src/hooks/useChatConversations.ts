@@ -52,6 +52,8 @@ export function useChatConversations() {
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [migrated, setMigrated] = useState(false);
+  // Track if migration toast was already shown in this session
+  const [migrationToastShown, setMigrationToastShown] = useState(false);
 
   // Fetch conversations from Supabase
   const fetchConversations = useCallback(async () => {
@@ -130,7 +132,11 @@ export function useChatConversations() {
                   .single();
 
                 if (!error && data) {
-                  toast.success(t('chat_messages.migrated_success'));
+                  // Only show migration toast once per session
+                  if (!migrationToastShown) {
+                    toast.success(t('chat_messages.migrated_success'));
+                    setMigrationToastShown(true);
+                  }
                   // Clear localStorage after successful migration
                   localStorage.removeItem(CHAT_STORAGE_KEY);
                   sessionStorage.removeItem('vietspot_session_id');

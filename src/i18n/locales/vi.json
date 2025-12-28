@@ -150,7 +150,16 @@
       "of_type": "loại",
       "at_location": "tại {{destination}}",
       "min_rating": "rating tối thiểu {{rating}}"
-    }
+    },
+    "tts_voice": "Giọng nói",
+    "prefer_backend_tts": "Ưu tiên TTS backend",
+    "tts_rate": "Tốc độ",
+    "tts_pitch": "Cao độ",
+    "tts_volume": "Âm lượng",
+    "no_voices": "Không có giọng nói",
+    "start_recording": "Bắt đầu ghi âm",
+    "stop_recording": "Dừng ghi âm",
+    "play_last_message": "Phát tin nhắn cuối"
   },
   "ui": {
     "press_heart_to_save": "Nhấn ❤️ để lưu địa điểm yêu thích",

@@ -222,9 +222,11 @@ export default function Chatbot() {
   const currentUtterRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(() => localStorage.getItem('vietspots_tts_voice') || null);
+  // Default to backend TTS for better quality
   const [preferBackendTts, setPreferBackendTts] = useState<boolean>(() => {
     const v = localStorage.getItem('vietspots_prefer_backend_tts');
-    return v === '1' || v === 'true';
+    // Default true if not set (for better quality)
+    return v === null || v === '1' || v === 'true';
   });
   // TTS tuning controls (rate/pitch/volume)
   const [ttsRate, setTtsRate] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_rate')) || 1);
@@ -344,38 +346,48 @@ export default function Chatbot() {
 
   // Start recording audio using MediaRecorder
   const startRecording = async () => {
-    // If browser supports Web Speech API, use it for live interim transcripts
+    // If browser supports Web Speech API, use it for live interim transcripts (better quality)
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
         recognition.lang = ttsLanguage || (i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
         recognition.interimResults = true;
+        recognition.continuous = true; // Keep listening for better results
         recognition.maxAlternatives = 1;
+        
+        let finalTranscript = '';
+        
         recognition.onresult = (event: any) => {
           let interim = '';
-          let final = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             const res = event.results[i];
-            if (res.isFinal) final += res[0].transcript;
-            else interim += res[0].transcript;
+            if (res.isFinal) {
+              finalTranscript += res[0].transcript + ' ';
+            } else {
+              interim += res[0].transcript;
+            }
           }
-          // Show interim + final in input as user speaks
-          setInput((prev) => {
-            // Keep any existing typed text (prefix) and append live transcript
-            const prefix = prev && prev.trim() ? prev.split('\n')[0] : '';
-            const live = (prefix ? prefix + ' ' : '') + (final || interim);
-            return live;
-          });
+          // Update input with final + interim text
+          setInput(finalTranscript + interim);
         };
+        
         recognition.onerror = (e: any) => {
           console.error('Recognition error', e);
-          toast.error(t('messages.cannot_transcribe'));
+          if (e.error !== 'aborted' && e.error !== 'no-speech') {
+            toast.error(t('messages.cannot_transcribe'));
+          }
         };
+        
         recognition.onend = () => {
           setIsRecording(false);
           recognitionRef.current = null;
+          // Finalize with just the final transcript
+          if (finalTranscript.trim()) {
+            setInput(finalTranscript.trim());
+          }
         };
+        
         recognitionRef.current = recognition;
         recognition.start();
         setIsRecording(true);
