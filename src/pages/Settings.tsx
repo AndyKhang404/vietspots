@@ -87,7 +87,29 @@ export default function Settings() {
         const userId = userData?.user?.id || user?.id;
         if (userId) {
           // Use upsert on user_id (profiles_user_id_key)
-          await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName, avatar_url: avatarUrl, preferences: [] }, { onConflict: 'user_id' });
+          const { error: profilesError } = await supabase
+            .from('profiles')
+            .upsert({ user_id: userId, full_name: fullName, avatar_url: avatarUrl, preferences: [] }, { onConflict: 'user_id' });
+
+          if (profilesError) {
+            // eslint-disable-next-line no-console
+            console.warn('Failed to upsert public.profiles after updating auth user metadata', profilesError);
+          }
+
+          // Also upsert into public.users so that the `users` table (if present) reflects the changes
+          try {
+            const { error: usersError } = await (supabase as any)
+              .from('users')
+              .upsert({ id: userId, email: user?.email || userData?.user?.email || null, name: fullName || null, avatar_url: avatarUrl || null, phone: phone || null }, { onConflict: 'id' });
+
+            if (usersError) {
+              // eslint-disable-next-line no-console
+              console.warn('Failed to upsert public.users after updating profile', usersError);
+            }
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('Unexpected error upserting public.users', e);
+          }
         }
       } catch (e) {
         // non-fatal: log
