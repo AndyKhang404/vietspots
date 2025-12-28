@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -10,7 +10,6 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
-  timestamp?: string;
 }
 
 interface PlaceResult {
@@ -42,7 +41,7 @@ interface Conversation {
 }
 
 const CHAT_STORAGE_KEY = "vietspots_chat_history";
-const QUEUE_KEY = "vietspots_chat_sync_queue";
+  const QUEUE_KEY = "vietspots_chat_sync_queue";
 
 export function useChatConversations() {
   const { t } = useTranslation();
@@ -55,8 +54,6 @@ export function useChatConversations() {
   const [migrated, setMigrated] = useState(false);
   // Track if migration toast was already shown in this session
   const [migrationToastShown, setMigrationToastShown] = useState(false);
-  const isSavingRef = useRef(false);
-  const lastSavedSignatureRef = useRef<string | null>(null);
 
   // Fetch conversations from Supabase
   const fetchConversations = useCallback(async () => {
@@ -155,13 +152,8 @@ export function useChatConversations() {
                   console.warn('RLS blocked migration; queueing conversation for later sync');
                   const queueRaw = localStorage.getItem(QUEUE_KEY);
                   const queue = queueRaw ? JSON.parse(queueRaw) : [];
-                  // Deduplicate by message payload to avoid repeated entries
-                  const signature = JSON.stringify({ messages: localMessages });
-                  const exists = queue.some((q: any) => JSON.stringify({ messages: q.messages }) === signature);
-                  if (!exists) {
-                    queue.push({ id: crypto.randomUUID(), title, messages: localMessages, place_results: [] });
-                    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-                  }
+                  queue.push({ id: crypto.randomUUID(), title, messages: localMessages, place_results: [] });
+                  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
                 } else {
                   console.error('Migration insert error', err);
                 }
@@ -184,7 +176,7 @@ export function useChatConversations() {
   // Ensure there is a default assistant message (localized)
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting'), timestamp: new Date().toISOString() }]);
+      setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
     }
   }, [t]);
 
@@ -201,16 +193,10 @@ export function useChatConversations() {
         const savedMessages = savedRaw ? JSON.parse(savedRaw) as any[] : null;
 
         const localConvs: Conversation[] = [];
-        const seen = new Set<string>();
         for (const item of localQueue) {
-          try {
-            const sig = JSON.stringify({ messages: item.messages, place_results: item.place_results });
-            if (seen.has(sig)) continue;
-            seen.add(sig);
-          } catch { }
           localConvs.push({
             id: item.id || `local-${Date.now()}`,
-            title: item.title || (item.messages?.find((m: any) => m.role === 'user')?.content?.slice(0, 50) || t('chat.default_saved_title') || 'Saved conversation'),
+            title: item.title || (item.messages?.find((m: any) => m.role === 'user')?.content?.slice(0,50) || t('chat.default_saved_title') || 'Saved conversation'),
             messages: item.messages || [],
             placeResults: item.place_results || [],
             createdAt: item.created_at || new Date().toISOString(),
@@ -221,7 +207,7 @@ export function useChatConversations() {
         if (savedMessages && savedMessages.length > 1) {
           localConvs.unshift({
             id: `local-${Date.now()}`,
-            title: savedMessages.find((m: any) => m.role === 'user')?.content?.slice(0, 50) || t('chat.default_saved_title') || 'Saved conversation',
+            title: savedMessages.find((m: any) => m.role === 'user')?.content?.slice(0,50) || t('chat.default_saved_title') || 'Saved conversation',
             messages: savedMessages,
             placeResults: [],
             createdAt: new Date().toISOString(),
@@ -236,14 +222,14 @@ export function useChatConversations() {
           setPlaceResults(localConvs[0].placeResults || []);
         } else {
           setCurrentConversationId(null);
-          setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting'), timestamp: new Date().toISOString() }]);
+          setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
           setPlaceResults([]);
         }
       } catch (e) {
         console.warn('Could not load local conversations', e);
         setConversations([]);
         setCurrentConversationId(null);
-        setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting'), timestamp: new Date().toISOString() }]);
+        setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
         setPlaceResults([]);
       }
     }
@@ -253,126 +239,92 @@ export function useChatConversations() {
   const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return;
 
-    // compute signature to avoid re-saving identical payloads
-    let signature: string;
-    try { signature = JSON.stringify({ messages, place_results: placeResults }); } catch { signature = Date.now().toString(); }
-    if (lastSavedSignatureRef.current === signature) return;
+    // Require an authenticated session to avoid RLS check failures
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+      if (!session) {
+      // Queue locally for later sync
+      const queueRaw = localStorage.getItem(QUEUE_KEY);
+      const queue = queueRaw ? JSON.parse(queueRaw) : [];
+      queue.push({ id: crypto.randomUUID(), title: messages.find(m => m.role === 'user')?.content?.slice(0,50) || 'Unsaved', messages, place_results: placeResults });
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+      return;
+    }
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr) console.warn('getUser error saving conversation', userErr);
+    const dbUserId = userData?.user?.id || user?.id;
+    if (!dbUserId) return; // require authenticated DB user to save
 
-    if (isSavingRef.current) return; // prevent concurrent saves
-    isSavingRef.current = true;
+    const firstUserMessage = messages.find(m => m.role === 'user');
+    const title = firstUserMessage
+      ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
+      : t('chat.default_new_title') || 'New conversation';
 
     try {
-      // Require an authenticated session to avoid RLS check failures
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session;
-      if (!session) {
-        // Queue locally for later sync (dedupe similar conversations)
-        const queueRaw = localStorage.getItem(QUEUE_KEY);
-        const queue = queueRaw ? JSON.parse(queueRaw) : [];
-        const payloadTitle = messages.find(m => m.role === 'user')?.content?.slice(0, 50) || 'Unsaved';
-        const exists = queue.some((q: any) => {
-          try { return JSON.stringify({ messages: q.messages, place_results: q.place_results }) === signature; } catch { return false; }
-        });
-        if (!exists) {
-          queue.push({ id: crypto.randomUUID(), title: payloadTitle, messages, place_results: placeResults });
-          localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-          lastSavedSignatureRef.current = signature;
-        }
-        toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
-        return;
-      }
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.warn('getUser error saving conversation', userErr);
-      const dbUserId = userData?.user?.id || user?.id;
-      if (!dbUserId) return; // require authenticated DB user to save
+      if (currentConversationId) {
+        // Update existing conversation
+        const { error } = await supabase
+          .from('chat_conversations')
+          .update({
+            title,
+            messages: messages as unknown as Json,
+            place_results: placeResults as unknown as Json,
+          })
+          .eq('id', currentConversationId);
 
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      const title = firstUserMessage
-        ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
-        : t('chat.default_new_title') || 'New conversation';
-
-      try {
-        if (currentConversationId) {
-          // Update existing conversation
-          const { error } = await supabase
+        if (error) throw error;
+      } else {
+        // Create new conversation
+        try {
+          const { data, error } = await supabase
             .from('chat_conversations')
-            .update({
+            .insert([{
+              id: crypto.randomUUID(),
+              user_id: dbUserId,
               title,
               messages: messages as unknown as Json,
               place_results: placeResults as unknown as Json,
-            })
-            .eq('id', currentConversationId);
+            }])
+            .select()
+            .single();
 
-          if (error) throw error;
-          // mark signature as saved for this updated conversation
-          lastSavedSignatureRef.current = signature;
-        } else {
-          // Create new conversation
-          try {
-            const { data, error } = await supabase
-              .from('chat_conversations')
-              .insert([{
-                id: crypto.randomUUID(),
-                user_id: dbUserId,
-                title,
-                messages: messages as unknown as Json,
-                place_results: placeResults as unknown as Json,
-              }])
-              .select()
-              .single();
-
-            if (error) {
-              // If RLS blocks insert, queue locally
-              const msg = error?.message || '';
-              if (msg.includes('row-level')) {
-                console.warn('RLS blocked insert; queueing conversation for later sync');
-                const queueRaw = localStorage.getItem(QUEUE_KEY);
-                const queue = queueRaw ? JSON.parse(queueRaw) : [];
-                const exists = queue.some((q: any) => {
-                  try { return JSON.stringify({ messages: q.messages, place_results: q.place_results }) === signature; } catch { return false; }
-                });
-                if (!exists) {
-                  queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
-                  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-                  lastSavedSignatureRef.current = signature;
-                }
-                toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
-              } else {
-                console.error('Error saving conversation:', error);
-                toast.error(t('messages.error_occurred_apology') + ' ' + (error.message || ''));
-                throw error;
-              }
-            }
-            if (data) {
-              setCurrentConversationId(data.id);
-              lastSavedSignatureRef.current = signature;
-            }
-          } catch (err: any) {
-            const msg = err?.message || '';
+          if (error) {
+            // If RLS blocks insert, queue locally
+            const msg = error?.message || '';
             if (msg.includes('row-level')) {
               console.warn('RLS blocked insert; queueing conversation for later sync');
               const queueRaw = localStorage.getItem(QUEUE_KEY);
               const queue = queueRaw ? JSON.parse(queueRaw) : [];
-              const exists = queue.some((q: any) => {
-                try { return JSON.stringify({ messages: q.messages, place_results: q.place_results }) === signature; } catch { return false; }
-              });
-              if (!exists) {
-                queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
-                localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-                lastSavedSignatureRef.current = signature;
-              }
+              queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
+              localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+              toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
             } else {
-              console.error('Error saving conversation:', err);
-              toast.error(t('messages.error_occurred_apology'));
+              console.error('Error saving conversation:', error);
+              toast.error(t('messages.error_occurred_apology') + ' ' + (error.message || ''));
+              throw error;
             }
           }
+          if (data) {
+            setCurrentConversationId(data.id);
+          }
+        } catch (err: any) {
+          const msg = err?.message || '';
+          if (msg.includes('row-level')) {
+            console.warn('RLS blocked insert; queueing conversation for later sync');
+            const queueRaw = localStorage.getItem(QUEUE_KEY);
+            const queue = queueRaw ? JSON.parse(queueRaw) : [];
+            queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
+            localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+          } else {
+            console.error('Error saving conversation:', err);
+            toast.error(t('messages.error_occurred_apology'));
+          }
         }
-      } catch (error) {
-        console.error('Error saving conversation:', error);
-        toast.error(t('messages.error_occurred_apology'));
       }
-    } finally {
-      isSavingRef.current = false;
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+      toast.error(t('messages.error_occurred_apology'));
     }
   }, [user, currentConversationId, messages, placeResults]);
 
@@ -474,7 +426,7 @@ export function useChatConversations() {
 
     // Reset to new conversation
     setCurrentConversationId(null);
-    setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting'), timestamp: new Date().toISOString() }]);
+    setMessages([{ id: '1', role: 'assistant', content: t('chatbot.greeting') }]);
     setPlaceResults([]);
     sessionStorage.removeItem('vietspot_session_id');
 
@@ -491,21 +443,21 @@ export function useChatConversations() {
     if (!user) return;
 
     try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      const session = sessionData?.session;
-      if (!session) {
-        console.warn('No active session; cannot delete conversation');
-        return;
-      }
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.warn('getUser error deleting conversation', userErr);
-      const dbUserId = userData?.user?.id || user?.id;
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+        if (!session) {
+          console.warn('No active session; cannot delete conversation');
+          return;
+        }
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (userErr) console.warn('getUser error deleting conversation', userErr);
+        const dbUserId = userData?.user?.id || user?.id;
 
-      const { error } = await supabase
-        .from('chat_conversations')
-        .delete()
-        .eq('id', conversationId)
-        .eq('user_id', dbUserId);
+        const { error } = await supabase
+          .from('chat_conversations')
+          .delete()
+          .eq('id', conversationId)
+          .eq('user_id', dbUserId);
 
       if (error) throw error;
 

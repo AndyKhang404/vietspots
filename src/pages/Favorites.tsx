@@ -110,12 +110,6 @@ export default function Favorites() {
                       {item.place_category}
                     </Badge>
                   )}
-                  <div className="mt-2">
-                    <p className="text-xs text-muted-foreground">
-                      {t('favorites.saved_on', { defaultValue: 'Saved:' })}{' '}
-                      {item.created_at ? new Date(item.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                    </p>
-                  </div>
                 </div>
               </div>
             ))}

@@ -86,14 +86,13 @@ export default function Auth() {
             description: message,
           });
         } else {
-          // After successful sign up, switch to login view so user can sign in
-          setIsLogin(true);
-          setPassword('');
+          // If there's no session returned, Supabase likely requires email confirmation
           const createdUser = res.data?.user;
           if (createdUser && !res.data?.session) {
             toast({ title: t('auth.signupSuccess'), description: t('auth.check_email_for_confirmation') });
           } else {
             toast({ title: t('auth.signupSuccess') });
+            navigate('/');
           }
         }
       }
