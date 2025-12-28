@@ -77,9 +77,9 @@ export default function Auth() {
         const res = await signUp(email, password, fullName);
         if (res.error) {
           console.error('Sign up error', res.error);
-          const message = (res.error.message || '').includes('already registered')
-            ? t('auth.emailExists')
-            : res.error.message || t('auth.signupError');
+          const raw = (res.error.message || '').toLowerCase();
+          const isDuplicate = raw.includes('already registered') || raw.includes('already exists') || raw.includes('duplicate') || raw.includes('email');
+          const message = isDuplicate ? t('auth.emailExists') : res.error.message || t('auth.signupError');
           toast({
             variant: 'destructive',
             title: t('auth.signupError'),

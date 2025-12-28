@@ -39,6 +39,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    // Prevent signup if email already exists in our `users` table
+    try {
+      const { data: existingUsers, error: checkErr } = await (supabase as any)
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .limit(1);
+      if (!checkErr && existingUsers && existingUsers.length > 0) {
+        return { error: { message: 'Email already registered' } as any };
+      }
+    } catch (e) {
+      // ignore check errors and continue to attempt signup
+    }
     const redirectUrl = `${window.location.origin}/`;
     
     const result = await supabase.auth.signUp({
@@ -56,6 +69,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userId = result.data?.user?.id;
       if (userId) {
         await supabase.from('profiles').insert({ user_id: userId, full_name: fullName } as any);
+        // Also upsert into public.users so app-level users table reflects the auth user
+        try {
+          await (supabase as any).from('users').upsert({
+            id: userId,
+            email: email || null,
+            name: fullName || null,
+            avatar_url: null,
+            phone: null,
+            gender: null,
+            age: null,
+            introduction: null,
+            hobby: null,
+            culture: null,
+            religion: null,
+            companion_type: null,
+          }, { onConflict: 'id' });
+        } catch (e) {
+          // non-fatal
+          // eslint-disable-next-line no-console
+          console.warn('Failed to upsert public.users after signUp', e);
+        }
       }
     } catch (e) {
       // non-fatal
@@ -79,6 +113,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!existing || existing.length === 0) {
           const fullName = result.data?.user?.user_metadata?.full_name || null;
           await supabase.from('profiles').insert({ user_id: userId, full_name: fullName } as any);
+        }
+        // Ensure a users row exists as well (client has an active session here)
+        try {
+          await (supabase as any).from('users').upsert({
+            id: userId,
+            email: result.data?.user?.email || null,
+            name: result.data?.user?.user_metadata?.full_name || null,
+            avatar_url: null,
+            phone: null,
+            gender: null,
+            age: null,
+            introduction: null,
+            hobby: null,
+            culture: null,
+            religion: null,
+            companion_type: null,
+          }, { onConflict: 'id' });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to upsert public.users after signIn', e);
         }
       }
     } catch (e) {
