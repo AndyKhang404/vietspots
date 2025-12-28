@@ -10,6 +10,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  createdAt?: string;
 }
 
 interface PlaceResult {
@@ -154,8 +155,6 @@ export function useChatConversations() {
                   .single();
 
                 if (!error && data) {
-                  // Only show migration toast once per session
-                  // Only show migration toast once per browser session
                   if (!migrationToastShown && sessionStorage.getItem('vietspots_chat_migrated') !== '1') {
                     toast.success(t('chat_messages.migrated_success'));
                     setMigrationToastShown(true);
@@ -164,7 +163,6 @@ export function useChatConversations() {
                   // Clear localStorage after successful migration
                   localStorage.removeItem(CHAT_STORAGE_KEY);
                   sessionStorage.removeItem('vietspot_session_id');
-                  // Mark as migrated for this session to prevent duplicate migrations/toasts
                   sessionStorage.setItem('vietspots_chat_migrated', '1');
 
                   // Load the migrated conversation
@@ -175,11 +173,23 @@ export function useChatConversations() {
                 // If RLS prevented insert, queue locally for later sync
                 const msg = err?.message || '';
                 if (msg.includes('row-level')) {
-                  console.warn('RLS blocked migration; queueing conversation for later sync');
-                  const queueRaw = localStorage.getItem(QUEUE_KEY);
-                  const queue = queueRaw ? JSON.parse(queueRaw) : [];
-                  queue.push({ id: crypto.randomUUID(), title, messages: localMessages, place_results: [] });
-                  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                  try {
+                    console.warn('RLS blocked migration; queueing conversation for later sync');
+                    const queueRaw = localStorage.getItem(QUEUE_KEY);
+                    const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
+                    const messagesHash = JSON.stringify(localMessages);
+                    const exists = queue.some(q => {
+                      try { return JSON.stringify(q.messages) === messagesHash; } catch { return false; }
+                    });
+                    if (!exists) {
+                      queue.push({ id: crypto.randomUUID(), title, messages: localMessages, place_results: [], messagesHash });
+                      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                    } else {
+                      console.warn('Migration queue already contains identical conversation; skipping push');
+                    }
+                  } catch (qerr) {
+                    console.warn('Could not queue migration item', qerr);
+                  }
                 } else {
                   console.error('Migration insert error', err);
                 }
@@ -281,14 +291,26 @@ export function useChatConversations() {
     const { data: sessionData } = await supabase.auth.getSession();
     const session = sessionData?.session;
     if (!session) {
-      // Queue locally for later sync
-      const queueRaw = localStorage.getItem(QUEUE_KEY);
-      const queue = queueRaw ? JSON.parse(queueRaw) : [];
-      queue.push({ id: crypto.randomUUID(), title: messages.find(m => m.role === 'user')?.content?.slice(0, 50) || 'Unsaved', messages, place_results: placeResults });
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-      toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
-      // Mark as saved to avoid re-queuing the same content
-      try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
+      // Queue locally for later sync (deduplicate across reloads by message hash)
+      try {
+        const queueRaw = localStorage.getItem(QUEUE_KEY);
+        const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
+        const messagesHash = JSON.stringify(messages);
+        const exists = queue.some(q => {
+          try { return JSON.stringify(q.messages) === messagesHash; } catch { return false; }
+        });
+        if (!exists) {
+          queue.push({ id: crypto.randomUUID(), title: messages.find(m => m.role === 'user')?.content?.slice(0, 50) || 'Unsaved', messages, place_results: placeResults, messagesHash });
+          localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+          toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+        } else {
+          // Already queued this exact conversation
+          console.warn('Conversation already queued for later sync; skipping duplicate');
+        }
+        try { lastSavedHashRef.current = messagesHash; } catch { }
+      } catch (e) {
+        console.warn('Could not queue conversation locally', e);
+      }
       return;
     }
     const { data: userData, error: userErr } = await supabase.auth.getUser();
@@ -340,16 +362,28 @@ export function useChatConversations() {
           .select()
           .single();
 
-        if (insertError) {
+          if (insertError) {
           const msg = insertError?.message || '';
           if (msg.includes('row-level')) {
-            console.warn('RLS blocked insert; queueing conversation for later sync');
-            const queueRaw = localStorage.getItem(QUEUE_KEY);
-            const queue = queueRaw ? JSON.parse(queueRaw) : [];
-            queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults });
-            localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-            try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
-            toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+            try {
+              console.warn('RLS blocked insert; queueing conversation for later sync');
+              const queueRaw = localStorage.getItem(QUEUE_KEY);
+              const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
+              const messagesHash = JSON.stringify(messages);
+              const exists = queue.some(q => {
+                try { return JSON.stringify(q.messages) === messagesHash; } catch { return false; }
+              });
+              if (!exists) {
+                queue.push({ id: crypto.randomUUID(), title, messages, place_results: placeResults, messagesHash });
+                localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                try { lastSavedHashRef.current = messagesHash; } catch { }
+                toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+              } else {
+                console.warn('Conversation already queued for later sync; skipping duplicate');
+              }
+            } catch (qe) {
+              console.warn('Could not queue conversation after insert failure', qe);
+            }
           } else {
             console.error('Error saving conversation:', insertError);
             toast.error((t('messages.error_occurred_apology') || 'An error occurred') + ' ' + (insertError.message || ''));
@@ -390,16 +424,28 @@ export function useChatConversations() {
               .select()
               .single();
 
-            if (upsertErr) {
+                if (upsertErr) {
               const msg = upsertErr?.message || '';
               if (msg.includes('row-level')) {
-                console.warn('RLS blocked upsert; queueing conversation for later sync');
-                const queueRaw = localStorage.getItem(QUEUE_KEY);
-                const queue = queueRaw ? JSON.parse(queueRaw) : [];
-                queue.push({ id: newId, title, messages, place_results: placeResults });
-                localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-                try { lastSavedHashRef.current = JSON.stringify(messages); } catch { }
-                toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+                try {
+                  console.warn('RLS blocked upsert; queueing conversation for later sync');
+                  const queueRaw = localStorage.getItem(QUEUE_KEY);
+                  const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
+                  const messagesHash = JSON.stringify(messages);
+                  const exists = queue.some(q => {
+                    try { return JSON.stringify(q.messages) === messagesHash; } catch { return false; }
+                  });
+                  if (!exists) {
+                    queue.push({ id: newId, title, messages, place_results: placeResults, messagesHash });
+                    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                    try { lastSavedHashRef.current = messagesHash; } catch { }
+                    toast.success(t('chat_messages.queued_offline') || 'Conversation saved locally and will sync when online');
+                  } else {
+                    console.warn('Conversation already queued for later sync; skipping duplicate');
+                  }
+                } catch (qe) {
+                  console.warn('Could not queue conversation after upsert failure', qe);
+                }
               } else {
                 console.error('Error saving conversation:', upsertErr);
                 toast.error((t('messages.error_occurred_apology') || 'An error occurred') + ' ' + (upsertErr.message || ''));
@@ -424,11 +470,23 @@ export function useChatConversations() {
           } catch (err: any) {
             const msg = err?.message || '';
             if (msg.includes('row-level')) {
-              console.warn('RLS blocked upsert; queueing conversation for later sync');
-              const queueRaw = localStorage.getItem(QUEUE_KEY);
-              const queue = queueRaw ? JSON.parse(queueRaw) : [];
-              queue.push({ id: newId, title, messages, place_results: placeResults });
-              localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+              try {
+                console.warn('RLS blocked upsert; queueing conversation for later sync');
+                const queueRaw = localStorage.getItem(QUEUE_KEY);
+                const queue = queueRaw ? JSON.parse(queueRaw) as any[] : [];
+                const messagesHash = JSON.stringify(messages);
+                const exists = queue.some(q => {
+                  try { return JSON.stringify(q.messages) === messagesHash; } catch { return false; }
+                });
+                if (!exists) {
+                  queue.push({ id: newId, title, messages, place_results: placeResults, messagesHash });
+                  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+                } else {
+                  console.warn('Conversation already queued for later sync; skipping duplicate');
+                }
+              } catch (qe) {
+                console.warn('Could not queue conversation after upsert failure', qe);
+              }
             } else {
               console.error('Error saving conversation:', err);
               toast.error(t('messages.error_occurred_apology'));

@@ -33,6 +33,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      // Ensure a users row exists for the authenticated session (covers persisted sessions)
+      (async () => {
+        try {
+          const userId = session?.user?.id;
+          if (userId) {
+            await (supabase as any).from('users').upsert({
+              id: userId,
+              email: session.user.email || null,
+              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || null,
+              avatar_url: session.user.user_metadata?.avatar_url || null,
+            }, { onConflict: 'id' });
+          }
+        } catch (e) {
+          // non-fatal
+          // eslint-disable-next-line no-console
+          console.warn('Failed to ensure public.users row after session restore', e);
+        }
+      })();
     });
 
     return () => subscription.unsubscribe();

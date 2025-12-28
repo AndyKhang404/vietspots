@@ -13,6 +13,27 @@ VietSpots — Ứng dụng web khám phá địa điểm tại Việt Nam, xây 
 - **Stack:** Vite, React, TypeScript, Tailwind CSS, shadcn-ui, Supabase, MapLibre
 - **Scripts:** xem [package.json](package.json) (`dev`, `build`, `preview`, `lint`)
 
+## 🚀 Tính năng
+
+- 🔍 **Tìm kiếm địa điểm** theo tên, loại, vị trí…
+- 🗺️ **Bản đồ tương tác** với MapLibre
+- ⭐ **Đánh giá & xếp hạng** địa điểm
+- 🛣️ **Tối ưu lộ trình** khám phá nhiều nơi
+- 🧠 Kết nối dữ liệu qua **Supabase** (Auth, Database, Storage)
+- UI hiện đại với **Tailwind CSS + shadcn-ui** :contentReference[oaicite:1]{index=1}
+
+---
+
+## 🛠️ Công nghệ chính
+
+| Phần | Công nghệ |
+|------|-----------|
+| Frontend | Vite, React, TypeScript |
+| UI | Tailwind CSS, shadcn-ui |
+| Bản đồ | MapLibre |
+| Backend/BaaS | Supabase (Auth, Database, Edge Functions) |
+| Tooling | ESLint, Prettier | :contentReference[oaicite:2]{index=2}
+
 ## Bắt đầu nhanh
 
 ### Yêu cầu
