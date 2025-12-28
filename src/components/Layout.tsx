@@ -94,9 +94,6 @@ export default function Layout({ children }: LayoutProps) {
         <header className="lg:hidden sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg overflow-hidden bg-primary flex items-center justify-center">
-                <img src={logo} alt={t('app.name')} className="h-8 w-8 object-cover" />
-              </div>
               <h1 className="text-lg font-bold text-primary">{t('app.name')}</h1>
             </div>
             <Link to={user ? "/settings" : "/auth"}>

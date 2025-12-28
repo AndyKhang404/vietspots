@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import logo from "@/images/logo2.jpg";
 import Layout from "@/components/Layout";
 import PlaceCard from "@/components/PlaceCard";
 import Chatbot from "@/components/Chatbot";
@@ -311,7 +310,6 @@ export default function Index() {
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yIDItNCAyLTRzMiAyIDIgNC0yIDQtMiA0cy0yLTItMi00eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
           <div className="relative max-w-2xl">
             <div className="flex items-center gap-2 mb-4">
-              <img src={logo} alt={t('app.name')} className="h-6 w-6 rounded-md object-cover" />
               <Sparkles className="h-5 w-5" />
               <span className="text-sm font-medium opacity-90">
                 {t('home.welcome')}, {user?.user_metadata?.full_name || t('auth.guest')}!
