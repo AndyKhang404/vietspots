@@ -265,6 +265,90 @@ function translateDayName(day: string, lang: string) {
   return day;
 }
 
+// Get current day index (0 = Sunday, 1 = Monday, ... 6 = Saturday)
+function getCurrentDayIndex(): number {
+  return new Date().getDay();
+}
+
+// Map Vietnamese day names to day index
+const dayNameToIndex: Record<string, number> = {
+  'chủ nhật': 0,
+  'thứ hai': 1,
+  'thứ ba': 2,
+  'thứ tư': 3,
+  'thứ năm': 4,
+  'thứ sáu': 5,
+  'thứ bảy': 6,
+};
+
+// Check if a day name matches current day
+function isCurrentDay(dayName: string): boolean {
+  const normalized = dayName.toLowerCase().replace(/[:\s]+/g, ' ').trim();
+  const currentDayIndex = getCurrentDayIndex();
+  return dayNameToIndex[normalized] === currentDayIndex;
+}
+
+// Check if currently open based on time string (e.g., "08:00 - 22:00")
+function isCurrentlyOpen(timeStr: string): boolean {
+  if (!timeStr || typeof timeStr !== 'string') return false;
+  
+  const normalized = timeStr.toLowerCase().trim();
+  
+  // Check for "open all day" or "24h" patterns
+  if (normalized.includes('mở cửa cả ngày') || 
+      normalized.includes('24 giờ') || 
+      normalized.includes('24h') ||
+      normalized.includes('open 24')) {
+    return true;
+  }
+  
+  // Check for closed patterns
+  if (normalized.includes('đóng cửa') || normalized.includes('closed')) {
+    return false;
+  }
+  
+  // Parse time range like "08:00 - 22:00" or "8:00 AM - 10:00 PM"
+  const timeMatch = normalized.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?\s*[-–]\s*(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
+  if (!timeMatch) return false;
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
+  let openHour = parseInt(timeMatch[1]);
+  const openMin = parseInt(timeMatch[2] || '0');
+  const openAmPm = timeMatch[3]?.toLowerCase();
+  
+  let closeHour = parseInt(timeMatch[4]);
+  const closeMin = parseInt(timeMatch[5] || '0');
+  const closeAmPm = timeMatch[6]?.toLowerCase();
+  
+  // Convert to 24h format if AM/PM specified
+  if (openAmPm === 'pm' && openHour !== 12) openHour += 12;
+  if (openAmPm === 'am' && openHour === 12) openHour = 0;
+  if (closeAmPm === 'pm' && closeHour !== 12) closeHour += 12;
+  if (closeAmPm === 'am' && closeHour === 12) closeHour = 0;
+  
+  const openMinutes = openHour * 60 + openMin;
+  const closeMinutes = closeHour * 60 + closeMin;
+  
+  // Handle overnight hours (e.g., 22:00 - 02:00)
+  if (closeMinutes < openMinutes) {
+    return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+  }
+  
+  return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+}
+
+// Check if the time string indicates "open all day"
+function isOpenAllDay(timeStr: string): boolean {
+  if (!timeStr || typeof timeStr !== 'string') return false;
+  const normalized = timeStr.toLowerCase().trim();
+  return normalized.includes('mở cửa cả ngày') || 
+         normalized.includes('24 giờ') || 
+         normalized.includes('24h') ||
+         normalized.includes('open 24');
+}
+
 export default function PlaceDetail() {
   const { t, i18n } = useTranslation();
   const { placeId } = useParams<{ placeId: string }>();
@@ -812,13 +896,40 @@ export default function PlaceDetail() {
                     <Clock className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-foreground mb-1">{t('place.opening_hours')}</p>
-                      <span className="text-sm text-muted-foreground">
+                      <div className="text-sm space-y-0.5">
                         {typeof place.opening_hours === 'string'
-                          ? place.opening_hours
-                          : Object.entries(place.opening_hours).map(([day, time]) => (
-                            <div key={day}>{translateDayName(day, i18n.language)}: {time}</div>
-                          ))}
-                      </span>
+                          ? (
+                            <span className={cn(
+                              "font-semibold",
+                              isOpenAllDay(place.opening_hours) || isCurrentlyOpen(place.opening_hours)
+                                ? "text-green-600"
+                                : "text-destructive"
+                            )}>
+                              {place.opening_hours}
+                            </span>
+                          )
+                          : Object.entries(place.opening_hours).map(([day, time]) => {
+                            const isTodayDay = isCurrentDay(day);
+                            const timeStr = String(time);
+                            const isOpen = isOpenAllDay(timeStr) || isCurrentlyOpen(timeStr);
+                            
+                            return (
+                              <div key={day} className="flex gap-1">
+                                <span className={cn(
+                                  isTodayDay && "font-bold text-foreground"
+                                )}>
+                                  {translateDayName(day, i18n.language)}:
+                                </span>
+                                <span className={cn(
+                                  isTodayDay && "font-bold",
+                                  isTodayDay && (isOpen ? "text-green-600" : "text-destructive")
+                                )}>
+                                  {timeStr}
+                                </span>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
                   </div>
                 )}
