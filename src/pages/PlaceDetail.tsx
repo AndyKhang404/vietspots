@@ -291,51 +291,51 @@ function isCurrentDay(dayName: string): boolean {
 // Check if currently open based on time string (e.g., "08:00 - 22:00")
 function isCurrentlyOpen(timeStr: string): boolean {
   if (!timeStr || typeof timeStr !== 'string') return false;
-  
+
   const normalized = timeStr.toLowerCase().trim();
-  
+
   // Check for "open all day" or "24h" patterns
-  if (normalized.includes('mở cửa cả ngày') || 
-      normalized.includes('24 giờ') || 
-      normalized.includes('24h') ||
-      normalized.includes('open 24')) {
+  if (normalized.includes('mở cửa cả ngày') ||
+    normalized.includes('24 giờ') ||
+    normalized.includes('24h') ||
+    normalized.includes('open 24')) {
     return true;
   }
-  
+
   // Check for closed patterns
   if (normalized.includes('đóng cửa') || normalized.includes('closed')) {
     return false;
   }
-  
+
   // Parse time range like "08:00 - 22:00" or "8:00 AM - 10:00 PM"
   const timeMatch = normalized.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?\s*[-–]\s*(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
   if (!timeMatch) return false;
-  
+
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  
+
   let openHour = parseInt(timeMatch[1]);
   const openMin = parseInt(timeMatch[2] || '0');
   const openAmPm = timeMatch[3]?.toLowerCase();
-  
+
   let closeHour = parseInt(timeMatch[4]);
   const closeMin = parseInt(timeMatch[5] || '0');
   const closeAmPm = timeMatch[6]?.toLowerCase();
-  
+
   // Convert to 24h format if AM/PM specified
   if (openAmPm === 'pm' && openHour !== 12) openHour += 12;
   if (openAmPm === 'am' && openHour === 12) openHour = 0;
   if (closeAmPm === 'pm' && closeHour !== 12) closeHour += 12;
   if (closeAmPm === 'am' && closeHour === 12) closeHour = 0;
-  
+
   const openMinutes = openHour * 60 + openMin;
   const closeMinutes = closeHour * 60 + closeMin;
-  
+
   // Handle overnight hours (e.g., 22:00 - 02:00)
   if (closeMinutes < openMinutes) {
     return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
   }
-  
+
   return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
 }
 
@@ -343,16 +343,26 @@ function isCurrentlyOpen(timeStr: string): boolean {
 function isOpenAllDay(timeStr: string): boolean {
   if (!timeStr || typeof timeStr !== 'string') return false;
   const normalized = timeStr.toLowerCase().trim();
-  return normalized.includes('mở cửa cả ngày') || 
-         normalized.includes('24 giờ') || 
-         normalized.includes('24h') ||
-         normalized.includes('open 24');
+  return normalized.includes('mở cửa cả ngày') ||
+    normalized.includes('24 giờ') ||
+    normalized.includes('24h') ||
+    normalized.includes('open 24');
 }
 
 export default function PlaceDetail() {
   const { t, i18n } = useTranslation();
   const { placeId } = useParams<{ placeId: string }>();
   const navigate = useNavigate();
+
+  // Ensure page is at top when opening a place detail so the "Quay lại" button is visible
+  // Also scroll when `placeId` changes (client-side navigations)
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    } catch (err) {
+      // ignore in environments without window
+    }
+  }, [placeId]);
 
   // React Router stores an internal history index in window.history.state.idx.
   // This is more reliable than window.history.length inside embedded previews.
@@ -912,7 +922,7 @@ export default function PlaceDetail() {
                             const isTodayDay = isCurrentDay(day);
                             const timeStr = String(time);
                             const isOpen = isOpenAllDay(timeStr) || isCurrentlyOpen(timeStr);
-                            
+
                             return (
                               <div key={day} className="flex gap-1">
                                 <span className={cn(
