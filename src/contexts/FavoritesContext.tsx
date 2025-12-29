@@ -194,7 +194,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           .select('id,place_id,place_name,place_address,place_image,place_rating,place_category,created_at')
           .single();
 
-        console.debug('wishlists.insert result', { data, error, dbUserId });
+        // wishlists.insert result (debug suppressed)
 
         if (error) {
           console.error('Supabase wishlists insert error', error);

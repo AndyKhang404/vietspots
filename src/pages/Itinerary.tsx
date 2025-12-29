@@ -341,9 +341,12 @@ export default function Itinerary() {
                                 variant="link"
                                 size="sm"
                                 className="mt-2 p-0 h-auto gap-1.5"
-                                onClick={() =>
-                                  navigate(`/place/${activity.place.place_id}`)
-                                }
+                                onClick={() => {
+                                  const p = activity.place as any;
+                                  const pid = p?.place_id || p?.id || p?.placeId || p?.osm_id;
+                                  if (pid) navigate(`/place/${pid}`);
+                                  else toast.error(t('messages.cannot_open_place'));
+                                }}
                               >
                                 <Navigation className="h-3.5 w-3.5" />
                                 {t('actions.view_details')}

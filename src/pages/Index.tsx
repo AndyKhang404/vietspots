@@ -58,7 +58,7 @@ export default function Index() {
         return rawCity || state;
       })();
 
-      console.log("Detected city from GPS:", { rawCity, state, normalized, address: data.address });
+      // detected city info (not logged in production)
       return normalized;
     } catch (error) {
       console.error("Reverse geocoding error:", error);
@@ -84,7 +84,7 @@ export default function Index() {
             setUserCity(city);
           },
           (error) => {
-            console.log("Geolocation error:", error.message);
+            // geolocation error
             setLocationError(t('messages.enable_location_nearby'));
             // Default to Ho Chi Minh City if geolocation fails
             setUserLocation({ lat: 10.8231, lon: 106.6297 });
@@ -119,7 +119,7 @@ export default function Index() {
             minRating: 4,
             sortBy: "rating",
           });
-          console.log("Recommended places for city:", userCity, "found:", places.length);
+          // recommended places for city: result count omitted from logs
         }
 
         // If no city or no results, use GPS location
@@ -132,7 +132,7 @@ export default function Index() {
             minRating: 4,
             sortBy: "rating",
           });
-          console.log("Recommended places by GPS found:", places.length);
+          // recommended places by GPS found
         }
 
         // Final fallback: get top rated anywhere
@@ -142,7 +142,7 @@ export default function Index() {
             minRating: 4,
             sortBy: "rating",
           });
-          console.log("Recommended places fallback found:", places.length);
+          // recommended places fallback found
         }
 
         setRecommendedPlaces(places.slice(0, 10).map(transformPlace));
@@ -212,7 +212,7 @@ export default function Index() {
           setUserCity(city);
         },
         (error) => {
-          console.log("Geolocation error:", error.message);
+          // geolocation error
           setLocationError(t('messages.cannot_get_location'));
           setNearbyLoading(false);
           setPlacesLoading(false);

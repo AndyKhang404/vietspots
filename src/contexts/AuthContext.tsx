@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null, data?: any }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null, data?: any }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,6 +57,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Allow manual refresh of the current auth user metadata.
+  const refreshUser = async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const authUser = data?.user ?? null;
+      setUser(authUser);
+      setSession((prev) => prev);
+
+      // Ensure public.users row reflects latest metadata (best-effort, non-fatal)
+      try {
+        const userId = authUser?.id;
+        if (userId) {
+          await (supabase as any).from('users').upsert({
+            id: userId,
+            email: authUser.email || null,
+            name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || null,
+            avatar_url: authUser.user_metadata?.avatar_url || null,
+          }, { onConflict: 'id' });
+        }
+      } catch (e) {
+        // non-fatal
+        // eslint-disable-next-line no-console
+        console.warn('Failed to upsert public.users during refreshUser', e);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('refreshUser error', e);
+    }
+  };
+
   const signUp = async (email: string, password: string, fullName: string) => {
     // Prevent signup if email already exists in our `users` table
     try {
@@ -71,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore check errors and continue to attempt signup
     }
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const result = await supabase.auth.signUp({
       email,
       password,
@@ -169,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

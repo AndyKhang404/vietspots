@@ -36,7 +36,7 @@ import { supabase, SUPABASE_DEBUG } from "@/integrations/supabase/client";
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const { theme, colorTheme, toggleTheme, setColorTheme } = useTheme();
   const { toast } = useToast();
 
@@ -54,6 +54,7 @@ export default function Settings() {
   const [bio, setBio] = useState(user?.user_metadata?.bio || "");
   const [companionType, setCompanionType] = useState<string>(user?.user_metadata?.companion_type || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
+  const [avatarValid, setAvatarValid] = useState<boolean | null>(null);
   const [gender, setGender] = useState<string>(user?.user_metadata?.gender || "");
   const [age, setAge] = useState<string>(user?.user_metadata?.age ? String(user?.user_metadata?.age) : "");
   const [hobbies, setHobbies] = useState<string[]>(user?.user_metadata?.hobby ? String(user?.user_metadata?.hobby).split(',') : []);
@@ -86,7 +87,26 @@ export default function Settings() {
     setCulture(meta.culture || "");
     setReligion(meta.religion || "");
     setCompanionType(meta.companion_type || meta.companionType || "");
+    setAvatarValid(null);
   }, [profileOpen, user]);
+
+  // Validate avatar URL by attempting to load it in an Image object.
+  useEffect(() => {
+    if (!avatarUrl) {
+      setAvatarValid(null);
+      return;
+    }
+
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => { if (!cancelled) setAvatarValid(true); };
+    img.onerror = () => { if (!cancelled) setAvatarValid(false); };
+    // Start loading
+    img.src = avatarUrl;
+
+    // If the URL is the same-origin but returns HTML (not an image), onerror will fire.
+    return () => { cancelled = true; };
+  }, [avatarUrl]);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
@@ -189,6 +209,12 @@ export default function Settings() {
       }
 
       toast({ title: t('settings.profile_updated') });
+      // Refresh auth user metadata so other UI (sidebar/profile card) updates without full reload
+      try {
+        await refreshUser();
+      } catch (e) {
+        // ignore
+      }
       setProfileOpen(false);
     } catch (error) {
       // Improve error visibility during debugging: show Supabase message when available
@@ -321,8 +347,12 @@ export default function Settings() {
           <div className="lg:col-span-1">
             <div className="bg-card rounded-2xl border border-border p-6">
               <div className="text-center">
-                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <User className="h-12 w-12 text-primary" />
+                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                  {user?.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-24 w-24 object-cover rounded-full" />
+                  ) : (
+                    <User className="h-12 w-12 text-primary" />
+                  )}
                 </div>
                 <h3 className="text-xl font-semibold text-foreground">
                   {user?.user_metadata?.full_name || t('auth.guest')}
@@ -335,7 +365,7 @@ export default function Settings() {
                 {user ? (
                   <button
                     onClick={handleLogout}
-                    className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                    className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/90 transition-colors"
                   >
                     <LogOut className="h-5 w-5" />
                     <span className="font-medium">{t('settings.logout')}</span>
@@ -527,7 +557,13 @@ export default function Settings() {
                 <div className="flex flex-col items-center gap-3">
                   <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      <img
+                        src={avatarUrl}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onLoad={() => setAvatarValid(true)}
+                        onError={() => setAvatarValid(false)}
+                      />
                     ) : (
                       <User className="h-10 w-10 text-primary" />
                     )}
@@ -541,6 +577,9 @@ export default function Settings() {
                       placeholder="https://..."
                       className="mt-1.5"
                     />
+                    {avatarValid === false && (
+                      <p className="text-sm text-destructive mt-1">Không thể tải ảnh từ URL này — hãy dùng đường dẫn trực tiếp tới ảnh (.jpg, .png) hoặc mở liên kết trong tab mới để kiểm tra.</p>
+                    )}
                   </div>
                 </div>
 
@@ -580,10 +619,15 @@ export default function Settings() {
                 </div>
 
                 {/* Personal extra fields: gender & age */}
-                <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="grid grid-cols-2 gap-4 mt-3 mb-3">
                   <div>
                     <Label htmlFor="gender">Giới tính</Label>
-                    <select id="gender" value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1.5 w-full rounded-md border p-2">
+                    <select
+                      id="gender"
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground flex items-center appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
                       <option value="">Không chọn</option>
                       <option value="male">Nam</option>
                       <option value="female">Nữ</option>
@@ -592,7 +636,7 @@ export default function Settings() {
                   </div>
                   <div>
                     <Label htmlFor="age">Tuổi</Label>
-                    <Input id="age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" className="mt-1.5" />
+                    <Input id="age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" className="mt-1.5 h-10" />
                   </div>
                 </div>
 
@@ -614,7 +658,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 mt-4">
+                <Button onClick={handleSaveProfile} disabled={!!(avatarUrl && avatarValid === false)} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 mt-4">
                   {t('settings.save_changes')}
                 </Button>
               </div>
@@ -631,7 +675,7 @@ export default function Settings() {
                           key={h}
                           type="button"
                           onClick={() => setHobbies(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h])}
-                          className={`flex items-center gap-2 px-3 py-1 rounded-full border-2 ${active ? 'bg-amber-400 text-black border-amber-400' : 'bg-white text-foreground border-black'} shadow-sm`}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-full border-2 ${active ? 'bg-amber-400 text-black border-amber-400' : 'bg-card text-foreground border-border'} shadow-sm`}
                         >
                           {active && <Check className="h-4 w-4" />}
                           <span className="text-sm">{h}</span>
@@ -643,7 +687,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Văn hóa</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {cultureOptions.map((c) => (
                       <label key={c} className="flex items-center justify-between p-4 border-b last:border-b-0">
                         <span>{c}</span>
@@ -655,7 +699,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Tôn giáo</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {religionOptions.map((r) => (
                       <label key={r} className="flex items-center justify-between p-4 border-b last:border-b-0">
                         <span className={`${r === religion ? 'text-red-600' : ''}`}>{r}</span>
@@ -667,7 +711,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Bạn đồng hành</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {['Một mình', 'Cặp đôi', 'Gia đình', 'Bạn bè'].map((opt) => (
                       <label key={opt} className={`flex items-center justify-between p-4 border-b last:border-b-0 cursor-pointer ${companionType === opt ? 'bg-primary/5' : ''}`}>
                         <div className="flex items-center gap-3">
@@ -679,7 +723,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Button onClick={handleSaveProfile} disabled={!!(avatarUrl && avatarValid === false)} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Lưu
                 </Button>
               </div>

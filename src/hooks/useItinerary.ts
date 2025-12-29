@@ -25,7 +25,25 @@ export function useItinerary() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [itineraries, setItineraries] = useState<SavedItinerary[]>([]);
-  const [currentItinerary, setCurrentItinerary] = useState<DayItinerary[] | null>(null);
+  const [currentItinerary, _setCurrentItinerary] = useState<DayItinerary[] | null>(() => {
+    try {
+      const raw = sessionStorage.getItem("vietspot_current_itinerary");
+      return raw ? (JSON.parse(raw) as DayItinerary[]) : null;
+    } catch (err) {
+      console.warn("Could not read persisted itinerary", err);
+      return null;
+    }
+  });
+
+  const setCurrentItinerary = (it: DayItinerary[] | null) => {
+    try {
+      if (it === null) sessionStorage.removeItem("vietspot_current_itinerary");
+      else sessionStorage.setItem("vietspot_current_itinerary", JSON.stringify(it));
+    } catch (err) {
+      console.warn("Could not persist itinerary", err);
+    }
+    _setCurrentItinerary(it);
+  };
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 

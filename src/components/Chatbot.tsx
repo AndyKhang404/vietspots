@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatConversations } from "@/hooks/useChatConversations";
-import { fallbackPlaces, transformPlace, categories, resolveCategoryId } from "@/data/places";
+import { fallbackPlaces, categories } from "@/data/places";
 import vietSpotAPI, { PlaceInfo } from "@/api/vietspot";
 import ChatbotMap from "./ChatbotMap";
 import {
@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { categories as allCategories } from "@/data/places";
 import { Slider } from "@/components/ui/slider";
 import {
   Popover,
@@ -141,13 +140,114 @@ function parseMarkdownBold(text: string): React.ReactNode[] {
 // Transform API PlaceInfo to PlaceResult format with distance
 function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): PlaceResult {
   let distance: number | undefined;
-  if (userLocation && place.latitude && place.longitude) {
-    distance = calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      place.latitude,
-      place.longitude
-    );
+  // Prefer server-provided distance if present (API may return distance_km)
+  if ((place as any).distance_km !== undefined && (place as any).distance_km !== null) {
+    const v = Number((place as any).distance_km);
+    if (!isNaN(v)) distance = v;
+  }
+
+  // Helper: try parse coordinates from various GPS string formats
+  const parseCoordsFromString = (s: any): { lat?: number; lon?: number } => {
+    try {
+      if (!s || typeof s !== 'string') return {};
+      const str = s.trim();
+      // WKT POINT(lon lat) or POINT(lat lon)
+      const wktMatch = str.match(/POINT\s*\(([-+0-9.eE]+)\s+([-+0-9.eE]+)\)/i);
+      if (wktMatch) {
+        const a = Number(wktMatch[1]);
+        const b = Number(wktMatch[2]);
+        // Heuristic: if lat in range [-90,90] it's lat, otherwise swap
+        if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lon: b };
+        return { lat: b, lon: a };
+      }
+
+      // comma separated: "lat, lon" or "lon, lat"
+      if (str.includes(',')) {
+        const parts = str.split(',').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const a = Number(parts[0]);
+          const b = Number(parts[1]);
+          if (!isNaN(a) && !isNaN(b)) {
+            // heuristic: if first number in [-90,90] treat as lat
+            if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lon: b };
+            return { lat: b, lon: a };
+          }
+        }
+      }
+
+      // space separated: "lat lon" or "lon lat"
+      const spaceParts = str.split(/\s+/).map(p => p.trim()).filter(Boolean);
+      if (spaceParts.length >= 2) {
+        const a = Number(spaceParts[0]);
+        const b = Number(spaceParts[1]);
+        if (!isNaN(a) && !isNaN(b)) {
+          if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lon: b };
+          return { lat: b, lon: a };
+        }
+      }
+    } catch { }
+    return {};
+  };
+
+  // Resolve images array
+  const images = place.images?.map((img: { url: string } | string) => typeof img === 'string' ? img : img.url) || (place.image_url ? [place.image_url] : []);
+
+  // Try to compute lat/lon from multiple possible shapes
+  let lat: number | undefined = undefined;
+  let lon: number | undefined = undefined;
+
+  const toNumber = (v: any): number | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'number') return isNaN(v) ? undefined : v;
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (s === '') return undefined;
+      const n = Number(s);
+      return !isNaN(n) ? n : undefined;
+    }
+    return undefined;
+  };
+
+  // Prefer explicit latitude/longitude fields (even if they are strings)
+  const latCandidate = toNumber((place as any).latitude ?? (place as any).lat ?? (place as any).latitud);
+  const lonCandidate = toNumber((place as any).longitude ?? (place as any).lon ?? (place as any).longitud);
+  if (latCandidate !== undefined && lonCandidate !== undefined) {
+    lat = latCandidate;
+    lon = lonCandidate;
+  } else if (place.coordinates && typeof place.coordinates === 'object') {
+    const c: any = place.coordinates;
+    const latC = toNumber(c.lat ?? c.latitude);
+    const lonC = toNumber(c.lon ?? c.longitude);
+    if (latC !== undefined && lonC !== undefined) {
+      lat = latC;
+      lon = lonC;
+    }
+  }
+
+  if ((lat === undefined || lon === undefined) && (place as any).gps) {
+    const parsed = parseCoordsFromString((place as any).gps);
+    if (parsed.lat !== undefined && parsed.lon !== undefined) {
+      lat = parsed.lat;
+      lon = parsed.lon;
+    }
+  }
+
+  // As a last resort, try parsing coordinates from address-like fields (rare)
+  if ((lat === undefined || lon === undefined) && typeof place.address === 'string') {
+    const parsed = parseCoordsFromString(place.address);
+    if (parsed.lat !== undefined && parsed.lon !== undefined) {
+      lat = parsed.lat;
+      lon = parsed.lon;
+    }
+  }
+
+  // Validate numbers
+  if (typeof lat === 'number' && isNaN(lat)) lat = undefined;
+  if (typeof lon === 'number' && isNaN(lon)) lon = undefined;
+
+  // Compute distance if we have a user location and parsed coordinates
+  if (userLocation && typeof lat === 'number' && typeof lon === 'number') {
+    distance = calculateDistance(userLocation.latitude, userLocation.longitude, lat, lon);
   }
 
   return {
@@ -157,27 +257,10 @@ function transformToPlaceResult(place: PlaceInfo, userLocation?: UserLocation): 
     phone: place.phone,
     website: place.website,
     rating: place.rating || 0,
-    // Try to populate gps and lat/lon from several possible shapes returned by API
-    images: place.images?.map((img: { url: string } | string) => typeof img === 'string' ? img : img.url) || (place.image_url ? [place.image_url] : []),
-    // Derive gps/latitude/longitude defensively because API shapes vary
-    gps: (() => {
-      const gpsStr = (place as any).gps;
-      if (place.latitude && place.longitude) return `${place.latitude}, ${place.longitude}`;
-      if (place.coordinates && typeof place.coordinates === 'object' && ('lat' in place.coordinates || 'latitude' in place.coordinates)) {
-        return `${(place.coordinates as any).lat || (place.coordinates as any).latitude}, ${(place.coordinates as any).lon || (place.coordinates as any).longitude}`;
-      }
-      return typeof gpsStr === 'string' ? gpsStr : undefined;
-    })(),
-    latitude: place.latitude || (place.coordinates ? (place.coordinates as any).lat || (place.coordinates as any).latitude : undefined) || (() => {
-      const gpsStr = (place as any).gps;
-      if (typeof gpsStr === 'string' && gpsStr.includes(',')) return Number(gpsStr.split(',')[0].trim());
-      return undefined;
-    })(),
-    longitude: place.longitude || (place.coordinates ? (place.coordinates as any).lon || (place.coordinates as any).longitude : undefined) || (() => {
-      const gpsStr = (place as any).gps;
-      if (typeof gpsStr === 'string' && gpsStr.includes(',')) return Number(gpsStr.split(',')[1].trim());
-      return undefined;
-    })(),
+    images,
+    gps: (place.latitude && place.longitude) ? `${place.latitude}, ${place.longitude}` : ((place as any).gps || undefined),
+    latitude: lat,
+    longitude: lon,
     openingHours: typeof place.opening_hours === 'string' ? place.opening_hours : (place.opening_hours ? JSON.stringify(place.opening_hours) : undefined),
     totalComments: place.total_comments || place.rating_count,
     matchingScore: Math.floor(Math.random() * 30 + 70),
@@ -225,6 +308,7 @@ export default function Chatbot() {
     deleteConversation,
   } = useChatConversations();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Track which assistant message ID produced the current `placeResults` so we can
   // render the chat messages before that assistant message, then the place cards,
@@ -236,9 +320,7 @@ export default function Chatbot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGps, setSelectedGps] = useState<string | null>(null);
-  const [showScrollButtons, setShowScrollButtons] = useState(false);
-  const [canScrollUp, setCanScrollUp] = useState(false);
-  const [canScrollDown, setCanScrollDown] = useState(false);
+  // Scroll buttons removed for web (native scroll available)
   const [showMap, setShowMap] = useState(true);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [routeToPlaceId, setRouteToPlaceId] = useState<string | null>(null);
@@ -281,10 +363,12 @@ export default function Chatbot() {
   const [ttsVolume, setTtsVolume] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_volume')) || 1);
 
   // Filters
-  const [showFilters, setShowFilters] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
-  const [minRating, setMinRating] = useState<number>(0);
-  const [maxDistance, setMaxDistance] = useState<number>(50);
+  // Filter UI removed — keep placeholders only if needed later
+  // (category/minRating/maxDistance removed per user request)
+  // When true, ignore the distance filter for chat-suggested places so
+  // users can see them on the map even if they're beyond `maxDistance`.
+  // Enabled by default so chat suggestions are visible immediately.
+  const [ignoreDistanceFilterForChat, setIgnoreDistanceFilterForChat] = useState<boolean>(true);
 
   // Form state
   const [formCategory, setFormCategory] = useState<string[]>([]);
@@ -302,6 +386,15 @@ export default function Chatbot() {
             longitude: position.coords.longitude,
           });
           toast.success(t('messages.got_your_location'));
+          // ensure map is visible when we obtain location
+          try { setShowMap(true); } catch { }
+          try {
+            if (process.env.NODE_ENV !== 'production') {
+              // eslint-disable-next-line no-console
+              console.debug('Chatbot got userLocation:', position.coords.latitude, position.coords.longitude);
+            }
+          } catch { }
+          // No client-side distance filter in chat mode — nothing to relax here
           setIsGettingLocation(false);
         },
         (error) => {
@@ -332,9 +425,7 @@ export default function Chatbot() {
     const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (el) {
       const { scrollTop, scrollHeight, clientHeight } = el;
-      setCanScrollUp(scrollTop > 10);
-      setCanScrollDown(scrollTop + clientHeight < scrollHeight - 10);
-      setShowScrollButtons(scrollHeight > clientHeight + 50);
+      // no-op: scroll buttons removed
     }
   }, []);
 
@@ -703,19 +794,24 @@ export default function Chatbot() {
     }
   }, [isOpen, checkScrollPosition]);
 
-  const scrollUp = () => {
-    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (el) {
-      el.scrollBy({ top: -150, behavior: 'smooth' });
-    }
-  };
+  // Restore Chatbot state (open + active tab) when returning from a place detail
+  useEffect(() => {
+    try {
+      const savedTab = sessionStorage.getItem('vietspots_chatbot_tab');
+      const shouldOpen = sessionStorage.getItem('vietspots_chatbot_open');
+      if (savedTab) {
+        setActiveTab(savedTab as any);
+      }
+      if (shouldOpen) {
+        setIsOpen(true);
+      }
+      // Clear once applied so it doesn't persist forever
+      if (savedTab) sessionStorage.removeItem('vietspots_chatbot_tab');
+      if (shouldOpen) sessionStorage.removeItem('vietspots_chatbot_open');
+    } catch { }
+  }, [location.pathname]);
 
-  const scrollDown = () => {
-    const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (el) {
-      el.scrollBy({ top: 150, behavior: 'smooth' });
-    }
-  };
+  // scrollUp/scrollDown removed
 
   const playLastAssistantMessage = () => {
     const last = [...messages].slice().reverse().find((m) => m.role === 'assistant' && !m.isStreaming && m.content && m.content.trim().length > 0);
@@ -756,141 +852,97 @@ export default function Chatbot() {
     ]);
 
     try {
-      // First try streaming endpoint
-      const response = await fetch(VIETSPOT_STREAM_URL, {
+      // Call the stable chat endpoint directly (server does not document /api/chat/stream)
+      const payload = {
+        message: userInput,
+        session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
+        user_lat: userLocation?.latitude ?? null,
+        user_lon: userLocation?.longitude ?? null,
+      };
+      try {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.debug('Chat request payload:', payload);
+          // Also log a JSON string so values are visible without expanding the object in console
+          // eslint-disable-next-line no-console
+          console.debug('Chat request payload (json):', JSON.stringify(payload));
+        }
+      } catch { }
+      const response = await fetch(VIETSPOT_CHAT_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: userInput,
-          session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
-          latitude: userLocation?.latitude,
-          longitude: userLocation?.longitude,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok && response.body) {
-        // Handle streaming response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullContent = "";
-        let placesData: PlaceInfo[] = [];
+      // Debug response status for easier diagnosis
+      try { if (process.env.NODE_ENV !== 'production') console.debug('Chat response status', response.status); } catch { }
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
+      const data = await response.json();
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
+      if (data.session_id) {
+        sessionStorage.setItem("vietspot_session_id", data.session_id);
+      }
 
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.token) {
-                  fullContent += parsed.token;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: fullContent }
-                        : msg
-                    )
-                  );
-                }
-                if (parsed.places) {
-                  placesData = parsed.places;
-                }
-                if (parsed.session_id) {
-                  sessionStorage.setItem("vietspot_session_id", parsed.session_id);
-                }
-              } catch {
-                // Continue on parse error
-              }
-            }
+      // Dev-only: log places array so we can inspect coordinate fields
+      try {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.debug('Chat response places:', data.places);
+        }
+      } catch { }
+
+      // Simulate streaming effect for regular response
+      const answer = data.answer || (t('messages.cannot_process') as string) || "Xin lỗi, tôi không thể xử lý yêu cầu này.";
+      const words = String(answer).split(" ");
+      let currentContent = "";
+
+      for (let i = 0; i < words.length; i++) {
+        currentContent += (i === 0 ? "" : " ") + words[i];
+        const content = currentContent;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content }
+              : msg
+          )
+        );
+        await new Promise(r => setTimeout(r, 30)); // Delay between words
+      }
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, isStreaming: false }
+            : msg
+        )
+      );
+
+      // Handle places payload
+      if (data.places && data.places.length > 0) {
+        const mapped = data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined));
+        // Dev-only logs for mapped/filtered/markers
+        try {
+          if (process.env.NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.debug('Chat mapped places:', mapped);
+            // We no longer apply client-side category/minRating/distance filters
+            const filtered = mapped || [];
+            // eslint-disable-next-line no-console
+            console.debug('Chat filtered places count:', filtered.length);
+            const markers = filtered.filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && !isNaN(p.latitude as any) && !isNaN(p.longitude as any));
+            // eslint-disable-next-line no-console
+            console.debug('Chat mapMarkers count:', markers.length, markers);
           }
-        }
+        } catch { }
 
-        // Finalize streaming message
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, isStreaming: false }
-              : msg
-          )
-        );
-
-        // Do not auto-play TTS for responses; user can press the speaker button to play.
-
-        if (placesData.length > 0) {
-          const mapped = placesData.map(p => transformToPlaceResult(p, userLocation || undefined));
-          setPlaceResults(dedupePlaceResults(mapped));
-          setLastPlaceMessageId(assistantMessageId);
-        } else {
-          // clear previous place anchor when no places returned
-          setLastPlaceMessageId(null);
-        }
+        setPlaceResults(dedupePlaceResults(mapped));
+        setLastPlaceMessageId(assistantMessageId);
       } else {
-        // Fallback to regular endpoint
-        const fallbackResponse = await fetch(VIETSPOT_CHAT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: userInput,
-            session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
-            latitude: userLocation?.latitude,
-            longitude: userLocation?.longitude,
-          }),
-        });
-
-        if (!fallbackResponse.ok) {
-          throw new Error(`API Error: ${fallbackResponse.status}`);
-        }
-
-        const data = await fallbackResponse.json();
-
-        if (data.session_id) {
-          sessionStorage.setItem("vietspot_session_id", data.session_id);
-        }
-
-        // Simulate streaming effect for regular response
-        const answer = data.answer || "Xin lỗi, tôi không thể xử lý yêu cầu này.";
-        const words = answer.split(" ");
-        let currentContent = "";
-
-        for (let i = 0; i < words.length; i++) {
-          currentContent += (i === 0 ? "" : " ") + words[i];
-          const content = currentContent;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content }
-                : msg
-            )
-          );
-          await new Promise(r => setTimeout(r, 30)); // Delay between words
-        }
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, isStreaming: false }
-              : msg
-          )
-        );
-
-        // Do not auto-play TTS for responses; user can press the speaker button to play.
-
-        if (data.places && data.places.length > 0) {
-          const mapped = data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined));
-          setPlaceResults(dedupePlaceResults(mapped));
-          setLastPlaceMessageId(assistantMessageId);
-        } else {
-          setLastPlaceMessageId(null);
-        }
+        setLastPlaceMessageId(null);
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -934,17 +986,13 @@ export default function Chatbot() {
     { id: "saved" as const, label: t('chat.tab_saved'), icon: Bookmark },
   ];
 
-  // Filter place results (support multiple category selections)
-  const filteredPlaceResults = placeResults.filter(place => {
-    if (categoryFilter.length > 0 && !categoryFilter.includes(place.category || '')) return false;
-    if (place.rating < minRating) return false;
-    if (place.distance && place.distance > maxDistance) return false;
-    return true;
-  });
+  // Do not apply client-side category/minRating/distance filters to chat results.
+  // We want to show all chat-suggested places as returned by the API.
+  const filteredPlaceResults = placeResults.slice();
 
   // Get map markers from filtered place results
   const mapMarkers = filteredPlaceResults
-    .filter(p => p.latitude && p.longitude)
+    .filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && !isNaN(p.latitude as any) && !isNaN(p.longitude as any))
     .map(p => ({
       id: p.id,
       name: p.name,
@@ -954,13 +1002,7 @@ export default function Chatbot() {
       rating: p.rating
     }));
 
-  // Get unique categories: union of global list and current results
-  const availableCategories = Array.from(
-    new Set([
-      ...allCategories.map((c) => c.id),
-      ...placeResults.map((p) => resolveCategoryId(p.category)).filter(Boolean),
-    ])
-  ) as string[];
+  // Filters removed — no availableCategories required
 
   return (
     <>
@@ -1006,6 +1048,27 @@ export default function Chatbot() {
                 }}
                 onRouteClear={() => setRouteToPlaceId(null)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* If there are place results but no valid markers, show a hint panel */}
+      {isOpen && showMap && mapMarkers.length === 0 && placeResults.length > 0 && (
+        <div
+          className={cn(
+            "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
+            "right-[640px] w-[calc(100vw-640px)] max-w-[760px] flex items-center justify-center"
+          )}
+        >
+          <div className="p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-3">
+              {t('chat.no_map_markers') || 'Không có vị trí hợp lệ để hiển thị trên bản đồ. Kiểm tra API response hoặc tắt bộ lọc.'}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button size="sm" onClick={() => setShowMap(false)}>
+                {t('ui.hide_map') || 'Đóng bản đồ'}
+              </Button>
             </div>
           </div>
         </div>
@@ -1084,7 +1147,15 @@ export default function Chatbot() {
                   variant={userLocation ? "default" : "outline"}
                   size="sm"
                   className="gap-1.5"
-                  onClick={getUserLocation}
+                  onClick={() => {
+                    // toggle: if we already have a location, clear it; otherwise request it
+                    if (userLocation) {
+                      setUserLocation(null);
+                      toast.success(t('messages.location_cleared') || 'Vị trí đã tắt');
+                    } else {
+                      getUserLocation();
+                    }
+                  }}
                   disabled={isGettingLocation}
                 >
                   {isGettingLocation ? (
@@ -1092,7 +1163,7 @@ export default function Chatbot() {
                   ) : (
                     <LocateFixed className="h-4 w-4" />
                   )}
-                  {userLocation ? t('ui.locating') : t('actions.location')}
+                  {isGettingLocation ? t('ui.locating') : (userLocation ? t('ui.located') : t('actions.location'))}
                 </Button>
 
                 {/* Current conversation saved timestamp */}
@@ -1107,114 +1178,9 @@ export default function Chatbot() {
                   </div>
                 )}
 
-                {/* Filters Popover */}
-                <Popover open={showFilters} onOpenChange={setShowFilters}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Filter className="h-4 w-4" />
-                      {t('actions.filters')}
-                      {(categoryFilter.length > 0 || minRating > 0 || maxDistance < 50) && (
-                        <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                          !
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72" align="start">
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-sm">{t('search.advanced_filters')}</h4>
+                {/* Filters removed per user request */}
 
-                      {/* Category Filter - multi-select checkboxes */}
-                      <div className="space-y-2">
-                        <label className="text-sm text-muted-foreground">{t('chatbot.form.category')}</label>
-                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto p-1">
-                          {availableCategories.map((cat) => {
-                            const checked = categoryFilter.includes(cat);
-                            return (
-                              <label key={cat} className="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4"
-                                  checked={checked}
-                                  onChange={() => {
-                                    setCategoryFilter((prev) =>
-                                      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-                                    );
-                                  }}
-                                />
-                                <span>{t(`categories.${cat}`, { defaultValue: cat })}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Min Rating */}
-                      <div className="space-y-2">
-                        <label className="text-sm text-muted-foreground flex items-center justify-between">
-                          <span>{t('search.min_rating')}</span>
-                          <span className="font-medium">{minRating} ★</span>
-                        </label>
-                        <Slider
-                          value={[minRating]}
-                          onValueChange={([val]) => setMinRating(val)}
-                          min={0}
-                          max={5}
-                          step={0.5}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Max Distance */}
-                      {userLocation && (
-                        <div className="space-y-2">
-                          <label className="text-sm text-muted-foreground flex items-center justify-between">
-                            <span>{t('search.max_distance')}</span>
-                            <span className="font-medium">{maxDistance}km</span>
-                          </label>
-                          <Slider
-                            value={[maxDistance]}
-                            onValueChange={([val]) => setMaxDistance(val)}
-                            min={1}
-                            max={50}
-                            step={1}
-                            className="w-full"
-                          />
-                        </div>
-                      )}
-
-                      {/* Reset Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setCategoryFilter([]);
-                          setMinRating(0);
-                          setMaxDistance(50);
-                        }}
-                      >
-                        {t('search.clear_all')}
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                {/* Active filter badges */}
-                {categoryFilter.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    {categoryFilter.map((cf) => (
-                      <Badge key={cf} variant="outline" className="text-xs">
-                        {t(`categories.${cf}`, { defaultValue: cf })}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {minRating > 0 && (
-                  <Badge variant="outline" className="text-xs">
-                    ≥{minRating}★
-                  </Badge>
-                )}
+                {/* Filter badges removed */}
               </div>
 
               {/* Place Results & Messages */}
@@ -1295,6 +1261,25 @@ export default function Chatbot() {
                                     <Star className="h-3 w-3 fill-current" />
                                     {place.rating}
                                   </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn("h-8 w-8", isFavorite(place.id) ? 'text-primary' : '')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void toggleFavorite({
+                                        id: place.id,
+                                        name: place.name,
+                                        address: place.address,
+                                        image: place.images && place.images.length > 0 ? (place.images[0] as string) : undefined,
+                                        rating: place.rating,
+                                        category: place.category,
+                                      });
+                                    }}
+                                    title={isFavorite(place.id) ? t('actions.remove_favorite') : t('actions.save')}
+                                  >
+                                    <Bookmark className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
 
@@ -1412,32 +1397,7 @@ export default function Chatbot() {
                 </ScrollArea>
 
                 {/* Scroll Buttons */}
-                {showScrollButtons && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className={cn(
-                        "h-8 w-8 rounded-full shadow-md transition-opacity",
-                        canScrollUp ? "opacity-100" : "opacity-30 pointer-events-none"
-                      )}
-                      onClick={scrollUp}
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className={cn(
-                        "h-8 w-8 rounded-full shadow-md transition-opacity",
-                        canScrollDown ? "opacity-100" : "opacity-30 pointer-events-none"
-                      )}
-                      onClick={scrollDown}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+                {/* Scroll buttons removed for web experience */}
               </div>
 
               {/* GPS Pill */}
@@ -1486,7 +1446,7 @@ export default function Chatbot() {
                     </PopoverTrigger>
                     <PopoverContent className="w-56 p-3">
                       <div className="space-y-3">
-                          <div>
+                        <div>
                           <div className="text-sm font-medium mb-1">{t('chatbot.voice') || 'Voice'}</div>
                           <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
                             <SelectTrigger className="w-full h-10">
@@ -1803,7 +1763,11 @@ export default function Chatbot() {
                     <div
                       key={place.id}
                       role={place.id ? 'button' : undefined}
-                      onClick={() => place.id && navigate(`/place/${place.id}`)}
+                      onClick={() => {
+                        if (!place.id) return;
+                        try { sessionStorage.setItem('vietspots_chatbot_tab', 'saved'); sessionStorage.setItem('vietspots_chatbot_open', '1'); } catch { }
+                        navigate(`/place/${place.id}`);
+                      }}
                       className="cursor-pointer border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
