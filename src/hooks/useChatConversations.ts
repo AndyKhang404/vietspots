@@ -60,7 +60,7 @@ export function useChatConversations() {
   const lastSavedHashRef = useRef<string | null>(null);
 
   // Fetch conversations from Supabase
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (opts?: { preserveCurrent?: boolean }) => {
     if (!user) return;
 
     // Ensure active session to satisfy RLS policies
@@ -91,7 +91,9 @@ export function useChatConversations() {
         updatedAt: conv.updated_at,
       })) || []);
       // If we fetched at least one conversation, set the most recent as current
-      if (data && Array.isArray(data) && data.length > 0) {
+      // unless caller requested to preserve the current selection (e.g. when
+      // starting a new conversation we want the list refreshed but not auto-select).
+      if (data && Array.isArray(data) && data.length > 0 && !opts?.preserveCurrent) {
         const first = data[0];
         try {
           const msgs = ((first.messages as unknown) as Message[]).map((m) => ({ ...(m as Message), createdAt: (m as any)?.createdAt || first.created_at }));
@@ -612,9 +614,10 @@ export function useChatConversations() {
     setPlaceResults([]);
     sessionStorage.removeItem('vietspot_session_id');
 
-    // Refresh conversations list
+    // Refresh conversations list but don't let the fetch auto-select the
+    // most-recent conversation (preserve current/new empty state).
     if (user) {
-      fetchConversations();
+      fetchConversations({ preserveCurrent: true });
     }
 
     toast.success(t('chat_messages.created_new'));

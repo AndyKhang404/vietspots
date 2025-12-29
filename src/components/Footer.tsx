@@ -19,9 +19,9 @@ export default function Footer() {
             <Mail className="h-4 w-4" />
             Liên hệ
           </Link>
-          <a href="mailto:hello@vietspots.app" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground whitespace-nowrap">
+          <a href="tel:+84123456789" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground whitespace-nowrap">
             <Phone className="h-4 w-4" />
-            hello@vietspots.app
+            +84 123 456 789
           </a>
 
           {/* Prominent contact CTA kept as non-shrinking so it's visible */}

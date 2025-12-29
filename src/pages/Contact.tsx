@@ -9,10 +9,10 @@ export default function Contact() {
           <p className="mb-4">VietSpots luôn sẵn sàng lắng nghe ý kiến đóng góp và giải đáp mọi thắc mắc của bạn.</p>
 
           <ul className="list-none pl-0 mt-2 text-sm text-muted-foreground space-y-3">
-            <li><strong>Email hỗ trợ:</strong> <a href="mailto:hello@vietspots.app" className="text-primary hover:underline">hello@vietspots.app</a></li>
-            <li><strong>Hotline:</strong> (+84) XXX XXX XXX</li>
-            <li><strong>Văn phòng:</strong> Quận Ngũ Hành Sơn, Thành phố Đà Nẵng, Việt Nam.</li>
-            <li><strong>Kênh mạng xã hội:</strong> GitHub: <a href="https://github.com/ThaiQuangHuy2906" className="text-primary hover:underline">ThaiQuangHuy2906</a>; Facebook: VietSpots Community; Instagram: @vietspots_vn</li>
+            <li><strong>Email hỗ trợ:</strong> <a href="mailto:iamhuy29062006@gmail.com" className="text-primary hover:underline">iamhuy29062006@gmail.com</a></li>
+            <li><strong>Hotline:</strong> (+84) 123 456 789</li>
+            <li><strong>Văn phòng:</strong> 227 Nguyễn Văn Cừ, Phường 4, Quận 5, Tp. Hồ Chí Minh.</li>
+            <li><strong>Kênh mạng xã hội:</strong> GitHub: <a href="https://github.com/ThaiQuangHuy2906" className="text-primary hover:underline">ThaiQuangHuy2906</a></li>
             <li><strong>Thời gian hỗ trợ:</strong> Thứ 2 - Thứ 6: 08:30 - 18:00; Thứ 7: 09:00 - 12:00</li>
           </ul>
 
