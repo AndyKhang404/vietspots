@@ -36,7 +36,7 @@ import { supabase, SUPABASE_DEBUG } from "@/integrations/supabase/client";
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const { theme, colorTheme, toggleTheme, setColorTheme } = useTheme();
   const { toast } = useToast();
 
@@ -54,6 +54,7 @@ export default function Settings() {
   const [bio, setBio] = useState(user?.user_metadata?.bio || "");
   const [companionType, setCompanionType] = useState<string>(user?.user_metadata?.companion_type || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
+  const [avatarValid, setAvatarValid] = useState<boolean | null>(null);
   const [gender, setGender] = useState<string>(user?.user_metadata?.gender || "");
   const [age, setAge] = useState<string>(user?.user_metadata?.age ? String(user?.user_metadata?.age) : "");
   const [hobbies, setHobbies] = useState<string[]>(user?.user_metadata?.hobby ? String(user?.user_metadata?.hobby).split(',') : []);
@@ -86,7 +87,26 @@ export default function Settings() {
     setCulture(meta.culture || "");
     setReligion(meta.religion || "");
     setCompanionType(meta.companion_type || meta.companionType || "");
+    setAvatarValid(null);
   }, [profileOpen, user]);
+
+  // Validate avatar URL by attempting to load it in an Image object.
+  useEffect(() => {
+    if (!avatarUrl) {
+      setAvatarValid(null);
+      return;
+    }
+
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => { if (!cancelled) setAvatarValid(true); };
+    img.onerror = () => { if (!cancelled) setAvatarValid(false); };
+    // Start loading
+    img.src = avatarUrl;
+
+    // If the URL is the same-origin but returns HTML (not an image), onerror will fire.
+    return () => { cancelled = true; };
+  }, [avatarUrl]);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
@@ -189,6 +209,12 @@ export default function Settings() {
       }
 
       toast({ title: t('settings.profile_updated') });
+      // Refresh auth user metadata so other UI (sidebar/profile card) updates without full reload
+      try {
+        await refreshUser();
+      } catch (e) {
+        // ignore
+      }
       setProfileOpen(false);
     } catch (error) {
       // Improve error visibility during debugging: show Supabase message when available
@@ -321,8 +347,12 @@ export default function Settings() {
           <div className="lg:col-span-1">
             <div className="bg-card rounded-2xl border border-border p-6">
               <div className="text-center">
-                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <User className="h-12 w-12 text-primary" />
+                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                  {user?.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-24 w-24 object-cover rounded-full" />
+                  ) : (
+                    <User className="h-12 w-12 text-primary" />
+                  )}
                 </div>
                 <h3 className="text-xl font-semibold text-foreground">
                   {user?.user_metadata?.full_name || t('auth.guest')}
@@ -527,7 +557,13 @@ export default function Settings() {
                 <div className="flex flex-col items-center gap-3">
                   <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      <img
+                        src={avatarUrl}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onLoad={() => setAvatarValid(true)}
+                        onError={() => setAvatarValid(false)}
+                      />
                     ) : (
                       <User className="h-10 w-10 text-primary" />
                     )}
@@ -541,6 +577,9 @@ export default function Settings() {
                       placeholder="https://..."
                       className="mt-1.5"
                     />
+                    {avatarValid === false && (
+                      <p className="text-sm text-destructive mt-1">Không thể tải ảnh từ URL này — hãy dùng đường dẫn trực tiếp tới ảnh (.jpg, .png) hoặc mở liên kết trong tab mới để kiểm tra.</p>
+                    )}
                   </div>
                 </div>
 
@@ -614,7 +653,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 mt-4">
+                <Button onClick={handleSaveProfile} disabled={!!(avatarUrl && avatarValid === false)} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 mt-4">
                   {t('settings.save_changes')}
                 </Button>
               </div>
@@ -679,7 +718,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveProfile} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Button onClick={handleSaveProfile} disabled={!!(avatarUrl && avatarValid === false)} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Lưu
                 </Button>
               </div>
