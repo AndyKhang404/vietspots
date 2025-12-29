@@ -365,7 +365,7 @@ export default function Settings() {
                 {user ? (
                   <button
                     onClick={handleLogout}
-                    className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                    className="w-full mt-6 flex items-center justify-center gap-2 p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/90 transition-colors"
                   >
                     <LogOut className="h-5 w-5" />
                     <span className="font-medium">{t('settings.logout')}</span>
@@ -619,10 +619,15 @@ export default function Settings() {
                 </div>
 
                 {/* Personal extra fields: gender & age */}
-                <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="grid grid-cols-2 gap-4 mt-3 mb-3">
                   <div>
                     <Label htmlFor="gender">Giới tính</Label>
-                    <select id="gender" value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1.5 w-full rounded-md border p-2">
+                    <select
+                      id="gender"
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground flex items-center appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
                       <option value="">Không chọn</option>
                       <option value="male">Nam</option>
                       <option value="female">Nữ</option>
@@ -631,7 +636,7 @@ export default function Settings() {
                   </div>
                   <div>
                     <Label htmlFor="age">Tuổi</Label>
-                    <Input id="age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" className="mt-1.5" />
+                    <Input id="age" type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" className="mt-1.5 h-10" />
                   </div>
                 </div>
 
@@ -670,7 +675,7 @@ export default function Settings() {
                           key={h}
                           type="button"
                           onClick={() => setHobbies(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h])}
-                          className={`flex items-center gap-2 px-3 py-1 rounded-full border-2 ${active ? 'bg-amber-400 text-black border-amber-400' : 'bg-white text-foreground border-black'} shadow-sm`}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-full border-2 ${active ? 'bg-amber-400 text-black border-amber-400' : 'bg-card text-foreground border-border'} shadow-sm`}
                         >
                           {active && <Check className="h-4 w-4" />}
                           <span className="text-sm">{h}</span>
@@ -682,7 +687,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Văn hóa</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {cultureOptions.map((c) => (
                       <label key={c} className="flex items-center justify-between p-4 border-b last:border-b-0">
                         <span>{c}</span>
@@ -694,7 +699,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Tôn giáo</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {religionOptions.map((r) => (
                       <label key={r} className="flex items-center justify-between p-4 border-b last:border-b-0">
                         <span className={`${r === religion ? 'text-red-600' : ''}`}>{r}</span>
@@ -706,7 +711,7 @@ export default function Settings() {
 
                 <div className="mb-4">
                   <h4 className="text-base font-semibold">Bạn đồng hành</h4>
-                  <div className="mt-3 bg-white rounded-xl border border-border">
+                  <div className="mt-3 bg-card rounded-xl border border-border">
                     {['Một mình', 'Cặp đôi', 'Gia đình', 'Bạn bè'].map((opt) => (
                       <label key={opt} className={`flex items-center justify-between p-4 border-b last:border-b-0 cursor-pointer ${companionType === opt ? 'bg-primary/5' : ''}`}>
                         <div className="flex items-center gap-3">
