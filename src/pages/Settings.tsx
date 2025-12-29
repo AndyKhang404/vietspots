@@ -31,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabase, SUPABASE_DEBUG } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -127,11 +127,7 @@ export default function Settings() {
     try {
       // Debug: log session and supabase env to help diagnose why upserts fail
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        // eslint-disable-next-line no-console
-        console.log('[Settings] supabase debug', SUPABASE_DEBUG);
-        // eslint-disable-next-line no-console
-        console.log('[Settings] auth.getUser()', authData);
+        await supabase.auth.getUser();
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[Settings] failed to fetch current auth user for debug', e);
@@ -161,8 +157,7 @@ export default function Settings() {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData?.user?.id || user?.id;
         if (userId) {
-          // eslint-disable-next-line no-console
-          console.log('[Settings] userId before users upsert:', userId);
+
 
           try {
             const payload: any = {
@@ -180,8 +175,7 @@ export default function Settings() {
               introduction: bio || null,
             };
 
-            // eslint-disable-next-line no-console
-            console.log('[Settings] users upsert payload:', payload);
+
 
             const { error: usersError } = await (supabase as any)
               .from('users')
@@ -195,8 +189,7 @@ export default function Settings() {
               throw usersError;
             }
 
-            // eslint-disable-next-line no-console
-            console.log('users upsert success');
+
           } catch (e) {
             // eslint-disable-next-line no-console
             console.warn('Unexpected error upserting public.users', e);

@@ -362,12 +362,7 @@ export default function Chatbot() {
   const [ttsPitch, setTtsPitch] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_pitch')) || 1);
   const [ttsVolume, setTtsVolume] = useState<number>(() => Number(localStorage.getItem('vietspots_tts_volume')) || 1);
 
-  // Filters
-  // Filter UI removed — keep placeholders only if needed later
-  // (category/minRating/maxDistance removed per user request)
-  // When true, ignore the distance filter for chat-suggested places so
-  // users can see them on the map even if they're beyond `maxDistance`.
-  // Enabled by default so chat suggestions are visible immediately.
+  // When true, ignore the distance filter for chat-suggested places so users can see them on the map.
   const [ignoreDistanceFilterForChat, setIgnoreDistanceFilterForChat] = useState<boolean>(true);
 
   // Form state
@@ -388,12 +383,7 @@ export default function Chatbot() {
           toast.success(t('messages.got_your_location'));
           // ensure map is visible when we obtain location
           try { setShowMap(true); } catch { }
-          try {
-            if (process.env.NODE_ENV !== 'production') {
-              // eslint-disable-next-line no-console
-              console.debug('Chatbot got userLocation:', position.coords.latitude, position.coords.longitude);
-            }
-          } catch { }
+          // ensure map is visible when we obtain location
           // No client-side distance filter in chat mode — nothing to relax here
           setIsGettingLocation(false);
         },
@@ -851,968 +841,938 @@ export default function Chatbot() {
       },
     ]);
 
-    try {
-      // Call the stable chat endpoint directly (server does not document /api/chat/stream)
-      const payload = {
-        message: userInput,
-        session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
-        user_lat: userLocation?.latitude ?? null,
-        user_lon: userLocation?.longitude ?? null,
-      };
-      try {
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.debug('Chat request payload:', payload);
-          // Also log a JSON string so values are visible without expanding the object in console
-          // eslint-disable-next-line no-console
-          console.debug('Chat request payload (json):', JSON.stringify(payload));
-        }
-      } catch { }
-      const response = await fetch(VIETSPOT_CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    // Call the stable chat endpoint directly (server does not document /api/chat/stream)
+    const payload = {
+      message: userInput,
+      session_id: sessionStorage.getItem("vietspot_session_id") || undefined,
+      user_lat: userLocation?.latitude ?? null,
+      user_lon: userLocation?.longitude ?? null,
+    };
+    const response = await fetch(VIETSPOT_CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-      // Debug response status for easier diagnosis
-      try { if (process.env.NODE_ENV !== 'production') console.debug('Chat response status', response.status); } catch { }
+    // Debug response status suppressed
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.session_id) {
-        sessionStorage.setItem("vietspot_session_id", data.session_id);
-      }
-
-      // Dev-only: log places array so we can inspect coordinate fields
-      try {
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.debug('Chat response places:', data.places);
-        }
-      } catch { }
-
-      // Simulate streaming effect for regular response
-      const answer = data.answer || (t('messages.cannot_process') as string) || "Xin lỗi, tôi không thể xử lý yêu cầu này.";
-      const words = String(answer).split(" ");
-      let currentContent = "";
-
-      for (let i = 0; i < words.length; i++) {
-        currentContent += (i === 0 ? "" : " ") + words[i];
-        const content = currentContent;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, content }
-              : msg
-          )
-        );
-        await new Promise(r => setTimeout(r, 30)); // Delay between words
-      }
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, isStreaming: false }
-            : msg
-        )
-      );
-
-      // Handle places payload
-      if (data.places && data.places.length > 0) {
-        const mapped = data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined));
-        // Dev-only logs for mapped/filtered/markers
-        try {
-          if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
-            console.debug('Chat mapped places:', mapped);
-            // We no longer apply client-side category/minRating/distance filters
-            const filtered = mapped || [];
-            // eslint-disable-next-line no-console
-            console.debug('Chat filtered places count:', filtered.length);
-            const markers = filtered.filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && !isNaN(p.latitude as any) && !isNaN(p.longitude as any));
-            // eslint-disable-next-line no-console
-            console.debug('Chat mapMarkers count:', markers.length, markers);
-          }
-        } catch { }
-
-        setPlaceResults(dedupePlaceResults(mapped));
-        setLastPlaceMessageId(assistantMessageId);
-      } else {
-        setLastPlaceMessageId(null);
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      toast.error(t('messages.cannot_connect'));
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: t('messages.error_occurred_apology'), isStreaming: false }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
     }
-  };
 
-  // Normalize API results to the same shape as `fallbackPlaces` so saved tab can render consistently
-  const normalizedResults = placeResults.map((p) => ({
+    const data = await response.json();
+
+    if (data.session_id) {
+      sessionStorage.setItem("vietspot_session_id", data.session_id);
+    }
+
+    // Chat response places (debug suppressed)
+
+    // Simulate streaming effect for regular response
+    const answer = data.answer || (t('messages.cannot_process') as string) || "Xin lỗi, tôi không thể xử lý yêu cầu này.";
+    const words = String(answer).split(" ");
+    let currentContent = "";
+
+    for (let i = 0; i < words.length; i++) {
+      currentContent += (i === 0 ? "" : " ") + words[i];
+      const content = currentContent;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content }
+            : msg
+        )
+      );
+      await new Promise(r => setTimeout(r, 30)); // Delay between words
+    }
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantMessageId
+          ? { ...msg, isStreaming: false }
+          : msg
+      )
+    );
+
+    // Handle places payload
+    if (data.places && data.places.length > 0) {
+      const mapped = data.places.map((p: PlaceInfo) => transformToPlaceResult(p, userLocation || undefined));
+      // Mapped/filtered/marker info (debug suppressed)
+
+      setPlaceResults(dedupePlaceResults(mapped));
+      setLastPlaceMessageId(assistantMessageId);
+    } else {
+      setLastPlaceMessageId(null);
+    }
+  } catch (error) {
+    console.error("Chat error:", error);
+    toast.error(t('messages.cannot_connect'));
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: t('messages.error_occurred_apology'), isStreaming: false }
+          : msg
+      )
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Normalize API results to the same shape as `fallbackPlaces` so saved tab can render consistently
+const normalizedResults = placeResults.map((p) => ({
+  id: p.id,
+  name: p.name,
+  location: p.address || p.name,
+  image: (p.images && p.images.length > 0) ? p.images[0] : "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
+  rating: p.rating || 0,
+}));
+
+// Merge API results with fallback places but avoid duplicates (keep API results first)
+const knownPlaces = [
+  ...normalizedResults,
+  ...fallbackPlaces.filter(fp => !normalizedResults.some(n => n.id === fp.id)),
+];
+
+const savedPlaces = favorites
+  .map((id) => knownPlaces.find((p) => p.id === id))
+  .filter(Boolean) as any[];
+
+const tabs = [
+  { id: "chat" as const, label: t('chat.tab_chat'), icon: MessageSquare },
+  { id: "history" as const, label: t('chat.tab_history'), icon: History },
+  { id: "form" as const, label: t('chat.tab_form'), icon: FileText },
+  { id: "saved" as const, label: t('chat.tab_saved'), icon: Bookmark },
+];
+
+// Do not apply client-side category/minRating/distance filters to chat results.
+// We want to show all chat-suggested places as returned by the API.
+const filteredPlaceResults = placeResults.slice();
+
+// Get map markers from filtered place results
+const mapMarkers = filteredPlaceResults
+  .filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && !isNaN(p.latitude as any) && !isNaN(p.longitude as any))
+  .map(p => ({
     id: p.id,
     name: p.name,
-    location: p.address || p.name,
-    image: (p.images && p.images.length > 0) ? p.images[0] : "https://images.unsplash.com/photo-1528127269322-539801943592?w=800",
-    rating: p.rating || 0,
+    address: p.address,
+    latitude: p.latitude!,
+    longitude: p.longitude!,
+    rating: p.rating
   }));
 
-  // Merge API results with fallback places but avoid duplicates (keep API results first)
-  const knownPlaces = [
-    ...normalizedResults,
-    ...fallbackPlaces.filter(fp => !normalizedResults.some(n => n.id === fp.id)),
-  ];
+// Filters removed — no availableCategories required
 
-  const savedPlaces = favorites
-    .map((id) => knownPlaces.find((p) => p.id === id))
-    .filter(Boolean) as any[];
-
-  const tabs = [
-    { id: "chat" as const, label: t('chat.tab_chat'), icon: MessageSquare },
-    { id: "history" as const, label: t('chat.tab_history'), icon: History },
-    { id: "form" as const, label: t('chat.tab_form'), icon: FileText },
-    { id: "saved" as const, label: t('chat.tab_saved'), icon: Bookmark },
-  ];
-
-  // Do not apply client-side category/minRating/distance filters to chat results.
-  // We want to show all chat-suggested places as returned by the API.
-  const filteredPlaceResults = placeResults.slice();
-
-  // Get map markers from filtered place results
-  const mapMarkers = filteredPlaceResults
-    .filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && !isNaN(p.latitude as any) && !isNaN(p.longitude as any))
-    .map(p => ({
-      id: p.id,
-      name: p.name,
-      address: p.address,
-      latitude: p.latitude!,
-      longitude: p.longitude!,
-      rating: p.rating
-    }));
-
-  // Filters removed — no availableCategories required
-
-  return (
-    <>
-      {/* Map Panel - Shows when chatbot is open and has places */}
-      {isOpen && showMap && mapMarkers.length > 0 && (
-        <div
-          className={cn(
-            "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
-            // Map takes remaining space on left of chat panel (updated width)
-            "right-[640px] w-[calc(100vw-640px)] max-w-[760px]"
-          )}
-        >
-          <div className="h-full flex flex-col">
-            {/* Map Header */}
-            <div className="flex items-center justify-between p-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <MapIcon className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm">{t('ui.map')}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {mapMarkers.length} {t('place.places_label')}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowMap(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            {/* Map Content */}
-            <div className="flex-1">
-              <ChatbotMap
-                places={mapMarkers}
-                selectedPlaceId={selectedPlaceId}
-                onPlaceSelect={setSelectedPlaceId}
-                userLocation={userLocation || undefined}
-                routeToPlaceId={routeToPlaceId}
-                onRouteRequest={(placeId) => {
-                  setRouteToPlaceId(placeId);
-                  setSelectedPlaceId(null);
-                }}
-                onRouteClear={() => setRouteToPlaceId(null)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* If there are place results but no valid markers, show a hint panel */}
-      {isOpen && showMap && mapMarkers.length === 0 && placeResults.length > 0 && (
-        <div
-          className={cn(
-            "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
-            "right-[640px] w-[calc(100vw-640px)] max-w-[760px] flex items-center justify-center"
-          )}
-        >
-          <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-3">
-              {t('chat.no_map_markers') || 'Không có vị trí hợp lệ để hiển thị trên bản đồ. Kiểm tra API response hoặc tắt bộ lọc.'}
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Button size="sm" onClick={() => setShowMap(false)}>
-                {t('ui.hide_map') || 'Đóng bản đồ'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toggle Button - Fixed on right edge */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
-          isOpen ? "right-[640px]" : "right-0"
-        )}
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
-      </button>
-
-      {/* Map Toggle Button - Shows when map is hidden */}
-      {isOpen && !showMap && mapMarkers.length > 0 && (
-        <button
-          onClick={() => setShowMap(true)}
-          className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[640px]"
-          style={{ marginTop: "60px" }}
-        >
-          <MapIcon className="h-5 w-5" />
-        </button>
-      )}
-
-      {/* Sidebar Panel */}
+return (
+  <>
+    {/* Map Panel - Shows when chatbot is open and has places */}
+    {isOpen && showMap && mapMarkers.length > 0 && (
       <div
         className={cn(
-          "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
-          // Chat panel width: expanded horizontally
-          isOpen ? "translate-x-0 w-[640px]" : "translate-x-full w-[620px]"
+          "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
+          // Map takes remaining space on left of chat panel (updated width)
+          "right-[640px] w-[calc(100vw-640px)] max-w-[760px]"
         )}
       >
-        {/* Tabs */}
-        <div className="flex border-b border-border">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex-1 py-4 text-sm font-medium transition-colors relative",
-                activeTab === tab.id
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+        <div className="h-full flex flex-col">
+          {/* Map Header */}
+          <div className="flex items-center justify-between p-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <MapIcon className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">{t('ui.map')}</span>
+              <Badge variant="secondary" className="text-xs">
+                {mapMarkers.length} {t('place.places_label')}
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowMap(false)}
             >
-              {tab.label}
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-          ))}
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {/* Map Content */}
+          <div className="flex-1">
+            <ChatbotMap
+              places={mapMarkers}
+              selectedPlaceId={selectedPlaceId}
+              onPlaceSelect={setSelectedPlaceId}
+              userLocation={userLocation || undefined}
+              routeToPlaceId={routeToPlaceId}
+              onRouteRequest={(placeId) => {
+                setRouteToPlaceId(placeId);
+                setSelectedPlaceId(null);
+              }}
+              onRouteClear={() => setRouteToPlaceId(null)}
+            />
+          </div>
         </div>
+      </div>
+    )}
 
-        {/* Content Area */}
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {activeTab === "chat" && (
-            <>
-              {/* Toolbar: Location + Filters */}
-              <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-wrap">
-                {/* New Chat Button */}
+    {/* If there are place results but no valid markers, show a hint panel */}
+    {isOpen && showMap && mapMarkers.length === 0 && placeResults.length > 0 && (
+      <div
+        className={cn(
+          "fixed top-0 z-30 h-screen bg-card border-l border-border shadow-xl transition-all duration-300",
+          "right-[640px] w-[calc(100vw-640px)] max-w-[760px] flex items-center justify-center"
+        )}
+      >
+        <div className="p-6 text-center">
+          <p className="text-sm text-muted-foreground mb-3">
+            {t('chat.no_map_markers') || 'Không có vị trí hợp lệ để hiển thị trên bản đồ. Kiểm tra API response hoặc tắt bộ lọc.'}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button size="sm" onClick={() => setShowMap(false)}>
+              {t('ui.hide_map') || 'Đóng bản đồ'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Toggle Button - Fixed on right edge */}
+    <button
+      onClick={() => setIsOpen(!isOpen)}
+      className={cn(
+        "fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14",
+        isOpen ? "right-[640px]" : "right-0"
+      )}
+    >
+      {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+    </button>
+
+    {/* Map Toggle Button - Shows when map is hidden */}
+    {isOpen && !showMap && mapMarkers.length > 0 && (
+      <button
+        onClick={() => setShowMap(true)}
+        className="fixed top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-l-xl bg-secondary text-secondary-foreground shadow-lg flex items-center justify-center transition-all duration-300 hover:w-14 right-[640px]"
+        style={{ marginTop: "60px" }}
+      >
+        <MapIcon className="h-5 w-5" />
+      </button>
+    )}
+
+    {/* Sidebar Panel */}
+    <div
+      className={cn(
+        "fixed top-0 right-0 z-40 h-screen bg-card border-l border-border shadow-2xl transition-transform duration-300 flex flex-col overflow-hidden",
+        // Chat panel width: expanded horizontally
+        isOpen ? "translate-x-0 w-[640px]" : "translate-x-full w-[620px]"
+      )}
+    >
+      {/* Tabs */}
+      <div className="flex border-b border-border">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex-1 py-4 text-sm font-medium transition-colors relative",
+              activeTab === tab.id
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {activeTab === "chat" && (
+          <>
+            {/* Toolbar: Location + Filters */}
+            <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-wrap">
+              {/* New Chat Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={startNewConversation}
+              >
+                <Plus className="h-4 w-4" />
+                {t('actions.new')}
+              </Button>
+
+              {/* Location Button */}
+              <Button
+                variant={userLocation ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  // toggle: if we already have a location, clear it; otherwise request it
+                  if (userLocation) {
+                    setUserLocation(null);
+                    toast.success(t('messages.location_cleared') || 'Vị trí đã tắt');
+                  } else {
+                    getUserLocation();
+                  }
+                }}
+                disabled={isGettingLocation}
+              >
+                {isGettingLocation ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LocateFixed className="h-4 w-4" />
+                )}
+                {isGettingLocation ? t('ui.locating') : (userLocation ? t('ui.located') : t('actions.location'))}
+              </Button>
+
+              {/* Current conversation saved timestamp */}
+              {currentConversation && (
+                <div className="ml-auto text-xs text-muted-foreground px-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3 w-3" />
+                    <span>
+                      {t('chat.saved_on') || 'Saved on'} {new Date(currentConversation.createdAt || currentConversation.updatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Filters removed per user request */}
+
+              {/* Filter badges removed */}
+            </div>
+
+            {/* Place Results & Messages */}
+            <div className="relative flex-1 min-h-0">
+              <ScrollArea className="h-full min-h-0" ref={scrollRef}>
+                <div className="p-4 space-y-4">
+                  {/* Chat Messages */}
+                  {(() => {
+                    // If we have a `lastPlaceMessageId`, split messages so that
+                    // messages up to (and including) that assistant message are
+                    // shown first, then place cards, then remaining messages.
+                    const splitIndex = lastPlaceMessageId
+                      ? messages.findIndex((m) => m.id === lastPlaceMessageId)
+                      : -1;
+
+                    const before = splitIndex >= 0 ? messages.slice(0, splitIndex + 1) : messages;
+                    const after = splitIndex >= 0 ? messages.slice(splitIndex + 1) : [];
+
+                    return (
+                      <>
+                        {before.map((message, index) => (
+                          <div
+                            key={message.id}
+                            className={cn(
+                              "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                              message.role === "user" ? "justify-end" : "justify-start"
+                            )}
+                            style={{ animationDelay: `${index * 50}ms` }}
+                          >
+                            <div
+                              className={cn(
+                                "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
+                                message.role === "user"
+                                  ? "bg-primary text-primary-foreground rounded-br-md"
+                                  : "bg-secondary text-secondary-foreground rounded-bl-md"
+                              )}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {parseMarkdownBold(message.content)}
+                                {message.isStreaming && (
+                                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                                )}
+                              </p>
+                              <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
+                                {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Place Result Cards go between before/after messages */}
+                        {filteredPlaceResults.map((place, index) => (
+                          <div
+                            key={place.id}
+                            className={cn(
+                              "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
+                              selectedPlaceId === place.id
+                                ? "border-primary ring-2 ring-primary/20"
+                                : "border-border"
+                            )}
+                            style={{ animationDelay: `${index * 100}ms` }}
+                            onClick={() => {
+                              setSelectedPlaceId(place.id);
+                              if (!showMap) setShowMap(true);
+                            }}
+                          >
+                            {/* Place Header */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <h3 className="font-bold text-primary leading-tight">{place.name}</h3>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {place.matchingScore && (
+                                  <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                    <Percent className="h-3 w-3" />
+                                    {place.matchingScore}%
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold">
+                                  <Star className="h-3 w-3 fill-current" />
+                                  {place.rating}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn("h-8 w-8", isFavorite(place.id) ? 'text-primary' : '')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void toggleFavorite({
+                                      id: place.id,
+                                      name: place.name,
+                                      address: place.address,
+                                      image: place.images && place.images.length > 0 ? (place.images[0] as string) : undefined,
+                                      rating: place.rating,
+                                      category: place.category,
+                                    });
+                                  }}
+                                  title={isFavorite(place.id) ? t('actions.remove_favorite') : t('actions.save')}
+                                >
+                                  <Bookmark className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Category & Distance Row */}
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              {place.category && (
+                                <Badge variant="secondary" className="text-xs">{place.category}</Badge>
+                              )}
+                              {place.distance !== undefined && (
+                                <Badge variant="outline" className="text-xs gap-1">
+                                  <MapPinned className="h-3 w-3" />
+                                  {formatDistance(place.distance)}
+                                </Badge>
+                              )}
+                              {place.totalComments !== undefined && place.totalComments > 0 && (
+                                <Badge variant="outline" className="text-xs">{place.totalComments} {t('place.reviews')}</Badge>
+                              )}
+                            </div>
+
+                            {/* Address */}
+                            <div className="flex items-start gap-2 text-sm mb-2">
+                              <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                              <span className="text-muted-foreground">{place.address}</span>
+                            </div>
+
+                            {/* Opening Hours */}
+                            {place.openingHours && (
+                              <div className="flex items-center gap-2 text-sm mb-2">
+                                <Clock className="h-4 w-4 text-orange-500 shrink-0" />
+                                <span>{formatOpeningHours(place.openingHours, i18n.language, t)}</span>
+                              </div>
+                            )}
+
+                            {/* Phone */}
+                            {place.phone && (
+                              <div className="flex items-center gap-2 text-sm mb-2">
+                                <Phone className="h-4 w-4 text-green-600 shrink-0" />
+                                <a href={`tel:${place.phone}`} className="text-sm text-primary underline">{place.phone}</a>
+                              </div>
+                            )}
+
+                            {/* Website */}
+                            {place.website && (
+                              <div className="flex items-center gap-2 text-sm mb-3">
+                                <Globe className="h-4 w-4 text-blue-600 shrink-0" />
+                                <a href={place.website} target="_blank" rel="noreferrer" className="text-sm text-primary underline">{t('place.website')}</a>
+                              </div>
+                            )}
+
+                            {/* Images */}
+                            {place.images && place.images.length > 0 && (
+                              <div className="flex gap-2 mt-2 overflow-x-auto">
+                                {place.images.map((img, i) => {
+                                  const src = typeof img === 'string' ? img : (img as any).url || '';
+                                  return (
+                                    <img
+                                      key={i}
+                                      src={src}
+                                      alt=""
+                                      className="h-20 w-20 object-cover rounded-lg shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => window.open(src, '_blank')}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {after.map((message, idx) => (
+                          <div
+                            key={message.id}
+                            className={cn(
+                              "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                              message.role === "user" ? "justify-end" : "justify-start"
+                            )}
+                            style={{ animationDelay: `${idx * 50}ms` }}
+                          >
+                            <div
+                              className={cn(
+                                "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
+                                message.role === "user"
+                                  ? "bg-primary text-primary-foreground rounded-br-md"
+                                  : "bg-secondary text-secondary-foreground rounded-bl-md"
+                              )}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {parseMarkdownBold(message.content)}
+                                {message.isStreaming && (
+                                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                                )}
+                              </p>
+                              <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
+                                {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
+
+                  {isLoading && messages[messages.length - 1]?.role === "user" && (
+                    <div className="flex justify-start">
+                      <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="text-sm text-muted-foreground">{t('ui.ai_thinking')}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Place results are rendered above between messages; duplicated rendering removed. */}
+
+                </div>
+              </ScrollArea>
+
+              {/* Scroll Buttons */}
+              {/* Scroll buttons removed for web experience */}
+            </div>
+
+            {/* GPS Pill */}
+            {selectedGps && (
+              <div className="px-4 pb-2 shrink-0">
+                <div className="flex items-center justify-between bg-primary/10 text-primary rounded-full px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    <span className="text-sm">GPS: {selectedGps}</span>
+                  </div>
+                  <button onClick={() => setSelectedGps(null)}>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Input */}
+            <div className="p-3 border-t border-border shrink-0 bg-card">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendWithStreaming();
+                }}
+                className="flex gap-2 items-center"
+              >
+                <Button
+                  variant={isRecording ? 'destructive' : 'outline'}
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (isRecording) stopRecording(); else startRecording();
+                  }}
+                  disabled={sttLoading || isLoading}
+                  title={isRecording ? t('chatbot.stop_recording') : t('chatbot.start_recording')}
+                >
+                  {isRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                </Button>
+                {/* TTS settings popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-9 w-9">
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-3">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-sm font-medium mb-1">{t('chatbot.voice') || 'Voice'}</div>
+                        <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en'))} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* Backend high-quality Vietnamese option */}
+                            {ttsLanguage === 'vi-VN' && (
+                              <SelectItem value="__backend_vi">{t('chatbot.backend_vi') || 'Tiếng Việt - Hệ thống'}</SelectItem>
+                            )}
+                            {ttsLanguage && ttsLanguage.startsWith('en') && (
+                              <SelectItem value="__backend_en">{t('chatbot.backend_en') || 'Backend - English (Neural)'}</SelectItem>
+                            )}
+                            {filteredVoices.length === 0 && (
+                              <SelectItem value="">{t('chatbot.no_voices') || 'No voices available'}</SelectItem>
+                            )}
+                            {filteredVoices.map((v) => (
+                              <SelectItem key={v.name} value={v.name}>{v.name} {v.lang ? `(${v.lang})` : ''}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">{t('chatbot.prefer_backend') || 'Prefer backend TTS'}</div>
+                        <Switch checked={preferBackendTts} onCheckedChange={(v: any) => setPreferBackendTts(Boolean(v))} />
+                      </div>
+
+                      <div>
+                        <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                          <span>{t('chatbot.rate') || 'Rate'}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{ttsRate.toFixed(2)}x</span>
+                        </div>
+                        <Slider
+                          value={[ttsRate]}
+                          onValueChange={([v]) => setTtsRate(Number(v))}
+                          min={0.5}
+                          max={1.5}
+                          step={0.05}
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                          <span>{t('chatbot.pitch') || 'Pitch'}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{ttsPitch.toFixed(2)}</span>
+                        </div>
+                        <Slider
+                          value={[ttsPitch]}
+                          onValueChange={([v]) => setTtsPitch(Number(v))}
+                          min={0.5}
+                          max={2}
+                          step={0.05}
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-sm font-medium mb-1 flex items-center justify-between">
+                          <span>{t('chatbot.volume') || 'Volume'}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{Math.round(ttsVolume * 100)}%</span>
+                        </div>
+                        <Slider
+                          value={[ttsVolume]}
+                          onValueChange={([v]) => setTtsVolume(Number(v))}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Speaker button: user triggers TTS for last assistant message */}
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={startNewConversation}
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    playLastAssistantMessage();
+                  }}
+                  title={t('chatbot.play_last_message') || 'Play last message'}
+                  disabled={isLoading}
                 >
-                  <Plus className="h-4 w-4" />
-                  {t('actions.new')}
+                  <Volume2 className="h-4 w-4" />
                 </Button>
 
-                {/* Location Button */}
-                <Button
-                  variant={userLocation ? "default" : "outline"}
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => {
-                    // toggle: if we already have a location, clear it; otherwise request it
-                    if (userLocation) {
-                      setUserLocation(null);
-                      toast.success(t('messages.location_cleared') || 'Vị trí đã tắt');
-                    } else {
-                      getUserLocation();
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSendWithStreaming();
                     }
                   }}
-                  disabled={isGettingLocation}
-                >
-                  {isGettingLocation ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <LocateFixed className="h-4 w-4" />
-                  )}
-                  {isGettingLocation ? t('ui.locating') : (userLocation ? t('ui.located') : t('actions.location'))}
-                </Button>
+                  placeholder={t('chatbot.placeholder')}
+                  className="flex-1 min-w-0 rounded-full h-9 px-4"
+                  disabled={isLoading}
+                />
 
-                {/* Current conversation saved timestamp */}
-                {currentConversation && (
-                  <div className="ml-auto text-xs text-muted-foreground px-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {t('chat.saved_on') || 'Saved on'} {new Date(currentConversation.createdAt || currentConversation.updatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Filters removed per user request */}
-
-                {/* Filter badges removed */}
-              </div>
-
-              {/* Place Results & Messages */}
-              <div className="relative flex-1 min-h-0">
-                <ScrollArea className="h-full min-h-0" ref={scrollRef}>
-                  <div className="p-4 space-y-4">
-                    {/* Chat Messages */}
-                    {(() => {
-                      // If we have a `lastPlaceMessageId`, split messages so that
-                      // messages up to (and including) that assistant message are
-                      // shown first, then place cards, then remaining messages.
-                      const splitIndex = lastPlaceMessageId
-                        ? messages.findIndex((m) => m.id === lastPlaceMessageId)
-                        : -1;
-
-                      const before = splitIndex >= 0 ? messages.slice(0, splitIndex + 1) : messages;
-                      const after = splitIndex >= 0 ? messages.slice(splitIndex + 1) : [];
-
-                      return (
-                        <>
-                          {before.map((message, index) => (
-                            <div
-                              key={message.id}
-                              className={cn(
-                                "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
-                                message.role === "user" ? "justify-end" : "justify-start"
-                              )}
-                              style={{ animationDelay: `${index * 50}ms` }}
-                            >
-                              <div
-                                className={cn(
-                                  "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
-                                  message.role === "user"
-                                    ? "bg-primary text-primary-foreground rounded-br-md"
-                                    : "bg-secondary text-secondary-foreground rounded-bl-md"
-                                )}
-                              >
-                                <p className="text-sm whitespace-pre-wrap break-words">
-                                  {parseMarkdownBold(message.content)}
-                                  {message.isStreaming && (
-                                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
-                                  )}
-                                </p>
-                                <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
-                                  {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* Place Result Cards go between before/after messages */}
-                          {filteredPlaceResults.map((place, index) => (
-                            <div
-                              key={place.id}
-                              className={cn(
-                                "border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4 cursor-pointer transition-all hover:shadow-md",
-                                selectedPlaceId === place.id
-                                  ? "border-primary ring-2 ring-primary/20"
-                                  : "border-border"
-                              )}
-                              style={{ animationDelay: `${index * 100}ms` }}
-                              onClick={() => {
-                                setSelectedPlaceId(place.id);
-                                if (!showMap) setShowMap(true);
-                              }}
-                            >
-                              {/* Place Header */}
-                              <div className="flex items-start justify-between gap-3 mb-3">
-                                <h3 className="font-bold text-primary leading-tight">{place.name}</h3>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {place.matchingScore && (
-                                    <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
-                                      <Percent className="h-3 w-3" />
-                                      {place.matchingScore}%
-                                    </span>
-                                  )}
-                                  <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold">
-                                    <Star className="h-3 w-3 fill-current" />
-                                    {place.rating}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={cn("h-8 w-8", isFavorite(place.id) ? 'text-primary' : '')}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void toggleFavorite({
-                                        id: place.id,
-                                        name: place.name,
-                                        address: place.address,
-                                        image: place.images && place.images.length > 0 ? (place.images[0] as string) : undefined,
-                                        rating: place.rating,
-                                        category: place.category,
-                                      });
-                                    }}
-                                    title={isFavorite(place.id) ? t('actions.remove_favorite') : t('actions.save')}
-                                  >
-                                    <Bookmark className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Category & Distance Row */}
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                {place.category && (
-                                  <Badge variant="secondary" className="text-xs">{place.category}</Badge>
-                                )}
-                                {place.distance !== undefined && (
-                                  <Badge variant="outline" className="text-xs gap-1">
-                                    <MapPinned className="h-3 w-3" />
-                                    {formatDistance(place.distance)}
-                                  </Badge>
-                                )}
-                                {place.totalComments !== undefined && place.totalComments > 0 && (
-                                  <Badge variant="outline" className="text-xs">{place.totalComments} {t('place.reviews')}</Badge>
-                                )}
-                              </div>
-
-                              {/* Address */}
-                              <div className="flex items-start gap-2 text-sm mb-2">
-                                <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                                <span className="text-muted-foreground">{place.address}</span>
-                              </div>
-
-                              {/* Opening Hours */}
-                              {place.openingHours && (
-                                <div className="flex items-center gap-2 text-sm mb-2">
-                                  <Clock className="h-4 w-4 text-orange-500 shrink-0" />
-                                  <span>{formatOpeningHours(place.openingHours, i18n.language, t)}</span>
-                                </div>
-                              )}
-
-                              {/* Phone */}
-                              {place.phone && (
-                                <div className="flex items-center gap-2 text-sm mb-2">
-                                  <Phone className="h-4 w-4 text-green-600 shrink-0" />
-                                  <a href={`tel:${place.phone}`} className="text-sm text-primary underline">{place.phone}</a>
-                                </div>
-                              )}
-
-                              {/* Website */}
-                              {place.website && (
-                                <div className="flex items-center gap-2 text-sm mb-3">
-                                  <Globe className="h-4 w-4 text-blue-600 shrink-0" />
-                                  <a href={place.website} target="_blank" rel="noreferrer" className="text-sm text-primary underline">{t('place.website')}</a>
-                                </div>
-                              )}
-
-                              {/* Images */}
-                              {place.images && place.images.length > 0 && (
-                                <div className="flex gap-2 mt-2 overflow-x-auto">
-                                  {place.images.map((img, i) => {
-                                    const src = typeof img === 'string' ? img : (img as any).url || '';
-                                    return (
-                                      <img
-                                        key={i}
-                                        src={src}
-                                        alt=""
-                                        className="h-20 w-20 object-cover rounded-lg shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                                        onClick={() => window.open(src, '_blank')}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-
-                          {after.map((message, idx) => (
-                            <div
-                              key={message.id}
-                              className={cn(
-                                "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
-                                message.role === "user" ? "justify-end" : "justify-start"
-                              )}
-                              style={{ animationDelay: `${idx * 50}ms` }}
-                            >
-                              <div
-                                className={cn(
-                                  "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm overflow-hidden",
-                                  message.role === "user"
-                                    ? "bg-primary text-primary-foreground rounded-br-md"
-                                    : "bg-secondary text-secondary-foreground rounded-bl-md"
-                                )}
-                              >
-                                <p className="text-sm whitespace-pre-wrap break-words">
-                                  {parseMarkdownBold(message.content)}
-                                  {message.isStreaming && (
-                                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
-                                  )}
-                                </p>
-                                <div className={cn("mt-1 text-xs text-muted-foreground", message.role === 'user' ? 'text-right' : 'text-left')}>
-                                  {new Date(message.createdAt || Date.now()).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      );
-                    })()}
-
-                    {isLoading && messages[messages.length - 1]?.role === "user" && (
-                      <div className="flex justify-start">
-                        <div className="bg-secondary rounded-2xl px-4 py-3 flex items-center gap-2 rounded-bl-md">
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          <span className="text-sm text-muted-foreground">{t('ui.ai_thinking')}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Place results are rendered above between messages; duplicated rendering removed. */}
-
-                  </div>
-                </ScrollArea>
-
-                {/* Scroll Buttons */}
-                {/* Scroll buttons removed for web experience */}
-              </div>
-
-              {/* GPS Pill */}
-              {selectedGps && (
-                <div className="px-4 pb-2 shrink-0">
-                  <div className="flex items-center justify-between bg-primary/10 text-primary rounded-full px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span className="text-sm">GPS: {selectedGps}</span>
-                    </div>
-                    <button onClick={() => setSelectedGps(null)}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Input */}
-              <div className="p-3 border-t border-border shrink-0 bg-card">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendWithStreaming();
-                  }}
-                  className="flex gap-2 items-center"
-                >
-                  <Button
-                    variant={isRecording ? 'destructive' : 'outline'}
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (isRecording) stopRecording(); else startRecording();
-                    }}
-                    disabled={sttLoading || isLoading}
-                    title={isRecording ? t('chatbot.stop_recording') : t('chatbot.start_recording')}
-                  >
-                    {isRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-                  </Button>
-                  {/* TTS settings popover */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-9 w-9">
-                        <Filter className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-3">
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-sm font-medium mb-1">{t('chatbot.voice') || 'Voice'}</div>
-                          <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
-                            <SelectTrigger className="w-full h-10">
-                              <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en'))} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {/* Backend high-quality Vietnamese option */}
-                              {ttsLanguage === 'vi-VN' && (
-                                <SelectItem value="__backend_vi">{t('chatbot.backend_vi') || 'Tiếng Việt - Hệ thống'}</SelectItem>
-                              )}
-                              {ttsLanguage && ttsLanguage.startsWith('en') && (
-                                <SelectItem value="__backend_en">{t('chatbot.backend_en') || 'Backend - English (Neural)'}</SelectItem>
-                              )}
-                              {filteredVoices.length === 0 && (
-                                <SelectItem value="">{t('chatbot.no_voices') || 'No voices available'}</SelectItem>
-                              )}
-                              {filteredVoices.map((v) => (
-                                <SelectItem key={v.name} value={v.name}>{v.name} {v.lang ? `(${v.lang})` : ''}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{t('chatbot.prefer_backend') || 'Prefer backend TTS'}</div>
-                          <Switch checked={preferBackendTts} onCheckedChange={(v: any) => setPreferBackendTts(Boolean(v))} />
-                        </div>
-
-                        <div>
-                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.rate') || 'Rate'}</span>
-                            <span className="text-xs text-muted-foreground font-mono">{ttsRate.toFixed(2)}x</span>
-                          </div>
-                          <Slider
-                            value={[ttsRate]}
-                            onValueChange={([v]) => setTtsRate(Number(v))}
-                            min={0.5}
-                            max={1.5}
-                            step={0.05}
-                            className="w-full"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.pitch') || 'Pitch'}</span>
-                            <span className="text-xs text-muted-foreground font-mono">{ttsPitch.toFixed(2)}</span>
-                          </div>
-                          <Slider
-                            value={[ttsPitch]}
-                            onValueChange={([v]) => setTtsPitch(Number(v))}
-                            min={0.5}
-                            max={2}
-                            step={0.05}
-                            className="w-full"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.volume') || 'Volume'}</span>
-                            <span className="text-xs text-muted-foreground font-mono">{Math.round(ttsVolume * 100)}%</span>
-                          </div>
-                          <Slider
-                            value={[ttsVolume]}
-                            onValueChange={([v]) => setTtsVolume(Number(v))}
-                            min={0}
-                            max={1}
-                            step={0.05}
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* Speaker button: user triggers TTS for last assistant message */}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      playLastAssistantMessage();
-                    }}
-                    title={t('chatbot.play_last_message') || 'Play last message'}
-                    disabled={isLoading}
-                  >
-                    <Volume2 className="h-4 w-4" />
-                  </Button>
-
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        void handleSendWithStreaming();
-                      }
-                    }}
-                    placeholder={t('chatbot.placeholder')}
-                    className="flex-1 min-w-0 rounded-full h-9 px-4"
-                    disabled={isLoading}
-                  />
-
-                  <div className="w-28">
-                    <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
-                      <SelectTrigger className="w-full h-9">
-                        <SelectValue placeholder={ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="vi-VN">{t('languages.vi')}</SelectItem>
-                        <SelectItem value="en-US">{t('languages.en')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button type="submit" className="rounded-full px-4 h-9" disabled={isLoading}>
-                    {t('chatbot.send')}
-                  </Button>
-                </form>
-              </div>
-            </>
-          )}
-
-          {activeTab === "form" && (
-            <div className="flex-1 p-6 overflow-y-auto">
-              <h3 className="font-semibold text-foreground mb-4">{t('chatbot.form_title')}</h3>
-              <div className="space-y-4">
-                {/* Destination */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.destination')}</label>
-                  <Input
-                    placeholder={t('itinerary.destination_placeholder')}
-                    className="w-full"
-                    id="form-destination"
-                  />
-                </div>
-
-                {/* Category */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.category')}</label>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto p-1">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={formCategory.length === 0}
-                        onChange={() => setFormCategory([])}
-                      />
-                      <span>{t('search.all')}</span>
-                    </label>
-                    {categories.map((c) => {
-                      const checked = formCategory.includes(c.id);
-                      return (
-                        <label key={c.id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4"
-                            checked={checked}
-                            onChange={() => {
-                              setFormCategory((prev) =>
-                                prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                              );
-                            }}
-                          />
-                          <span>{t(c.labelKey)}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Rating */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground flex items-center justify-between">
-                    <span>{t('search.min_rating')}</span>
-                    <span className="text-primary">{formRating.toFixed(1)} ★</span>
-                  </label>
-                  <Slider
-                    value={[formRating]}
-                    onValueChange={(values) => setFormRating(values[0])}
-                    min={0}
-                    max={5}
-                    step={0.5}
-                    className="w-full"
-                  />
-                </div>
-
-                {/* Number of results */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('chatbot.form.results_count')}</label>
-                  <Select value={formLimit} onValueChange={setFormLimit}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="10" />
+                <div className="w-28">
+                  <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder={ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5">5 {t('place.places_label', { count: 5 })}</SelectItem>
-                      <SelectItem value="10">10 {t('place.places_label', { count: 10 })}</SelectItem>
-                      <SelectItem value="20">20 {t('place.places_label', { count: 20 })}</SelectItem>
+                      <SelectItem value="vi-VN">{t('languages.vi')}</SelectItem>
+                      <SelectItem value="en-US">{t('languages.en')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Submit Button */}
-                <Button
-                  className="w-full mt-4"
-                  onClick={() => {
-                    const destination = (document.getElementById('form-destination') as HTMLInputElement)?.value || '';
-                    if (destination) {
-                      // Build message with all form parameters using i18n pieces
-                      let message = t('chatbot.form.search_message', { limit: formLimit });
-                      if (formCategory.length > 0) {
-                        const labels = formCategory.map(id => {
-                          const cat = categories.find(c => c.id === id);
-                          return cat ? t(cat.labelKey) : id;
-                        }).join(', ');
-                        message += ` ${t('chatbot.form.of_type')} ${labels}`;
-                      }
-                      message += ` ${t('chatbot.form.at_location', { destination })}`;
-                      if (formRating > 0) {
-                        message += `, ${t('chatbot.form.min_rating', { rating: formRating })}`;
-                      }
-
-                      setActiveTab('chat');
-                      setInput(message);
-                      // Auto-send after switching tab
-                      setTimeout(() => {
-                        const form = document.querySelector('form') as HTMLFormElement;
-                        if (form) {
-                          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                        }
-                      }, 100);
-                    } else {
-                      toast.error(t('itinerary.enter_destination'));
-                    }
-                  }}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {t('actions.apply')}
+                <Button type="submit" className="rounded-full px-4 h-9" disabled={isLoading}>
+                  {t('chatbot.send')}
                 </Button>
-              </div>
+              </form>
             </div>
-          )}
+          </>
+        )}
 
-          {activeTab === "history" && (
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-3">
-                {!user ? (
-                  <div className="text-center py-12">
-                    <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">{t('ui.login_to_view_history')}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t('chat.history_saved_on_login')}
-                    </p>
-                  </div>
-                ) : conversations.length > 0 ? (
-                  conversations.map((conv, index) => (
-                    <div
-                      key={conv.id}
-                      className="border border-border rounded-xl p-3 bg-card hover:bg-muted/50 cursor-pointer transition-colors animate-in fade-in slide-in-from-right-4 group"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                      onClick={() => {
-                        loadConversation(conv.id);
-                        setActiveTab('chat');
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-foreground text-sm truncate">
-                            {conv.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(conv.updatedAt).toLocaleDateString('vi-VN', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteConversation(conv.id);
+        {activeTab === "form" && (
+          <div className="flex-1 p-6 overflow-y-auto">
+            <h3 className="font-semibold text-foreground mb-4">{t('chatbot.form_title')}</h3>
+            <div className="space-y-4">
+              {/* Destination */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('chatbot.form.destination')}</label>
+                <Input
+                  placeholder={t('itinerary.destination_placeholder')}
+                  className="w-full"
+                  id="form-destination"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('chatbot.form.category')}</label>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto p-1">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={formCategory.length === 0}
+                      onChange={() => setFormCategory([])}
+                    />
+                    <span>{t('search.all')}</span>
+                  </label>
+                  {categories.map((c) => {
+                    const checked = formCategory.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() => {
+                            setFormCategory((prev) =>
+                              prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            );
                           }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">{t('chat.no_history')}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t('ui.start_new_conversation_to_save_history')}
-                    </p>
-                  </div>
-                )}
+                        />
+                        <span>{t(c.labelKey)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </ScrollArea>
-          )}
 
-          {activeTab === "saved" && (
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-4">
-                {savedPlaces.length > 0 ? (
-                  savedPlaces.map((place, index) => (
-                    <div
-                      key={place.id}
-                      role={place.id ? 'button' : undefined}
-                      onClick={() => {
-                        if (!place.id) return;
-                        try { sessionStorage.setItem('vietspots_chatbot_tab', 'saved'); sessionStorage.setItem('vietspots_chatbot_open', '1'); } catch { }
-                        navigate(`/place/${place.id}`);
-                      }}
-                      className="cursor-pointer border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <h3 className="font-semibold text-primary leading-tight">
-                          {place.name}
-                        </h3>
-                        <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold shrink-0">
-                          <Star className="h-3 w-3 fill-current" />
-                          {place.rating}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-2 text-sm mb-3">
-                        <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span className="text-muted-foreground">{place.location}</span>
-                      </div>
-                      <img
-                        src={place.image}
-                        alt={place.name}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <Bookmark className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">{t('ui.no_saved_places')}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t('ui.press_heart_to_save')}
-                    </p>
-                  </div>
-                )}
+              {/* Rating */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center justify-between">
+                  <span>{t('search.min_rating')}</span>
+                  <span className="text-primary">{formRating.toFixed(1)} ★</span>
+                </label>
+                <Slider
+                  value={[formRating]}
+                  onValueChange={(values) => setFormRating(values[0])}
+                  min={0}
+                  max={5}
+                  step={0.5}
+                  className="w-full"
+                />
               </div>
-            </ScrollArea>
-          )}
-        </div>
+
+              {/* Number of results */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('chatbot.form.results_count')}</label>
+                <Select value={formLimit} onValueChange={setFormLimit}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="10" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 {t('place.places_label', { count: 5 })}</SelectItem>
+                    <SelectItem value="10">10 {t('place.places_label', { count: 10 })}</SelectItem>
+                    <SelectItem value="20">20 {t('place.places_label', { count: 20 })}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                className="w-full mt-4"
+                onClick={() => {
+                  const destination = (document.getElementById('form-destination') as HTMLInputElement)?.value || '';
+                  if (destination) {
+                    // Build message with all form parameters using i18n pieces
+                    let message = t('chatbot.form.search_message', { limit: formLimit });
+                    if (formCategory.length > 0) {
+                      const labels = formCategory.map(id => {
+                        const cat = categories.find(c => c.id === id);
+                        return cat ? t(cat.labelKey) : id;
+                      }).join(', ');
+                      message += ` ${t('chatbot.form.of_type')} ${labels}`;
+                    }
+                    message += ` ${t('chatbot.form.at_location', { destination })}`;
+                    if (formRating > 0) {
+                      message += `, ${t('chatbot.form.min_rating', { rating: formRating })}`;
+                    }
+
+                    setActiveTab('chat');
+                    setInput(message);
+                    // Auto-send after switching tab
+                    setTimeout(() => {
+                      const form = document.querySelector('form') as HTMLFormElement;
+                      if (form) {
+                        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                      }
+                    }, 100);
+                  } else {
+                    toast.error(t('itinerary.enter_destination'));
+                  }
+                }}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {t('actions.apply')}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "history" && (
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-3">
+              {!user ? (
+                <div className="text-center py-12">
+                  <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="font-semibold text-foreground mb-2">{t('ui.login_to_view_history')}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('chat.history_saved_on_login')}
+                  </p>
+                </div>
+              ) : conversations.length > 0 ? (
+                conversations.map((conv, index) => (
+                  <div
+                    key={conv.id}
+                    className="border border-border rounded-xl p-3 bg-card hover:bg-muted/50 cursor-pointer transition-colors animate-in fade-in slide-in-from-right-4 group"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                    onClick={() => {
+                      loadConversation(conv.id);
+                      setActiveTab('chat');
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-foreground text-sm truncate">
+                          {conv.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(conv.updatedAt).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(conv.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="font-semibold text-foreground mb-2">{t('chat.no_history')}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('ui.start_new_conversation_to_save_history')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        )}
+
+        {activeTab === "saved" && (
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-4">
+              {savedPlaces.length > 0 ? (
+                savedPlaces.map((place, index) => (
+                  <div
+                    key={place.id}
+                    role={place.id ? 'button' : undefined}
+                    onClick={() => {
+                      if (!place.id) return;
+                      try { sessionStorage.setItem('vietspots_chatbot_tab', 'saved'); sessionStorage.setItem('vietspots_chatbot_open', '1'); } catch { }
+                      navigate(`/place/${place.id}`);
+                    }}
+                    className="cursor-pointer border border-border rounded-xl p-4 bg-card animate-in fade-in slide-in-from-right-4"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h3 className="font-semibold text-primary leading-tight">
+                        {place.name}
+                      </h3>
+                      <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-semibold shrink-0">
+                        <Star className="h-3 w-3 fill-current" />
+                        {place.rating}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-sm mb-3">
+                      <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">{place.location}</span>
+                    </div>
+                    <img
+                      src={place.image}
+                      alt={place.name}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Bookmark className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="font-semibold text-foreground mb-2">{t('ui.no_saved_places')}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('ui.press_heart_to_save')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        )}
       </div>
+    </div>
 
-      {/* Overlay for mobile */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 z-30 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-    </>
-  );
+    {/* Overlay for mobile */}
+    {isOpen && (
+      <div
+        className="fixed inset-0 bg-black/20 z-30 lg:hidden"
+        onClick={() => setIsOpen(false)}
+      />
+    )}
+  </>
+);
 }

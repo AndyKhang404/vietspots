@@ -193,7 +193,7 @@ export function useItinerary() {
       }
 
       // No itinerary or places returned
-      console.log("Chat response:", response);
+      // chat response returned but no itinerary/places: not logging in production
       toast.error(t('messages.cannot_create_itinerary'));
       return null;
     } catch (error) {
@@ -257,7 +257,7 @@ export function useItinerary() {
         .select('id,user_id,title,destination,days,budget,preferences,itinerary_data,is_public,share_token,created_at,updated_at')
         .single();
 
-      console.debug('itineraries.insert result', { inserted, error, dbUserId });
+      // itineraries.insert result (debug suppressed)
 
       if (error) {
         console.error('Supabase itineraries insert error', error);
