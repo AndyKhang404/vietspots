@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 export default function Footer() {
   const { t } = useTranslation();
   return (
-    <footer className="w-full border-t border-border bg-card py-6 px-4 mt-8 lg:ml-64">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <footer className="w-full border-t border-border bg-card py-6 px-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 lg:pl-64">
         <div className="space-y-1">
           <h4 className="font-semibold text-foreground">VietSpots</h4>
           <p className="text-sm text-muted-foreground max-w-md">
