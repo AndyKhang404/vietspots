@@ -255,12 +255,20 @@ export default function Chatbot() {
   const recognitionRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [sttLoading, setSttLoading] = useState(false);
-  const [ttsLanguage, setTtsLanguage] = useState<string>(i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
+  // Default to Vietnamese by requirement; English remains optional
+  const [ttsLanguage, setTtsLanguage] = useState<string>('vi-VN');
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const currentUtterRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(() => localStorage.getItem('vietspots_tts_voice') || null);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem('vietspots_tts_voice');
+      if (stored) return stored;
+    } catch { }
+    // Default to backend Vietnamese to guarantee accurate Vietnamese speech
+    return '__backend_vi';
+  });
   // Default to backend TTS for better quality
   const [preferBackendTts, setPreferBackendTts] = useState<boolean>(() => {
     const v = localStorage.getItem('vietspots_prefer_backend_tts');
@@ -344,10 +352,34 @@ export default function Chatbot() {
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices() || [];
         setAvailableVoices(voices);
-        if (!selectedVoiceName && voices.length > 0) {
-          const pref = voices.find(v => v.lang && v.lang.startsWith(ttsLanguage.split('-')[0]));
-          if (pref) setSelectedVoiceName(pref.name);
+
+        // If user has a stored preference, keep it when possible. Otherwise choose sensible default.
+        let stored: string | null = null;
+        try { stored = localStorage.getItem('vietspots_tts_voice'); } catch { }
+
+        if (stored) {
+          // If stored is a browser voice but not present, try to pick a matching language voice
+          if (!stored.startsWith('__backend') && !voices.some(v => v.name === stored)) {
+            const pref = voices.find(v => v.lang && v.lang.startsWith(ttsLanguage.split('-')[0]));
+            if (pref) setSelectedVoiceName(pref.name);
+            else setSelectedVoiceName(null);
+          } else {
+            // stored is available (either backend id or browser voice)
+            setSelectedVoiceName(stored);
+          }
+          return;
         }
+
+        // No stored preference -> default behavior
+        if (preferBackendTts && ttsLanguage && ttsLanguage.startsWith('vi')) {
+          setSelectedVoiceName('__backend_vi');
+          return;
+        }
+
+        // Prefer browser voice that matches language
+        const pref = voices.find(v => v.lang && v.lang.startsWith(ttsLanguage.split('-')[0]));
+        if (pref) setSelectedVoiceName(pref.name);
+        else if (voices.length > 0) setSelectedVoiceName(voices[0].name);
       };
       loadVoices();
       window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
@@ -356,7 +388,7 @@ export default function Chatbot() {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ttsLanguage, preferBackendTts]);
 
   // Reduce available voice choices shown to user to a concise list
   const filteredVoices = (() => {
@@ -454,18 +486,13 @@ export default function Chatbot() {
           const fd = new FormData();
           fd.append('file', blob, 'recording.webm');
           fd.append('language', ttsLanguage || 'vi-VN');
-          const res = await fetch('https://vietspotbackend-production.up.railway.app/api/stt/transcribe', {
-            method: 'POST',
-            body: fd,
-          });
-          if (res.ok) {
-            const json = await res.json();
+          try {
+            const json = await vietSpotAPI.sttTranscribe(fd);
             if (json && json.transcript) {
               setInput((prev) => (prev ? prev + ' ' + json.transcript : json.transcript));
             }
-          } else {
-            const text = await res.text();
-            console.error('STT error', res.status, text);
+          } catch (e) {
+            console.error('STT error', e);
             toast.error(t('messages.cannot_transcribe'));
           }
         } catch (e) {
@@ -541,14 +568,8 @@ export default function Chatbot() {
             backendBody.voice = selectedVoiceName.replace('__backend_', '');
           }
 
-          const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(backendBody),
-          });
-
-          if (res.ok) {
-            const blob = await res.blob();
+          try {
+            const blob = await vietSpotAPI.tts({ text, language: lang, voice: backendBody.voice });
             const url = URL.createObjectURL(blob);
             if (ttsAudioRef.current) {
               ttsAudioRef.current.src = url;
@@ -562,6 +583,8 @@ export default function Chatbot() {
             ttsAudioRef.current.onplay = () => setIsSpeaking(true);
             await ttsAudioRef.current.play().catch(() => { });
             return;
+          } catch (e) {
+            console.warn('Backend TTS failed', e);
           }
         }
       } catch (e) {
@@ -619,27 +642,20 @@ export default function Chatbot() {
 
     // Fallback to backend TTS as last resort
     try {
-      const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language: lang }),
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        if (ttsAudioRef.current) {
-          ttsAudioRef.current.src = url;
-        } else {
-          ttsAudioRef.current = new Audio(url);
-        }
-        ttsAudioRef.current.onended = () => {
-          setIsSpeaking(false);
-          try { URL.revokeObjectURL(url); } catch { }
-        };
-        ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-        await ttsAudioRef.current.play().catch(() => { });
-        return;
+      const blob = await vietSpotAPI.tts({ text, language: lang });
+      const url = URL.createObjectURL(blob);
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.src = url;
+      } else {
+        ttsAudioRef.current = new Audio(url);
       }
+      ttsAudioRef.current.onended = () => {
+        setIsSpeaking(false);
+        try { URL.revokeObjectURL(url); } catch { }
+      };
+      ttsAudioRef.current.onplay = () => setIsSpeaking(true);
+      await ttsAudioRef.current.play().catch(() => { });
+      return;
     } catch (e) {
       console.warn('Backend TTS failed', e);
     }
@@ -1439,7 +1455,7 @@ export default function Chatbot() {
                     <PopoverContent className="w-56 p-3">
                       <div className="space-y-3">
                         <div>
-                          <div className="text-sm font-medium mb-1">{t('chatbot.tts_voice') || 'Voice'}</div>
+                          <div className="text-sm font-medium mb-1">{t('Giọng nói') || 'Voice'}</div>
                           <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
                             <SelectTrigger className="w-full h-10">
                               <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English')} />
@@ -1447,7 +1463,7 @@ export default function Chatbot() {
                             <SelectContent>
                               {/* Backend high-quality Vietnamese option */}
                               {ttsLanguage === 'vi-VN' && (
-                                <SelectItem value="__backend_vi">Backend - Tiếng Việt (Neural)</SelectItem>
+                                <SelectItem value="__backend_vi">Tiếng Việt - Hệ thống</SelectItem>
                               )}
                               {ttsLanguage && ttsLanguage.startsWith('en') && (
                                 <SelectItem value="__backend_en">Backend - English (Neural)</SelectItem>
@@ -1462,13 +1478,13 @@ export default function Chatbot() {
                           </Select>
                         </div>
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{t('chatbot.prefer_backend_tts') || 'Prefer backend TTS'}</div>
+                          <div className="text-sm font-medium">{t('Ưu tiên giọng đọc từ máy chủ') || 'Prefer backend TTS'}</div>
                           <Switch checked={preferBackendTts} onCheckedChange={(v: any) => setPreferBackendTts(Boolean(v))} />
                         </div>
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.tts_rate') || 'Rate'}</span>
+                            <span>{t('Tốc độ') || 'Rate'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{ttsRate.toFixed(2)}x</span>
                           </div>
                           <Slider
@@ -1483,7 +1499,7 @@ export default function Chatbot() {
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.tts_pitch') || 'Pitch'}</span>
+                            <span>{t('Cao độ') || 'Pitch'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{ttsPitch.toFixed(2)}</span>
                           </div>
                           <Slider
@@ -1498,7 +1514,7 @@ export default function Chatbot() {
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('chatbot.tts_volume') || 'Volume'}</span>
+                            <span>{t('Âm lượng') || 'Volume'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{Math.round(ttsVolume * 100)}%</span>
                           </div>
                           <Slider

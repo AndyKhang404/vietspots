@@ -232,6 +232,27 @@ class VietSpotAPI {
     return this.request("/api/chat/config");
   }
 
+  // Text-to-Speech: returns audio blob
+  async tts(params: { text: string; language?: string; voice?: string } ): Promise<Blob> {
+    const res = await fetch(`${this.baseUrl}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: params.text, language: params.language || 'vi-VN', voice: params.voice }),
+    });
+    if (!res.ok) throw new Error(`TTS Error: ${res.status}`);
+    return res.blob();
+  }
+
+  // Speech-to-Text: accepts FormData with file and optional language, returns transcription JSON
+  async sttTranscribe(formData: FormData): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/api/stt/transcribe`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`STT Error: ${res.status}`);
+    return res.json();
+  }
+
   // Itinerary endpoints
   async generateItinerary(params: {
     destination: string;
