@@ -15,6 +15,7 @@
     "notifications": "Notifications",
     "settings": "Settings"
   },
+  "saved_on": "Saved on",
   "home": {
     "welcome": "Hello",
     "explore": "Discover amazing places",
@@ -189,9 +190,18 @@
     "intro": "Welcome to VietSpots. We are committed to protecting user privacy and personal information. This policy describes how we collect, use, and protect your data.",
     "section1": {
       "title": "1. Information we collect",
-      "item1": { "title": "Personal information:", "body": "When you register an account we may collect name, email and avatar." },
-      "item2": { "title": "Location data:", "body": "With your permission we use GPS or IP to help find nearby places." },
-      "item3": { "title": "User content:", "body": "Reviews, images and places you contribute to the community." }
+      "item1": {
+        "title": "Personal information:",
+        "body": "When you register an account we may collect name, email and avatar."
+      },
+      "item2": {
+        "title": "Location data:",
+        "body": "With your permission we use GPS or IP to help find nearby places."
+      },
+      "item3": {
+        "title": "User content:",
+        "body": "Reviews, images and places you contribute to the community."
+      }
     },
     "section2": {
       "title": "2. How we use information",
@@ -200,9 +210,18 @@
       "item3": "Send notifications about updates, features, or to respond to inquiries.",
       "item4": "Analyze performance to improve the app experience."
     },
-    "section3": { "title": "3. Sharing information", "body": "VietSpots does not sell or rent your personal information to third parties. We only share data when: with your consent, to use third-party mapping services (e.g., Google Maps/Mapbox) to display geographic data, or to comply with legal requests." },
-    "section4": { "title": "4. Data security", "body": "We apply standard security measures to prevent unauthorized access, alteration or destruction of data. No internet transmission is 100% secure." },
-    "section5": { "title": "5. User rights", "body": "You have the right to access, correct, or request deletion of your personal data at any time via account settings or by contacting us." },
+    "section3": {
+      "title": "3. Sharing information",
+      "body": "VietSpots does not sell or rent your personal information to third parties. We only share data when: with your consent, to use third-party mapping services (e.g., Google Maps/Mapbox) to display geographic data, or to comply with legal requests."
+    },
+    "section4": {
+      "title": "4. Data security",
+      "body": "We apply standard security measures to prevent unauthorized access, alteration or destruction of data. No internet transmission is 100% secure."
+    },
+    "section5": {
+      "title": "5. User rights",
+      "body": "You have the right to access, correct, or request deletion of your personal data at any time via account settings or by contacting us."
+    },
     "contact_line_start": "Contact information is kept separate for privacy and quick lookup — see",
     "contact_line_end": "for support and contact channels."
   },
@@ -254,10 +273,8 @@
       "at_location": "in {{destination}}",
       "min_rating": "minimum rating {{rating}}"
     },
-    
     "start_recording": "Start recording",
     "stop_recording": "Stop recording"
-    
   },
   "ui": {
     "press_heart_to_save": "Tap ❤️ to save favorite places",
@@ -269,7 +286,8 @@
     "save": "Save",
     "directions": "Directions",
     "map": "Map",
-    "locating": "Located"
+    "locating": "Locating",
+    "located": "Located"
   },
   "actions": {
     "new": "New",
@@ -289,6 +307,7 @@
     "retry": "Retry",
     "save": "Save",
     "cancel": "Cancel",
+    "edit": "Edit",
     "back": "Back",
     "refresh": "Refresh",
     "confirm": "Confirm",
@@ -323,6 +342,7 @@
     "removed_favorite": "Removed from favorites",
     "getting_your_location": "Getting your location...",
     "got_your_location": "Got your location!",
+    "location_cleared": "Location disabled",
     "cannot_connect": "Cannot connect. Please try again.",
     "error_occurred_apology": "Sorry, an error occurred. Please try again later.",
     "enable_location": "Please enable location to view directions",

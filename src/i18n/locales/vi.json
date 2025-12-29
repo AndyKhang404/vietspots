@@ -8,6 +8,10 @@
     "search": "Tìm kiếm",
     "itinerary": "Lịch trình",
     "favorites": "Yêu thích",
+    "location": "Vị trí",
+    "opening_today": "Hôm nay",
+    "opening_hours": "Giờ mở cửa",
+    "saved_on": "Đã lưu lúc",
     "notifications": "Thông báo",
     "settings": "Cài đặt"
   },
@@ -169,10 +173,8 @@
       "at_location": "tại {{destination}}",
       "min_rating": "rating tối thiểu {{rating}}"
     },
-    
     "start_recording": "Bắt đầu ghi âm",
     "stop_recording": "Dừng ghi âm"
-    
   },
   "ui": {
     "press_heart_to_save": "Nhấn ❤️ để lưu địa điểm yêu thích",
@@ -184,6 +186,7 @@
     "save": "Lưu",
     "directions": "Chỉ đường",
     "locating": "Đang xác định",
+    "located": "Đã xác định",
     "map": "Bản đồ"
   },
   "messages": {
@@ -193,6 +196,7 @@
     "open_now": "Đang mở cửa",
     "getting_your_location": "Đang lấy vị trí của bạn...",
     "got_your_location": "Đã lấy vị trí của bạn",
+    "location_cleared": "Vị trí đã tắt",
     "link_copied": "Đã sao chép liên kết vào clipboard",
     "cannot_get_location": "Không thể lấy vị trí",
     "filter_saved": "Đã lưu bộ lọc!",
@@ -374,9 +378,18 @@
     "intro": "Chào mừng bạn đến với VietSpots. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của người dùng. Chính sách này mô tả cách chúng tôi thu thập, sử dụng và bảo vệ dữ liệu của bạn.",
     "section1": {
       "title": "1. Thông tin chúng tôi thu thập",
-      "item1": { "title": "Thông tin cá nhân:", "body": "Khi bạn đăng ký tài khoản, chúng tôi có thể thu thập tên, email và ảnh đại diện." },
-      "item2": { "title": "Dữ liệu vị trí:", "body": "Với sự cho phép của bạn, chúng tôi sử dụng GPS hoặc địa chỉ IP để giúp bạn tìm kiếm các địa điểm gần nhất." },
-      "item3": { "title": "Nội dung người dùng:", "body": "Các đánh giá, hình ảnh và địa điểm bạn đóng góp cho cộng đồng." }
+      "item1": {
+        "title": "Thông tin cá nhân:",
+        "body": "Khi bạn đăng ký tài khoản, chúng tôi có thể thu thập tên, email và ảnh đại diện."
+      },
+      "item2": {
+        "title": "Dữ liệu vị trí:",
+        "body": "Với sự cho phép của bạn, chúng tôi sử dụng GPS hoặc địa chỉ IP để giúp bạn tìm kiếm các địa điểm gần nhất."
+      },
+      "item3": {
+        "title": "Nội dung người dùng:",
+        "body": "Các đánh giá, hình ảnh và địa điểm bạn đóng góp cho cộng đồng."
+      }
     },
     "section2": {
       "title": "2. Cách chúng tôi sử dụng thông tin",
@@ -385,9 +398,18 @@
       "item3": "Gửi thông báo về các cập nhật, tính năng mới hoặc phản hồi các thắc mắc của bạn.",
       "item4": "Phân tích hiệu suất để cải thiện giao diện và tính năng ứng dụng."
     },
-    "section3": { "title": "3. Chia sẻ thông tin", "body": "VietSpots không bán hoặc cho thuê thông tin cá nhân của bạn cho bên thứ ba. Chúng tôi chỉ chia sẻ thông tin khi: được sự đồng ý của bạn; sử dụng các dịch vụ bản đồ bên thứ ba (như Google Maps API/Mapbox) để hiển thị dữ liệu địa lý; hoặc tuân thủ các yêu cầu pháp lý từ cơ quan chức năng." },
-    "section4": { "title": "4. Bảo mật dữ liệu", "body": "Chúng tôi áp dụng các biện pháp bảo mật tiêu chuẩn để ngăn chặn việc truy cập, thay đổi hoặc phá hủy dữ liệu trái phép. Tuy nhiên, không có phương thức truyền tải qua Internet nào là an toàn 100%." },
-    "section5": { "title": "5. Quyền của người dùng", "body": "Bạn có quyền truy cập, chỉnh sửa hoặc yêu cầu xóa dữ liệu cá nhân của mình bất kỳ lúc nào thông qua cài đặt tài khoản hoặc liên hệ trực tiếp với chúng tôi." },
+    "section3": {
+      "title": "3. Chia sẻ thông tin",
+      "body": "VietSpots không bán hoặc cho thuê thông tin cá nhân của bạn cho bên thứ ba. Chúng tôi chỉ chia sẻ thông tin khi: được sự đồng ý của bạn; sử dụng các dịch vụ bản đồ bên thứ ba (như Google Maps API/Mapbox) để hiển thị dữ liệu địa lý; hoặc tuân thủ các yêu cầu pháp lý từ cơ quan chức năng."
+    },
+    "section4": {
+      "title": "4. Bảo mật dữ liệu",
+      "body": "Chúng tôi áp dụng các biện pháp bảo mật tiêu chuẩn để ngăn chặn việc truy cập, thay đổi hoặc phá hủy dữ liệu trái phép. Tuy nhiên, không có phương thức truyền tải qua Internet nào là an toàn 100%."
+    },
+    "section5": {
+      "title": "5. Quyền của người dùng",
+      "body": "Bạn có quyền truy cập, chỉnh sửa hoặc yêu cầu xóa dữ liệu cá nhân của mình bất kỳ lúc nào thông qua cài đặt tài khoản hoặc liên hệ trực tiếp với chúng tôi."
+    },
     "contact_line_start": "Thông tin liên hệ được giữ tách biệt để bảo mật và thuận tiện tra cứu — xem",
     "contact_line_end": "để biết chi tiết hỗ trợ và kênh liên hệ."
   },
