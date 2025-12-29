@@ -453,7 +453,7 @@ export default function Settings() {
             <DialogTitle>{t('settings.helpCenter')}</DialogTitle>
           </DialogHeader>
           <div className="mt-2">
-            <p className="font-medium mb-4">{t('Trung tâm hỗ trợ từ VietSpots') || 'Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.'}</p>
+            <p className="font-medium mb-4">{t('help.intro') || 'Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.'}</p>
 
             <div className="mb-4">
               <input placeholder="Tìm kiếm trợ giúp (ví dụ: gửi đánh giá, lịch sử)" className="w-full p-3 rounded-md border border-border" />
@@ -461,23 +461,23 @@ export default function Settings() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-card rounded-lg p-4 border border-border">
-                <h4 className="font-semibold mb-2">{t('Làm thế nào để gửi đánh giá cho một địa điểm?') || 'Không thể gửi đánh giá?'}</h4>
-                <p className="text-sm text-muted-foreground">{t('Vào trang chi tiết địa điểm → chọn số sao → nhập nội dung đánh giá → nhấn Gửi đánh giá. Bạn cần đăng nhập để gửi đánh giá.') || 'Đảm bảo bạn đã đăng nhập. Nếu vẫn không được, kiểm tra kết nối mạng hoặc truy cập phần Hồ sơ để cập nhật thông tin tài khoản.'}</p>
+                <h4 className="font-semibold mb-2">{t('help.q1.title') || 'Không thể gửi đánh giá?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.q1.body') || 'Đảm bảo bạn đã đăng nhập. Nếu vẫn không được, kiểm tra kết nối mạng hoặc truy cập phần Hồ sơ để cập nhật thông tin tài khoản.'}</p>
               </div>
 
               <div className="bg-card rounded-lg p-4 border border-border">
-                <h4 className="font-semibold mb-2">{t('Lịch sử tìm kiếm được lưu như thế nào?') || 'Lịch sử tìm kiếm ở đâu?'}</h4>
-                <p className="text-sm text-muted-foreground">{t('VietSpots tự động lưu các địa điểm bạn đã tìm kiếm để giúp bạn truy cập nhanh hơn. Bạn có thể xem hoặc xóa lịch sử trong Tab Tìm kiếm → Lịch sử.') || 'Tính năng Lịch sử trong trang Tìm kiếm lưu các truy vấn. Bạn có thể mở và chọn lại một mục để chạy lại tìm kiếm.'}</p>
+                <h4 className="font-semibold mb-2">{t('help.q2.title') || 'Tại sao tôi không thấy đánh giá của người khác?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.q2.body') || 'Ứng dụng kết hợp đánh giá từ nhiều nguồn. Nếu không thấy, hãy thử làm mới hoặc kiểm tra cài đặt lọc hiển thị.'}</p>
               </div>
 
               <div className="bg-card rounded-lg p-4 border border-border">
-                <h4 className="font-semibold mb-2">{t('Khi nào đánh giá của bạn được hiển thị?') || 'Tại sao tôi không thấy đánh giá của người khác?'}</h4>
-                <p className="text-sm text-muted-foreground">{t('Đánh giá sẽ hiển thị công khai sau khi được hệ thống xử lý. Nội dung vi phạm quy tắc cộng đồng có thể bị ẩn hoặc gỡ bỏ.') || 'Ứng dụng kết hợp đánh giá từ nhiều nguồn. Nếu không thấy, hãy thử làm mới hoặc kiểm tra cài đặt lọc hiển thị.'}</p>
+                <h4 className="font-semibold mb-2">{t('help.q3.title') || 'Lịch sử tìm kiếm được lưu như thế nào?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.q3.body') || 'VietSpots tự động lưu các địa điểm bạn đã tìm kiếm để giúp bạn truy cập nhanh hơn. Bạn có thể xem hoặc xóa lịch sử trong Tab Tìm kiếm → Lịch sử.'}</p>
               </div>
 
               <div className="bg-card rounded-lg p-4 border border-border">
-                <h4 className="font-semibold mb-2">{t('Các vấn đề thường gặp khác') || 'Các vấn đề khác'}</h4>
-                <p className="text-sm text-muted-foreground">Cập nhật sau.</p>
+                <h4 className="font-semibold mb-2">{t('help.q4.title') || 'Các vấn đề khác'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.q4.body') || 'Cập nhật sau.'}</p>
               </div>
             </div>
 

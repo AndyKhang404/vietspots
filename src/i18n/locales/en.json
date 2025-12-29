@@ -143,6 +143,73 @@
     "confirm_password": "Confirm password",
     "change_password_button": "Change password"
   },
+  "help": {
+    "intro": "Need help? Here are answers to common questions.",
+    "q1": {
+      "title": "How do I submit a review for a place?",
+      "body": "Go to the place detail page → select stars → write your review → press Send. You must be logged in to submit a review."
+    },
+    "q2": {
+      "title": "When will my review appear?",
+      "body": "Reviews usually appear after processing. Content that violates community rules may be hidden or removed."
+    },
+    "q3": {
+      "title": "How is search history saved?",
+      "body": "VietSpots automatically saves your search history to help you access it faster. You can view or delete your history in the Search tab → History."
+    },
+    "q4": {
+      "title": "Other common issues",
+      "body": "More content coming soon."
+    },
+    "contact_prompt": "If you need direct support, contact us:",
+    "contact_page": "Contact page",
+    "privacy_policy": "Privacy policy"
+  },
+  "contact": {
+    "title": "Contact",
+    "intro": "VietSpots is always happy to hear feedback and answer any questions.",
+    "email_label": "Support email:",
+    "hotline_label": "Hotline:",
+    "hotline_value": "+84 123 456 789",
+    "office_label": "Office:",
+    "office_value": "227 Nguyen Van Cu, Ward 4, District 5, Ho Chi Minh City, Vietnam",
+    "social_label": "Social channels:",
+    "hours_label": "Support hours:",
+    "hours_value": "Mon-Fri: 08:30 - 18:00; Sat: 09:00 - 12:00",
+    "form_intro": "You may send support requests or product feedback via email or the contact form below:",
+    "form": {
+      "subject_placeholder": "Subject",
+      "body_placeholder": "Message (please describe in detail)",
+      "submit": "Send"
+    }
+  },
+  "privacy": {
+    "title": "VietSpots Privacy Policy",
+    "last_updated": "Last updated: 28/12/2025",
+    "intro": "Welcome to VietSpots. We are committed to protecting user privacy and personal information. This policy describes how we collect, use, and protect your data.",
+    "section1": {
+      "title": "1. Information we collect",
+      "item1": { "title": "Personal information:", "body": "When you register an account we may collect name, email and avatar." },
+      "item2": { "title": "Location data:", "body": "With your permission we use GPS or IP to help find nearby places." },
+      "item3": { "title": "User content:", "body": "Reviews, images and places you contribute to the community." }
+    },
+    "section2": {
+      "title": "2. How we use information",
+      "item1": "Provide and maintain VietSpots features.",
+      "item2": "Personalize the user experience based on preferences and location.",
+      "item3": "Send notifications about updates, features, or to respond to inquiries.",
+      "item4": "Analyze performance to improve the app experience."
+    },
+    "section3": { "title": "3. Sharing information", "body": "VietSpots does not sell or rent your personal information to third parties. We only share data when: with your consent, to use third-party mapping services (e.g., Google Maps/Mapbox) to display geographic data, or to comply with legal requests." },
+    "section4": { "title": "4. Data security", "body": "We apply standard security measures to prevent unauthorized access, alteration or destruction of data. No internet transmission is 100% secure." },
+    "section5": { "title": "5. User rights", "body": "You have the right to access, correct, or request deletion of your personal data at any time via account settings or by contacting us." },
+    "contact_line_start": "Contact information is kept separate for privacy and quick lookup — see",
+    "contact_line_end": "for support and contact channels."
+  },
+  "footer": {
+    "description": "Discover places, share experiences and plan your trips.",
+    "contact_now": "Contact us"
+  },
   "auth": {
     "login": "Login",
     "signup": "Sign Up",
@@ -169,6 +236,14 @@
     "placeholder": "Ask me about places...",
     "greeting": "Hello! I can help you find tourist spots and delicious food in Vietnam.",
     "send": "Send",
+    "voice": "Voice",
+    "prefer_backend": "Prefer backend TTS",
+    "rate": "Rate",
+    "pitch": "Pitch",
+    "volume": "Volume",
+    "no_voices": "No voices available",
+    "backend_vi": "Backend - Vietnamese (Neural)",
+    "backend_en": "Backend - English (Neural)",
     "form_title": "Find places by criteria",
     "form": {
       "destination": "Destination",

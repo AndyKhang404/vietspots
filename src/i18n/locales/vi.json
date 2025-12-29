@@ -151,6 +151,14 @@
     "placeholder": "Hỏi tôi về địa điểm...",
     "greeting": "Xin chào! Tôi có thể giúp bạn tìm địa điểm du lịch, món ăn ngon ở Việt Nam.",
     "send": "Gửi",
+    "voice": "Giọng nói",
+    "prefer_backend": "Ưu tiên giọng đọc từ máy chủ",
+    "rate": "Tốc độ",
+    "pitch": "Cao độ",
+    "volume": "Âm lượng",
+    "no_voices": "Không có giọng nào",
+    "backend_vi": "Tiếng Việt - Hệ thống",
+    "backend_en": "Backend - English (Neural)",
     "form_title": "Tìm địa điểm theo tiêu chí",
     "form": {
       "destination": "Điểm đến",
@@ -315,6 +323,73 @@
   "languages": {
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "help": {
+    "intro": "Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.",
+    "q1": {
+      "title": "Làm thế nào để gửi đánh giá cho một địa điểm?",
+      "body": "Vào trang chi tiết địa điểm → chọn số sao → nhập nội dung đánh giá → nhấn Gửi đánh giá. Bạn cần đăng nhập để gửi đánh giá."
+    },
+    "q2": {
+      "title": "Khi nào đánh giá của bạn được hiển thị?",
+      "body": "Đánh giá sẽ hiển thị công khai sau khi được hệ thống xử lý. Nội dung vi phạm quy tắc cộng đồng có thể bị ẩn hoặc gỡ bỏ."
+    },
+    "q3": {
+      "title": "Lịch sử tìm kiếm được lưu như thế nào?",
+      "body": "VietSpots tự động lưu các địa điểm bạn đã tìm kiếm để giúp bạn truy cập nhanh hơn. Bạn có thể xem hoặc xóa lịch sử trong Tab Tìm kiếm → Lịch sử."
+    },
+    "q4": {
+      "title": "Các vấn đề thường gặp khác",
+      "body": "Cập nhật sau."
+    },
+    "contact_prompt": "Nếu cần hỗ trợ trực tiếp, liên hệ với chúng tôi:",
+    "contact_page": "Trang Liên hệ",
+    "privacy_policy": "Chính sách"
+  },
+  "footer": {
+    "description": "Khám phá địa điểm, chia sẻ trải nghiệm và lên kế hoạch chuyến đi.",
+    "contact_now": "Liên hệ ngay"
+  },
+  "contact": {
+    "title": "Liên hệ",
+    "intro": "VietSpots luôn sẵn sàng lắng nghe ý kiến đóng góp và giải đáp mọi thắc mắc của bạn.",
+    "email_label": "Email hỗ trợ:",
+    "hotline_label": "Hotline:",
+    "hotline_value": "+84 123 456 789",
+    "office_label": "Văn phòng:",
+    "office_value": "227 Nguyễn Văn Cừ, Phường 4, Quận 5, Tp. Hồ Chí Minh.",
+    "social_label": "Kênh mạng xã hội:",
+    "hours_label": "Thời gian hỗ trợ:",
+    "hours_value": "Thứ 2 - Thứ 6: 08:30 - 18:00; Thứ 7: 09:00 - 12:00",
+    "form_intro": "Bạn có thể gửi yêu cầu hỗ trợ trực tiếp hoặc phản hồi sản phẩm qua email hoặc form liên hệ (placeholder):",
+    "form": {
+      "subject_placeholder": "Chủ đề",
+      "body_placeholder": "Nội dung (hãy mô tả chi tiết)",
+      "submit": "Gửi"
+    }
+  },
+  "privacy": {
+    "title": "CHÍNH SÁCH BẢO MẬT VIETSPOTS",
+    "last_updated": "Cập nhật lần cuối: 28/12/2025",
+    "intro": "Chào mừng bạn đến với VietSpots. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của người dùng. Chính sách này mô tả cách chúng tôi thu thập, sử dụng và bảo vệ dữ liệu của bạn.",
+    "section1": {
+      "title": "1. Thông tin chúng tôi thu thập",
+      "item1": { "title": "Thông tin cá nhân:", "body": "Khi bạn đăng ký tài khoản, chúng tôi có thể thu thập tên, email và ảnh đại diện." },
+      "item2": { "title": "Dữ liệu vị trí:", "body": "Với sự cho phép của bạn, chúng tôi sử dụng GPS hoặc địa chỉ IP để giúp bạn tìm kiếm các địa điểm gần nhất." },
+      "item3": { "title": "Nội dung người dùng:", "body": "Các đánh giá, hình ảnh và địa điểm bạn đóng góp cho cộng đồng." }
+    },
+    "section2": {
+      "title": "2. Cách chúng tôi sử dụng thông tin",
+      "item1": "Cung cấp và duy trì các tính năng của VietSpots.",
+      "item2": "Cá nhân hóa trải nghiệm người dùng dựa trên sở thích và vị trí.",
+      "item3": "Gửi thông báo về các cập nhật, tính năng mới hoặc phản hồi các thắc mắc của bạn.",
+      "item4": "Phân tích hiệu suất để cải thiện giao diện và tính năng ứng dụng."
+    },
+    "section3": { "title": "3. Chia sẻ thông tin", "body": "VietSpots không bán hoặc cho thuê thông tin cá nhân của bạn cho bên thứ ba. Chúng tôi chỉ chia sẻ thông tin khi: được sự đồng ý của bạn; sử dụng các dịch vụ bản đồ bên thứ ba (như Google Maps API/Mapbox) để hiển thị dữ liệu địa lý; hoặc tuân thủ các yêu cầu pháp lý từ cơ quan chức năng." },
+    "section4": { "title": "4. Bảo mật dữ liệu", "body": "Chúng tôi áp dụng các biện pháp bảo mật tiêu chuẩn để ngăn chặn việc truy cập, thay đổi hoặc phá hủy dữ liệu trái phép. Tuy nhiên, không có phương thức truyền tải qua Internet nào là an toàn 100%." },
+    "section5": { "title": "5. Quyền của người dùng", "body": "Bạn có quyền truy cập, chỉnh sửa hoặc yêu cầu xóa dữ liệu cá nhân của mình bất kỳ lúc nào thông qua cài đặt tài khoản hoặc liên hệ trực tiếp với chúng tôi." },
+    "contact_line_start": "Thông tin liên hệ được giữ tách biệt để bảo mật và thuận tiện tra cứu — xem",
+    "contact_line_end": "để biết chi tiết hỗ trợ và kênh liên hệ."
   },
   "itinerary": {
     "updated": "Lịch trình đã được cập nhật!",

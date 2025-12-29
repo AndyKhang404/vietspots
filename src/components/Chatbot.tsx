@@ -422,6 +422,7 @@ export default function Chatbot() {
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
+        // prefer explicit TTS language, otherwise derive from app language
         recognition.lang = ttsLanguage || (i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US');
         recognition.interimResults = true;
         recognition.continuous = true; // Keep listening for better results
@@ -662,6 +663,37 @@ export default function Chatbot() {
 
     setIsSpeaking(false);
   };
+
+  // Keep the internal TTS/STT language in sync with the app locale unless the
+  // user explicitly chose a different TTS voice/language. This ensures when
+  // users switch the app to English the voice/filter switches too.
+  useEffect(() => {
+    try {
+      const appLang = i18n.language || (navigator.language || 'en').split('-')[0];
+      const targetTts = appLang.startsWith('vi') ? 'vi-VN' : 'en-US';
+
+      // Only override ttsLanguage when it appears to be the default (not
+      // explicitly changed by user). If we detect the TTS language is the
+      // default Vietnamese backend and the app switched to English, switch
+      // it to the English backend as well.
+      const isDefaultTts = !ttsLanguage || ttsLanguage === 'vi-VN' || ttsLanguage === 'en-US';
+      if (isDefaultTts) setTtsLanguage(targetTts);
+
+      // If selected voice is a backend Vietnamese default, update it to
+      // backend English when app language becomes English so the voice list
+      // and playback language match the UI language.
+      if (selectedVoiceName && selectedVoiceName.startsWith('__backend')) {
+        if (appLang.startsWith('vi')) {
+          if (selectedVoiceName !== '__backend_vi') setSelectedVoiceName('__backend_vi');
+        } else {
+          if (selectedVoiceName !== '__backend_en') setSelectedVoiceName('__backend_en');
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
 
   useEffect(() => {
     const el = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
@@ -1454,19 +1486,19 @@ export default function Chatbot() {
                     </PopoverTrigger>
                     <PopoverContent className="w-56 p-3">
                       <div className="space-y-3">
-                        <div>
-                          <div className="text-sm font-medium mb-1">{t('Giọng nói') || 'Voice'}</div>
+                          <div>
+                          <div className="text-sm font-medium mb-1">{t('chatbot.voice') || 'Voice'}</div>
                           <Select value={selectedVoiceName || ''} onValueChange={(v) => setSelectedVoiceName(v || null)}>
                             <SelectTrigger className="w-full h-10">
-                              <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English')} />
+                              <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en'))} />
                             </SelectTrigger>
                             <SelectContent>
                               {/* Backend high-quality Vietnamese option */}
                               {ttsLanguage === 'vi-VN' && (
-                                <SelectItem value="__backend_vi">Tiếng Việt - Hệ thống</SelectItem>
+                                <SelectItem value="__backend_vi">{t('chatbot.backend_vi') || 'Tiếng Việt - Hệ thống'}</SelectItem>
                               )}
                               {ttsLanguage && ttsLanguage.startsWith('en') && (
-                                <SelectItem value="__backend_en">Backend - English (Neural)</SelectItem>
+                                <SelectItem value="__backend_en">{t('chatbot.backend_en') || 'Backend - English (Neural)'}</SelectItem>
                               )}
                               {filteredVoices.length === 0 && (
                                 <SelectItem value="">{t('chatbot.no_voices') || 'No voices available'}</SelectItem>
@@ -1478,13 +1510,13 @@ export default function Chatbot() {
                           </Select>
                         </div>
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{t('Ưu tiên giọng đọc từ máy chủ') || 'Prefer backend TTS'}</div>
+                          <div className="text-sm font-medium">{t('chatbot.prefer_backend') || 'Prefer backend TTS'}</div>
                           <Switch checked={preferBackendTts} onCheckedChange={(v: any) => setPreferBackendTts(Boolean(v))} />
                         </div>
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('Tốc độ') || 'Rate'}</span>
+                            <span>{t('chatbot.rate') || 'Rate'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{ttsRate.toFixed(2)}x</span>
                           </div>
                           <Slider
@@ -1499,7 +1531,7 @@ export default function Chatbot() {
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('Cao độ') || 'Pitch'}</span>
+                            <span>{t('chatbot.pitch') || 'Pitch'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{ttsPitch.toFixed(2)}</span>
                           </div>
                           <Slider
@@ -1514,7 +1546,7 @@ export default function Chatbot() {
 
                         <div>
                           <div className="text-sm font-medium mb-1 flex items-center justify-between">
-                            <span>{t('Âm lượng') || 'Volume'}</span>
+                            <span>{t('chatbot.volume') || 'Volume'}</span>
                             <span className="text-xs text-muted-foreground font-mono">{Math.round(ttsVolume * 100)}%</span>
                           </div>
                           <Slider
@@ -1562,11 +1594,11 @@ export default function Chatbot() {
                   <div className="w-28">
                     <Select value={ttsLanguage} onValueChange={(v) => setTtsLanguage(v)}>
                       <SelectTrigger className="w-full h-9">
-                        <SelectValue placeholder={ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English'} />
+                        <SelectValue placeholder={ttsLanguage === 'vi-VN' ? t('languages.vi') : t('languages.en')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="vi-VN">Tiếng Việt</SelectItem>
-                        <SelectItem value="en-US">English</SelectItem>
+                        <SelectItem value="vi-VN">{t('languages.vi')}</SelectItem>
+                        <SelectItem value="en-US">{t('languages.en')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
