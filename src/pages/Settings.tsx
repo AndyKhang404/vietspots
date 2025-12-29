@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Layout from "@/components/Layout";
 import Chatbot from "@/components/Chatbot";
@@ -452,29 +452,41 @@ export default function Settings() {
           <DialogHeader>
             <DialogTitle>{t('settings.helpCenter')}</DialogTitle>
           </DialogHeader>
-          <div className="mt-2 space-y-4">
-            <p className="font-medium">{t('settings.help_center_intro') || 'Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.'}</p>
+          <div className="mt-2">
+            <p className="font-medium mb-4">{t('settings.help_center_intro') || 'Cần trợ giúp? Dưới đây là câu trả lời cho các câu hỏi thường gặp.'}</p>
 
-            <div>
-              <h4 className="font-semibold">{t('help.faq.submit_review') || 'Không thể gửi đánh giá?'}</h4>
-              <p className="text-sm text-muted-foreground">{t('help.answers.submit_review') || 'Đảm bảo bạn đã đăng nhập. Nếu vẫn không được, kiểm tra kết nối mạng hoặc truy cập phần Hồ sơ để cập nhật thông tin tài khoản.'}</p>
+            <div className="mb-4">
+              <input placeholder="Tìm kiếm trợ giúp (ví dụ: gửi đánh giá, lịch sử)" className="w-full p-3 rounded-md border border-border" />
             </div>
 
-            <div>
-              <h4 className="font-semibold">{t('help.faq.search_history') || 'Lịch sử tìm kiếm ở đâu?'}</h4>
-              <p className="text-sm text-muted-foreground">{t('help.answers.search_history') || 'Tính năng Lịch sử trong trang Tìm kiếm lưu các truy vấn. Bạn có thể mở và chọn lại một mục để chạy lại tìm kiếm.'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-card rounded-lg p-4 border border-border">
+                <h4 className="font-semibold mb-2">{t('help.faq.submit_review') || 'Không thể gửi đánh giá?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.answers.submit_review') || 'Đảm bảo bạn đã đăng nhập. Nếu vẫn không được, kiểm tra kết nối mạng hoặc truy cập phần Hồ sơ để cập nhật thông tin tài khoản.'}</p>
+              </div>
+
+              <div className="bg-card rounded-lg p-4 border border-border">
+                <h4 className="font-semibold mb-2">{t('help.faq.search_history') || 'Lịch sử tìm kiếm ở đâu?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.answers.search_history') || 'Tính năng Lịch sử trong trang Tìm kiếm lưu các truy vấn. Bạn có thể mở và chọn lại một mục để chạy lại tìm kiếm.'}</p>
+              </div>
+
+              <div className="bg-card rounded-lg p-4 border border-border">
+                <h4 className="font-semibold mb-2">{t('help.faq.reviews_visible') || 'Tại sao tôi không thấy đánh giá của người khác?'}</h4>
+                <p className="text-sm text-muted-foreground">{t('help.answers.reviews_visible') || 'Ứng dụng kết hợp đánh giá từ nhiều nguồn. Nếu không thấy, hãy thử làm mới hoặc kiểm tra cài đặt lọc hiển thị.'}</p>
+              </div>
+
+              <div className="bg-card rounded-lg p-4 border border-border">
+                <h4 className="font-semibold mb-2">{t('help.faq.other') || 'Các vấn đề khác'}</h4>
+                <p className="text-sm text-muted-foreground">Placeholder nội dung trợ giúp khác. Bạn có thể chỉnh nội dung này trong `src/pages/Settings.tsx`.</p>
+              </div>
             </div>
 
-            <div>
-              <h4 className="font-semibold">{t('help.faq.reviews_visible') || 'Tại sao tôi không thấy đánh giá của người khác?'}</h4>
-              <p className="text-sm text-muted-foreground">{t('help.answers.reviews_visible') || 'Ứng dụng kết hợp đánh giá từ nguồn dữ liệu công khai và dữ liệu nội bộ. Nếu nguồn bên ngoài bị lỗi, bạn vẫn sẽ thấy đánh giá được lưu nội bộ (nếu có). Chúng tôi đang cải thiện khả năng kết hợp này.'}</p>
-            </div>
-
-            <div className="pt-2 border-t border-border">
+            <div className="pt-4 border-t border-border mt-4">
               <p className="text-sm">{t('help.contact_prompt') || 'Nếu cần hỗ trợ trực tiếp, liên hệ với chúng tôi:'}</p>
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-3 mt-3 items-center">
                 <a href="mailto:hello@vietspots.app" className="text-sm text-primary hover:underline">hello@vietspots.app</a>
-                <a href="/policy" className="text-sm text-muted-foreground hover:underline">{t('help.privacy_policy') || 'Policy & Privacy'}</a>
+                <Link to="/contact" className="text-sm text-muted-foreground hover:underline">{t('help.contact_page') || 'Trang Liên hệ'}</Link>
+                <Link to="/privacy" className="text-sm text-muted-foreground hover:underline">{t('help.privacy_policy') || 'Chính sách'}</Link>
               </div>
             </div>
           </div>

@@ -179,15 +179,10 @@
       "at_location": "in {{destination}}",
       "min_rating": "minimum rating {{rating}}"
     },
-    "tts_voice": "Voice",
-    "prefer_backend_tts": "Prefer backend TTS",
-    "tts_rate": "Rate",
-    "tts_pitch": "Pitch",
-    "tts_volume": "Volume",
-    "no_voices": "No voices available",
+    
     "start_recording": "Start recording",
-    "stop_recording": "Stop recording",
-    "play_last_message": "Play last message"
+    "stop_recording": "Stop recording"
+    
   },
   "ui": {
     "press_heart_to_save": "Tap ❤️ to save favorite places",

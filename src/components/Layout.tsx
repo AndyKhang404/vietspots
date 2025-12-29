@@ -41,6 +41,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-background flex overflow-x-hidden">
       {/* Sidebar - Desktop */}
       <aside className={"hidden lg:flex flex-col border-r border-border bg-card fixed h-full transition-all " + (collapsed ? 'w-16' : 'w-64')}>
@@ -151,7 +152,6 @@ export default function Layout({ children }: LayoutProps) {
         {/* Page Content */}
         <main className="min-h-[calc(100vh-64px)] lg:min-h-screen pb-20 lg:pb-0">
           {children}
-          <Footer />
         </main>
       </div>
 
@@ -179,5 +179,8 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </nav>
     </div>
+    {/* Footer as sibling of top-level wrapper so it's centered relative to viewport */}
+    <Footer />
+    </>
   );
 }

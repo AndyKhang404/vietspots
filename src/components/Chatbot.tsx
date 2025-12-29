@@ -524,34 +524,50 @@ export default function Chatbot() {
       return;
     }
 
-    // If user prefers backend TTS, try backend first
+    // If user prefers backend TTS, try backend first but only for explicit backend voices.
+    // If the user selected a browser voice while `preferBackendTts` is on, prefer the
+    // browser SpeechSynthesis so the selected voice takes effect.
     if (preferBackendTts) {
       try {
-        const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, language: lang }),
-        });
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          if (ttsAudioRef.current) {
-            ttsAudioRef.current.src = url;
-          } else {
-            ttsAudioRef.current = new Audio(url);
+        // If selectedVoiceName is set and does not indicate a backend voice, skip backend
+        if (selectedVoiceName && !selectedVoiceName.startsWith('__backend')) {
+          // Fall through to browser TTS so the user's selected browser voice is used
+        } else {
+          const backendBody: any = { text, language: lang };
+          // Map special backend options to backend voice identifiers
+          if (selectedVoiceName === '__backend_vi') {
+            backendBody.voice = 'vi-neural';
+          } else if (selectedVoiceName && selectedVoiceName.startsWith('__backend_')) {
+            backendBody.voice = selectedVoiceName.replace('__backend_', '');
           }
-          ttsAudioRef.current.onended = () => {
-            setIsSpeaking(false);
-            try { URL.revokeObjectURL(url); } catch { }
-          };
-          ttsAudioRef.current.onplay = () => setIsSpeaking(true);
-          await ttsAudioRef.current.play().catch(() => { });
-          return;
+
+          const res = await fetch('https://vietspotbackend-production.up.railway.app/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backendBody),
+          });
+
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            if (ttsAudioRef.current) {
+              ttsAudioRef.current.src = url;
+            } else {
+              ttsAudioRef.current = new Audio(url);
+            }
+            ttsAudioRef.current.onended = () => {
+              setIsSpeaking(false);
+              try { URL.revokeObjectURL(url); } catch { }
+            };
+            ttsAudioRef.current.onplay = () => setIsSpeaking(true);
+            await ttsAudioRef.current.play().catch(() => { });
+            return;
+          }
         }
       } catch (e) {
         console.warn('Backend TTS failed', e);
       }
-      // if backend fails, fall through to browser TTS
+      // if backend fails or was skipped, fall through to browser TTS
     }
 
     // Prefer immediate browser SpeechSynthesis for low latency playback
@@ -1429,6 +1445,13 @@ export default function Chatbot() {
                               <SelectValue placeholder={selectedVoiceName || (ttsLanguage === 'vi-VN' ? 'Tiếng Việt' : 'English')} />
                             </SelectTrigger>
                             <SelectContent>
+                              {/* Backend high-quality Vietnamese option */}
+                              {ttsLanguage === 'vi-VN' && (
+                                <SelectItem value="__backend_vi">Backend - Tiếng Việt (Neural)</SelectItem>
+                              )}
+                              {ttsLanguage && ttsLanguage.startsWith('en') && (
+                                <SelectItem value="__backend_en">Backend - English (Neural)</SelectItem>
+                              )}
                               {filteredVoices.length === 0 && (
                                 <SelectItem value="">{t('chatbot.no_voices') || 'No voices available'}</SelectItem>
                               )}

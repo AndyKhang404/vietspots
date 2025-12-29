@@ -6,11 +6,13 @@ export default function PrivacyPolicy() {
   const { t } = useTranslation();
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold mb-4">CHÍNH SÁCH BẢO MẬT VIETSPOTS</h1>
-        <p className="text-sm text-muted-foreground mb-6">Cập nhật lần cuối: Ngày 28 tháng 12 năm 2025</p>
 
-        <p className="mb-4">Chào mừng bạn đến với VietSpots. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của người dùng. Chính sách này mô tả cách chúng tôi thu thập, sử dụng và bảo vệ dữ liệu của bạn.</p>
+      <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
+        <div className="bg-card rounded-2xl border border-border p-8 shadow-sm">
+          <h1 className="text-2xl font-bold mb-2">CHÍNH SÁCH BẢO MẬT VIETSPOTS</h1>
+          <p className="text-sm text-muted-foreground mb-6">Cập nhật lần cuối: 28/12/2025</p>
+
+          <p className="mb-4">Chào mừng bạn đến với VietSpots. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của người dùng. Chính sách này mô tả cách chúng tôi thu thập, sử dụng và bảo vệ dữ liệu của bạn.</p>
 
         <h2 className="font-semibold mt-4">1. Thông tin chúng tôi thu thập</h2>
         <ul className="list-disc pl-6 mt-2 mb-4 text-sm text-muted-foreground">
@@ -41,7 +43,8 @@ export default function PrivacyPolicy() {
         <h2 className="font-semibold mt-4">5. Quyền của người dùng</h2>
         <p className="text-sm text-muted-foreground mt-2 mb-4">Bạn có quyền truy cập, chỉnh sửa hoặc yêu cầu xóa dữ liệu cá nhân của mình bất kỳ lúc nào thông qua cài đặt tài khoản hoặc liên hệ trực tiếp với chúng tôi.</p>
 
-        <p className="text-sm text-muted-foreground mt-6">Thông tin liên hệ được giữ tách biệt để bảo mật và thuận tiện tra cứu — xem trang <Link to="/contact" className="text-primary hover:underline">Liên hệ</Link> để biết chi tiết hỗ trợ và kênh liên hệ.</p>
+          <p className="text-sm text-muted-foreground mt-6">Thông tin liên hệ được giữ tách biệt để bảo mật và thuận tiện tra cứu — xem trang <Link to="/contact" className="text-primary hover:underline">Liên hệ</Link> để biết chi tiết hỗ trợ và kênh liên hệ.</p>
+        </div>
 
       </div>
     </Layout>
